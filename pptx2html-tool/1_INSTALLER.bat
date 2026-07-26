@@ -13,30 +13,31 @@ if errorlevel 1 (
     exit /b 1
 )
 echo Python : OK
-echo Installation de python-pptx et tkinterdnd2...
-python -m pip install --quiet python-pptx tkinterdnd2
+echo Installation de python-pptx, tkinterdnd2 et pymupdf...
+python -m pip install --quiet python-pptx tkinterdnd2 pymupdf
 if errorlevel 1 (
     echo [!] Echec de l'installation des dependances Python.
     pause
     exit /b 1
 )
-echo python-pptx + tkinterdnd2 : OK
+echo python-pptx + tkinterdnd2 + pymupdf : OK
 echo.
 if exist "C:\Program Files\LibreOffice\program\soffice.exe" (
     echo LibreOffice : OK
 ) else (
     echo [!] LibreOffice non trouve - installe-le depuis libreoffice.org
 )
-if exist "C:\poppler\Library\bin\pdftoppm.exe" (
-    echo Poppler : OK
-) else (
-    where pdftoppm >nul 2>nul
+python -c "import pymupdf" >nul 2>nul
+if errorlevel 1 (
+    python -c "import fitz" >nul 2>nul
     if errorlevel 1 (
-        echo [!] Poppler non trouve - dezippe-le dans C:\poppler
+        echo [!] PyMuPDF indisponible - en secours, dezippe Poppler dans C:\poppler
         echo     https://github.com/oschwartz10612/poppler-windows/releases
     ) else (
-        echo Poppler : OK
+        echo Rendu d'images ^(PyMuPDF^) : OK
     )
+) else (
+    echo Rendu d'images ^(PyMuPDF^) : OK
 )
 echo.
 echo Installation terminee. Lance "2_LANCER_TOOL.bat".

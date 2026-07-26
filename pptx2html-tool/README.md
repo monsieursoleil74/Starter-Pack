@@ -7,26 +7,31 @@ dans Slides vers d'autres diapos ou des URLs deviennent des zones cliquables).
 
 Fonctionne **100 % hors ligne** — aucun contenu ne quitte la machine.
 
-## Windows : exe prêt à l'emploi (recommandé)
+## Windows : prêt à l'emploi (recommandé)
 
-**[Télécharger PPTX2HTML-Windows.zip](https://github.com/monsieursoleil74/Starter-Pack/releases/tag/exe-latest)**
-— dézipper, ouvrir `PPTX2HTML.exe`, **déposer le `.pptx`** dans la fenêtre
-(ou sur l'icône de l'exe) : la conversion démarre toute seule.
+**[Page de téléchargement](https://github.com/monsieursoleil74/Starter-Pack/releases/tag/exe-latest)** — deux zips au choix :
 
-Poppler est inclus dans le zip. Seul prérequis : [LibreOffice](https://fr.libreoffice.org)
+- **`PPTX2HTML-Windows.zip`** : ouvrir `PPTX2HTML.exe`, **déposer le `.pptx`**
+  dans la fenêtre (ou sur l'icône de l'exe) : la conversion démarre toute
+  seule. SmartScreen au premier lancement : *Informations complémentaires →
+  Exécuter quand même*.
+- **`PPTX2HTML-Windows-SansExe.zip`** : pour les PC où **Smart App Control**
+  bloque les exe non signés (aucune exception possible). Aucun exe :
+  Python (Microsoft Store, signé) + scripts `.bat`. Même glisser-déposer.
+
+Seul prérequis dans les deux cas : [LibreOffice](https://fr.libreoffice.org)
 (installation unique — un bouton dans l'app t'y amène s'il manque).
 
-Le zip est reconstruit automatiquement par GitHub Actions
+Les zips sont reconstruits automatiquement par GitHub Actions
 (`.github/workflows/build-windows.yml`) à chaque mise à jour de l'outil.
 
 ## Installation depuis les sources (Windows)
 
-1. [Python 3](https://python.org) — cocher *Add Python to PATH*
+1. [Python 3](https://python.org) (ou Microsoft Store) — cocher *Add Python to PATH*
 2. [LibreOffice](https://libreoffice.org)
-3. [Poppler](https://github.com/oschwartz10612/poppler-windows/releases) — dézipper dans `C:\poppler`
-4. Double-clic sur `1_INSTALLER.bat`
+3. Double-clic sur `1_INSTALLER.bat` (installe python-pptx, tkinterdnd2, pymupdf)
 
-Mac/Linux : `brew install libreoffice poppler` puis `pip install python-pptx tkinterdnd2`.
+Mac/Linux : `brew install libreoffice` puis `pip install python-pptx tkinterdnd2 pymupdf`.
 
 ## Utilisation
 
@@ -41,5 +46,6 @@ le fichier ne fonctionne plus s'il est copié seul (usage interne serveur).
 
 ## Pipeline
 
-pptx → PDF (LibreOffice) → images JPEG (Poppler) → HTML unique
-(python-pptx extrait notes + zones cliquables avec leurs positions).
+pptx → PDF (LibreOffice) → images JPEG (PyMuPDF, ou Poppler en repli) →
+HTML unique (python-pptx extrait notes + zones cliquables avec leurs
+positions).

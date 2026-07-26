@@ -13,7 +13,8 @@ service tiers**. D'où : conversion 100 % locale, et mode `--assets`
 (images dans un dossier séparé → le HTML copié seul ne fonctionne pas).
 
 ## Architecture
-- `convert()` : pptx → PDF (LibreOffice headless) → JPEG (pdftoppm) → HTML
+- `convert()` : pptx → PDF (LibreOffice headless) → JPEG (PyMuPDF via
+  `get_pymupdf()`, repli pdftoppm) → HTML
 - `extract_notes()` / `extract_links()` : python-pptx ; les hyperliens
   (sauts de slide, URLs, actions next/prev/first/last) deviennent des
   hotspots positionnés en % sur la slide
@@ -28,15 +29,16 @@ service tiers**. D'où : conversion 100 % locale, et mode `--assets`
 
 ## Packaging Windows
 - `.github/workflows/build-windows.yml` : PyInstaller (--onefile --windowed,
-  --collect-all tkinterdnd2) sur windows-latest, Poppler téléchargé et mis
-  dans `poppler/` à côté de l'exe, zip publié sur la release `exe-latest`.
-  Déclenché à chaque push touchant `pptx2html-tool/` (ou manuellement).
+  --collect-all tkinterdnd2/pymupdf) sur windows-latest. Deux zips publiés
+  sur la release `exe-latest` : exe tout-en-un, et « SansExe » (script +
+  .bat, compatible Smart App Control qui bloque tout exe non signé sans
+  exception possible). Déclenché à chaque push touchant `pptx2html-tool/`.
 - LibreOffice n'est PAS embarqué (trop lourd) : détection + bouton
   « Installer LibreOffice » dans la GUI.
 
 ## Conventions
-- Un seul fichier Python, zéro dépendance hors python-pptx + tkinterdnd2
-  (optionnelle) + binaires LibreOffice/Poppler. Interface en français.
+- Un seul fichier Python, dépendances : python-pptx + pymupdf +
+  tkinterdnd2 (optionnelles avec replis) + LibreOffice. Interface en français.
 - Ne jamais committer de .pptx ou de HTML générés (voir .gitignore).
 
 ## Pistes suivantes (déjà discutées)

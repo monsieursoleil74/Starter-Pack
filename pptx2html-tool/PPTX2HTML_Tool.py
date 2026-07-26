@@ -10,7 +10,7 @@ notes du présentateur (extraites via python-pptx).
 """
 import argparse, base64, glob, html, json, os, shutil, subprocess, sys, tempfile
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 SOFFICE_WRAPPER = "/mnt/skills/public/pptx/scripts/office/soffice.py"
 
 
@@ -38,6 +38,21 @@ def find_soffice():
             return [c]
     raise ConvError("LibreOffice introuvable. Installe-le depuis libreoffice.org\n"
                     "(ou ajoute soffice au PATH).")
+
+
+def get_pymupdf():
+    """PyMuPDF si disponible (rendu PDF→images sans binaire externe —
+    compatible Smart App Control). Retourne le module ou None."""
+    try:
+        import pymupdf
+        return pymupdf
+    except ImportError:
+        pass
+    try:
+        import fitz  # ancien nom du module PyMuPDF
+        return fitz
+    except ImportError:
+        return None
 
 
 def find_pdftoppm():
@@ -169,11 +184,21 @@ def convert(pptx_path, out_html, dpi=150, lang="fr", embed=True, log=print):
             raise ConvError("La conversion PDF a échoué (aucun PDF produit).")
         pdf = pdfs[0]
 
-        # 2) pdf -> jpegs
+        # 2) pdf -> jpegs (PyMuPDF en priorité, Poppler en repli)
         log("Génération des images…")
-        run([find_pdftoppm(), "-jpeg", "-jpegopt", "quality=85",
-             "-r", str(dpi), pdf, os.path.join(tmp, "slide")])
-        imgs = sorted(glob.glob(os.path.join(tmp, "slide-*.jpg")))
+        mu = get_pymupdf()
+        if mu is not None:
+            doc = mu.open(pdf)
+            imgs = []
+            for i, page in enumerate(doc, 1):
+                p = os.path.join(tmp, f"slide-{i:03d}.jpg")
+                page.get_pixmap(dpi=dpi).save(p, jpg_quality=85)
+                imgs.append(p)
+            doc.close()
+        else:
+            run([find_pdftoppm(), "-jpeg", "-jpegopt", "quality=85",
+                 "-r", str(dpi), pdf, os.path.join(tmp, "slide")])
+            imgs = sorted(glob.glob(os.path.join(tmp, "slide-*.jpg")))
         if not imgs:
             raise ConvError("Aucune image générée.")
 
@@ -610,11 +635,14 @@ def launch_gui(preload=None):
                       bg="#c0392b", fg="white", relief="flat", cursor="hand2",
                       font=("Segoe UI", 10, "bold"), padx=14, pady=5
                       ).pack(pady=(0, 10))
-        try:
-            find_pdftoppm()
-            log("Poppler : OK")
-        except ConvError as e:
-            log("ERREUR : " + str(e))
+        if get_pymupdf() is not None:
+            log("Rendu d'images : PyMuPDF OK")
+        else:
+            try:
+                find_pdftoppm()
+                log("Rendu d'images : Poppler OK")
+            except ConvError as e:
+                log("ERREUR : " + str(e))
         log("Prêt — dépose un .pptx, la conversion démarre toute seule."
             if has_dnd else "Prêt — clique dans la zone pour choisir un .pptx.")
 

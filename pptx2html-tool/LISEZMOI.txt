@@ -18,9 +18,14 @@ ASTUCES
   apparaît dans la fenêtre.
 
 IMPORTANT
-- Le dossier « poppler » doit rester à côté de PPTX2HTML.exe
-  (il génère les images des slides).
 - Premier lancement : Windows SmartScreen peut afficher un avertissement
   « éditeur inconnu » → clique sur « Informations complémentaires »
   puis « Exécuter quand même ».
+- Si ton PC utilise SMART APP CONTROL (Windows 11) : il bloque tous les
+  exe non signés SANS possibilité d'exception. Deux options :
+  a) télécharge plutôt « PPTX2HTML-Windows-SansExe.zip » depuis la même
+     page (aucun exe — Python signé du Microsoft Store + scripts), ou
+  b) désactive Smart App Control (Paramètres → Confidentialité et
+     sécurité → Sécurité Windows → Contrôle des applications et du
+     navigateur) — attention, c'est irréversible sans réinstaller Windows.
 - Le premier rendu peut prendre une minute (démarrage de LibreOffice).

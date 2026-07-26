@@ -21,27 +21,28 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: python -m pip install pyinstaller python-pptx tkinterdnd2
-
-      - name: Download Poppler (bundled next to the exe)
-        run: |
-          curl.exe -L -o poppler.zip https://github.com/oschwartz10612/poppler-windows/releases/download/v24.08.0-0/Release-24.08.0-0.zip
-          Expand-Archive poppler.zip -DestinationPath poppler-x
+        run: python -m pip install pyinstaller python-pptx tkinterdnd2 pymupdf
 
       - name: Build exe
-        run: pyinstaller --noconfirm --onefile --windowed --name PPTX2HTML --collect-all tkinterdnd2 pptx2html-tool/PPTX2HTML_Tool.py
+        run: pyinstaller --noconfirm --onefile --windowed --name PPTX2HTML --collect-all tkinterdnd2 --collect-all pymupdf pptx2html-tool/PPTX2HTML_Tool.py
 
-      - name: Assemble zip
+      - name: Assemble zips
         run: |
+          # zip exe (PyMuPDF embarqué, plus besoin de Poppler)
           $out = "PPTX2HTML"
-          New-Item -ItemType Directory -Path "$out/poppler" -Force | Out-Null
+          New-Item -ItemType Directory -Path $out -Force | Out-Null
           Copy-Item dist/PPTX2HTML.exe "$out/"
-          $bin = Get-ChildItem poppler-x -Recurse -Filter pdftoppm.exe | Select-Object -First 1
-          Copy-Item "$($bin.DirectoryName)/pdftoppm.exe" "$out/poppler/"
-          Copy-Item "$($bin.DirectoryName)/*.dll" "$out/poppler/"
           Copy-Item pptx2html-tool/LISEZMOI.txt "$out/"
           Compress-Archive -Path $out -DestinationPath PPTX2HTML-Windows.zip
-          Get-Item PPTX2HTML-Windows.zip | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
+
+          # zip sans exe (compatible Smart App Control)
+          $src = "PPTX2HTML-SansExe"
+          New-Item -ItemType Directory -Path $src -Force | Out-Null
+          Copy-Item pptx2html-tool/PPTX2HTML_Tool.py, pptx2html-tool/1_INSTALLER.bat, pptx2html-tool/2_LANCER_TOOL.bat "$src/"
+          Copy-Item pptx2html-tool/LISEZMOI_SANS_EXE.txt "$src/LISEZMOI.txt"
+          Compress-Archive -Path $src -DestinationPath PPTX2HTML-Windows-SansExe.zip
+
+          Get-ChildItem *.zip | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
@@ -49,11 +50,15 @@ jobs:
           tag_name: exe-latest
           name: PPTX2HTML pour Windows
           body: |
-            **Télécharge `PPTX2HTML-Windows.zip` ci-dessous**, dézippe-le, ouvre `PPTX2HTML.exe` et dépose ton fichier `.pptx` (export Google Slides).
+            Deux versions au choix — dans les deux cas : dézipper, lancer, **déposer le `.pptx`** (export Google Slides), c'est tout.
 
-            - Poppler est inclus dans le zip — rien à installer de ce côté.
-            - LibreOffice est requis (installation unique) : https://fr.libreoffice.org — un bouton dans l'app t'y amène s'il manque.
-            - 100 % hors ligne : aucun contenu ne quitte la machine.
+            - **`PPTX2HTML-Windows.zip`** — l'exe tout-en-un. Au premier lancement, SmartScreen peut demander « Informations complémentaires → Exécuter quand même ».
+            - **`PPTX2HTML-Windows-SansExe.zip`** — pour les PC où **Smart App Control** bloque les exe non signés : aucun exe, uniquement Python ([Microsoft Store](https://apps.microsoft.com/search?query=python)) + les scripts. Voir le LISEZMOI inclus.
 
-            Ce zip est reconstruit automatiquement à chaque mise à jour de l'outil.
-          files: PPTX2HTML-Windows.zip
+            Dans les deux cas, LibreOffice est requis (installation unique, signée) : https://fr.libreoffice.org — un bouton dans l'app t'y amène s'il manque.
+            100 % hors ligne : aucun contenu ne quitte la machine.
+
+            Ces zips sont reconstruits automatiquement à chaque mise à jour de l'outil.
+          files: |
+            PPTX2HTML-Windows.zip
+            PPTX2HTML-Windows-SansExe.zip
