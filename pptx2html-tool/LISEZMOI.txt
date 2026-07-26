@@ -11,11 +11,28 @@ DÉMARRAGE RAPIDE
    → la conversion démarre toute seule, le .html apparaît à côté du .pptx
    et le dossier s'ouvre automatiquement.
 
+RENDRE LA PRÉSENTATION INTERACTIVE
+Ouvre le .html obtenu et clique sur ✏️ en haut à droite (ou touche E) :
+- ➕ Zone : dessine un bouton sur la diapo (aller à une diapo précise,
+  suivante/précédente, retour, ouvrir un lien, lire une vidéo).
+- 👁 sur une vignette : cache la diapo — elle sort du fil de lecture et
+  n'est plus accessible QUE via un bouton qui pointe dessus.
+- 🎬 Vidéo : incruste une vidéo (fichier local ou lien YouTube).
+- Glisse pour déplacer, poignée orange pour redimensionner, Suppr efface.
+Puis 💾 Enregistrer : le navigateur retélécharge le .html à jour —
+remplace l'ancien fichier par celui-ci (tes réglages sont dedans).
+🔒 Export final donne une copie sans mode édition, à diffuser.
+
+Les liens que tu as déjà posés dans Google Slides (sauts de diapo, URLs,
+vidéos YouTube) sont repris automatiquement à la conversion.
+
 ASTUCES
 - Tu peux aussi déposer le .pptx directement sur l'icône de PPTX2HTML.exe.
 - Plusieurs fichiers d'un coup : ils sont convertis à la suite.
 - Si LibreOffice manque, un bouton rouge « Installer LibreOffice »
   apparaît dans la fenêtre.
+- Attention : reconvertir le même .pptx écrase le .html et donc les
+  réglages d'interactivité. Renomme ton HTML édité pour le garder.
 
 IMPORTANT
 - Premier lancement : Windows SmartScreen peut afficher un avertissement
