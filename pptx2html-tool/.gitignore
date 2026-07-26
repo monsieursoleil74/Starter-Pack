@@ -1,0 +1,9 @@
+# Ne jamais versionner de contenu de production
+*.pptx
+*.ppt
+*.potx
+*.html
+*_assets/
+# Python
+__pycache__/
+*.pyc
