@@ -16,8 +16,10 @@ Fonctionne **100 % hors ligne** — aucun contenu ne quitte la machine.
   seule. SmartScreen au premier lancement : *Informations complémentaires →
   Exécuter quand même*.
 - **`PPTX2HTML-Windows-SansExe.zip`** : pour les PC où **Smart App Control**
-  bloque les exe non signés (aucune exception possible). Aucun exe :
-  Python (Microsoft Store, signé) + scripts `.bat`. Même glisser-déposer.
+  bloque les exe et les `.bat` non signés (aucune exception possible).
+  Aucun des deux dedans : installer Python (Microsoft Store, signé) +
+  LibreOffice, puis double-clic sur `PPTX2HTML.pyw` — il installe ses
+  composants tout seul au premier lancement. Même glisser-déposer.
 
 Seul prérequis dans les deux cas : [LibreOffice](https://fr.libreoffice.org)
 (installation unique — un bouton dans l'app t'y amène s'il manque).

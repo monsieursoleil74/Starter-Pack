@@ -25,7 +25,11 @@ service tiers**. D'où : conversion 100 % locale, et mode `--assets`
   fichiers (batch), conversion auto au drop, check dépendances au démarrage
 - Détection OS de soffice/pdftoppm (`find_soffice`, `find_pdftoppm`) ;
   Poppler embarqué cherché d'abord dans `<dossier exe>/poppler/`
-- Fichier passé en argv à l'exe gelé (drop sur l'icône) → GUI préchargée
+- Fichier .pptx passé seul en argv (drop sur l'icône exe/.pyw) → GUI
+  préchargée ; `ensure_deps_gui()` auto-installe python-pptx/pymupdf/
+  tkinterdnd2 via pip au 1er lancement en mode script (zip SansExe :
+  un .pyw à double-cliquer, ni exe ni .bat — Smart App Control bloque
+  les deux)
 
 ## Packaging Windows
 - `.github/workflows/build-windows.yml` : PyInstaller (--onefile --windowed,

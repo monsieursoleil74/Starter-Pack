@@ -2,27 +2,32 @@ PPTX → HTML interactif — version SANS EXE
 (compatible Smart App Control / postes verrouillés)
 ====================================================
 
-Cette version n'utilise AUCUN exe non signé : uniquement Python et
-LibreOffice, tous deux signés par leurs éditeurs. Smart App Control
-ne la bloque pas.
+Cette version n'utilise AUCUN exe ni script .bat : uniquement Python
+et LibreOffice, tous deux signés par leurs éditeurs. Smart App Control
+ne bloque rien.
 
 INSTALLATION (une seule fois)
 1. Python : ouvre le Microsoft Store, cherche « Python 3.12 »
    (éditeur : Python Software Foundation) et installe-le.
-   (Ou depuis python.org — coche alors « Add Python to PATH ».)
 2. LibreOffice : https://fr.libreoffice.org (installateur signé)
-3. Double-clique sur 1_INSTALLER.bat
-   (installe les bibliothèques Python : python-pptx, tkinterdnd2, pymupdf)
 
 UTILISATION
-Double-clique sur 2_LANCER_TOOL.bat, puis dépose ton fichier .pptx
-dans la fenêtre (Google Slides : Fichier → Télécharger → Microsoft
-PowerPoint .pptx). La conversion démarre toute seule, le .html
-apparaît à côté du .pptx et le dossier s'ouvre automatiquement.
+Double-clique sur PPTX2HTML.pyw — c'est tout.
+Au tout premier lancement, une petite fenêtre installe les composants
+(~1 min), puis l'application s'ouvre.
 
-100 % hors ligne : aucun contenu ne quitte la machine.
+Ensuite : dépose ton fichier .pptx dans la fenêtre (Google Slides :
+Fichier → Télécharger → Microsoft PowerPoint .pptx). La conversion
+démarre toute seule, le .html apparaît à côté du .pptx et le dossier
+s'ouvre automatiquement.
+
+Astuce : tu peux aussi déposer le .pptx directement sur l'icône de
+PPTX2HTML.pyw, et créer un raccourci vers ce fichier sur le Bureau.
+
+100 % hors ligne : aucun contenu ne quitte la machine
+(la première installation des composants est le seul moment où
+Python télécharge des bibliothèques — aucune de tes données ne part).
 
 NOTE
-Si le glisser-déposer ne fonctionne pas (bibliothèque tkinterdnd2
-bloquée par la politique du poste), clique simplement dans la zone
-pour choisir le fichier — tout le reste marche pareil.
+Si le glisser-déposer ne fonctionne pas sur ton poste, clique
+simplement dans la zone pour choisir le fichier.

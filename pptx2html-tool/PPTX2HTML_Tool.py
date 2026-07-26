@@ -10,7 +10,7 @@ notes du présentateur (extraites via python-pptx).
 """
 import argparse, base64, glob, html, json, os, shutil, subprocess, sys, tempfile
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
 SOFFICE_WRAPPER = "/mnt/skills/public/pptx/scripts/office/soffice.py"
 
 
@@ -463,6 +463,49 @@ LO_URL = "https://fr.libreoffice.org/download/telecharger-libreoffice/"
 PPTX_EXTS = (".pptx", ".ppt", ".potx")
 
 
+def ensure_deps_gui():
+    """Premier lancement en mode script : installe les bibliothèques
+    manquantes via pip, avec une petite fenêtre d'attente. Permet de se
+    passer d'un installeur .bat (bloqué par Smart App Control)."""
+    if getattr(sys, "frozen", False):
+        return
+    need = []
+    try:
+        import pptx  # noqa: F401
+    except ImportError:
+        need.append("python-pptx")
+    if get_pymupdf() is None:
+        need.append("pymupdf")
+    try:
+        import tkinterdnd2  # noqa: F401
+    except ImportError:
+        need.append("tkinterdnd2")
+    if not need:
+        return
+    import threading
+    import tkinter as tk
+    w = tk.Tk()
+    w.title("Première installation")
+    w.geometry("460x130")
+    w.configure(bg="#111318")
+    tk.Label(w, text="Installation des composants (première fois, ~1 min)…\n"
+             + ", ".join(need), bg="#111318", fg="#e8eaf0",
+             font=("Segoe UI", 10), justify="center").pack(expand=True)
+
+    def work():
+        kw = {}
+        if sys.platform == "win32":
+            kw["creationflags"] = subprocess.CREATE_NO_WINDOW
+        subprocess.run([sys.executable, "-m", "pip", "install", "--user",
+                        "--quiet"] + need, capture_output=True, **kw)
+        w.after(0, w.destroy)
+
+    threading.Thread(target=work, daemon=True).start()
+    w.mainloop()
+    import importlib
+    importlib.invalidate_caches()
+
+
 def launch_gui(preload=None):
     import threading, webbrowser
     import tkinter as tk
@@ -654,8 +697,10 @@ def launch_gui(preload=None):
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
-    if argv and getattr(sys, "frozen", False) and os.path.isfile(argv[0]):
-        # fichier déposé sur l'icône de l'exe → GUI préchargée, conversion auto
+    if argv and len(argv) == 1 and os.path.isfile(argv[0]) \
+            and argv[0].lower().endswith(PPTX_EXTS):
+        # fichier déposé sur l'icône (exe ou .pyw) → GUI préchargée
+        ensure_deps_gui()
         launch_gui(preload=os.path.abspath(argv[0]))
     elif argv:
         ap = argparse.ArgumentParser()
@@ -671,4 +716,5 @@ if __name__ == "__main__":
         except ConvError as e:
             sys.exit(str(e))
     else:
+        ensure_deps_gui()
         launch_gui()

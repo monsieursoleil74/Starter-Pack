@@ -35,10 +35,11 @@ jobs:
           Copy-Item pptx2html-tool/LISEZMOI.txt "$out/"
           Compress-Archive -Path $out -DestinationPath PPTX2HTML-Windows.zip
 
-          # zip sans exe (compatible Smart App Control)
+          # zip sans exe ni .bat (compatible Smart App Control) :
+          # un .pyw à double-cliquer, qui s'auto-installe au 1er lancement
           $src = "PPTX2HTML-SansExe"
           New-Item -ItemType Directory -Path $src -Force | Out-Null
-          Copy-Item pptx2html-tool/PPTX2HTML_Tool.py, pptx2html-tool/1_INSTALLER.bat, pptx2html-tool/2_LANCER_TOOL.bat "$src/"
+          Copy-Item pptx2html-tool/PPTX2HTML_Tool.py "$src/PPTX2HTML.pyw"
           Copy-Item pptx2html-tool/LISEZMOI_SANS_EXE.txt "$src/LISEZMOI.txt"
           Compress-Archive -Path $src -DestinationPath PPTX2HTML-Windows-SansExe.zip
 
@@ -53,7 +54,7 @@ jobs:
             Deux versions au choix — dans les deux cas : dézipper, lancer, **déposer le `.pptx`** (export Google Slides), c'est tout.
 
             - **`PPTX2HTML-Windows.zip`** — l'exe tout-en-un. Au premier lancement, SmartScreen peut demander « Informations complémentaires → Exécuter quand même ».
-            - **`PPTX2HTML-Windows-SansExe.zip`** — pour les PC où **Smart App Control** bloque les exe non signés : aucun exe, uniquement Python ([Microsoft Store](https://apps.microsoft.com/search?query=python)) + les scripts. Voir le LISEZMOI inclus.
+            - **`PPTX2HTML-Windows-SansExe.zip`** — pour les PC où **Smart App Control** bloque les exe et les .bat non signés : aucun des deux dedans. Installe Python ([Microsoft Store](https://apps.microsoft.com/search?query=python)) + LibreOffice, puis double-clique `PPTX2HTML.pyw` — il installe ses composants tout seul au premier lancement. Voir le LISEZMOI inclus.
 
             Dans les deux cas, LibreOffice est requis (installation unique, signée) : https://fr.libreoffice.org — un bouton dans l'app t'y amène s'il manque.
             100 % hors ligne : aucun contenu ne quitte la machine.
