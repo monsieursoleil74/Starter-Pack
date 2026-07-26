@@ -10,7 +10,15 @@ notes du présentateur (extraites via python-pptx).
 """
 import argparse, base64, glob, html, json, os, shutil, subprocess, sys, tempfile
 
+APP_VERSION = "1.1.0"
 SOFFICE_WRAPPER = "/mnt/skills/public/pptx/scripts/office/soffice.py"
+
+
+def app_dir():
+    """Dossier de l'application (exe PyInstaller ou script)."""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
 
 
 class ConvError(Exception):
@@ -33,6 +41,11 @@ def find_soffice():
 
 
 def find_pdftoppm():
+    # Poppler livré à côté de l'exe (zip Windows) — prioritaire
+    exe = "pdftoppm.exe" if sys.platform == "win32" else "pdftoppm"
+    bundled = os.path.join(app_dir(), "poppler", exe)
+    if os.path.isfile(bundled):
+        return bundled
     c = shutil.which("pdftoppm")
     if c:
         return c
@@ -47,6 +60,9 @@ def find_pdftoppm():
 
 
 def run(cmd, **kw):
+    if sys.platform == "win32":
+        # pas de fenêtre console qui clignote depuis l'exe/pythonw
+        kw.setdefault("creationflags", subprocess.CREATE_NO_WINDOW)
     r = subprocess.run(cmd, capture_output=True, text=True, **kw)
     if r.returncode != 0:
         raise ConvError(f"Échec : {' '.join(map(str, cmd))}\n{r.stderr[:500]}")
@@ -418,44 +434,55 @@ go(isNaN(start) ? 0 : start, true);
 
 # ============================== INTERFACE ==============================
 
-def launch_gui():
-    import threading
+LO_URL = "https://fr.libreoffice.org/download/telecharger-libreoffice/"
+PPTX_EXTS = (".pptx", ".ppt", ".potx")
+
+
+def launch_gui(preload=None):
+    import threading, webbrowser
     import tkinter as tk
-    from tkinter import filedialog, ttk
+    from tkinter import filedialog
+
+    # glisser-déposer si tkinterdnd2 est disponible (toujours le cas dans l'exe)
+    try:
+        from tkinterdnd2 import DND_FILES, TkinterDnD
+        root = TkinterDnD.Tk()
+        has_dnd = True
+    except Exception:
+        root = tk.Tk()
+        has_dnd = False
 
     BG, PANEL, FG, MUTED, ACCENT = "#111318", "#1b1e26", "#e8eaf0", "#8b90a0", "#5b8cff"
 
-    root = tk.Tk()
-    root.title("PPTX → HTML interactif")
-    root.geometry("560x460")
+    root.title(f"PPTX → HTML interactif — v{APP_VERSION}")
+    root.geometry("560x540")
     root.configure(bg=BG)
-    root.minsize(480, 420)
+    root.minsize(480, 480)
 
-    state = {"file": None, "busy": False}
+    state = {"queue": [], "busy": False}
 
     tk.Label(root, text="PPTX → HTML interactif", bg=BG, fg=FG,
              font=("Segoe UI", 16, "bold")).pack(pady=(18, 2))
-    tk.Label(root, text="Exporte ton Google Slides en .pptx, puis convertis-le ici.",
+    tk.Label(root, text="Google Slides : Fichier → Télécharger → Microsoft PowerPoint (.pptx)",
              bg=BG, fg=MUTED, font=("Segoe UI", 10)).pack(pady=(0, 12))
 
-    # --- zone fichier ---
-    filebox = tk.Frame(root, bg=PANEL, highlightbackground="#2a2e3a",
-                       highlightthickness=1)
-    filebox.pack(fill="x", padx=24, pady=4, ipady=14)
-    file_lbl = tk.Label(filebox, text="Aucun fichier sélectionné", bg=PANEL,
-                        fg=MUTED, font=("Segoe UI", 10))
-    file_lbl.pack(pady=(6, 8))
-    def choose():
-        p = filedialog.askopenfilename(
-            title="Choisir une présentation",
-            filetypes=[("PowerPoint", "*.pptx *.ppt *.potx"), ("Tous", "*.*")])
-        if p:
-            state["file"] = p
-            file_lbl.config(text=os.path.basename(p), fg=FG)
-    tk.Button(filebox, text="Choisir un fichier .pptx", command=choose,
-              bg=ACCENT, fg="white", activebackground="#4a75e0",
-              activeforeground="white", relief="flat", cursor="hand2",
-              font=("Segoe UI", 10, "bold"), padx=16, pady=6).pack()
+    # --- zone de dépôt ---
+    dropbox = tk.Frame(root, bg=PANEL, highlightbackground="#2a2e3a",
+                       highlightthickness=1, cursor="hand2")
+    dropbox.pack(fill="x", padx=24, pady=4)
+    drop_lbl = tk.Label(
+        dropbox,
+        text="⬇\nDépose ton fichier .pptx ici" if has_dnd
+        else "Clique pour choisir un fichier .pptx",
+        bg=PANEL, fg=FG, font=("Segoe UI", 12, "bold"), justify="center",
+        cursor="hand2")
+    drop_lbl.pack(pady=(18, 2))
+    file_lbl = tk.Label(
+        dropbox,
+        text="(ou clique pour parcourir — plusieurs fichiers acceptés)"
+        if has_dnd else "(plusieurs fichiers acceptés)",
+        bg=PANEL, fg=MUTED, font=("Segoe UI", 9), cursor="hand2")
+    file_lbl.pack(pady=(0, 16))
 
     # --- options ---
     opts = tk.Frame(root, bg=BG)
@@ -507,43 +534,102 @@ def launch_gui():
         except Exception:
             pass
 
-    def do_convert():
-        if state["busy"] or not state["file"]:
+    def start_convert():
+        if state["busy"] or not state["queue"]:
             return
         state["busy"] = True
-        go_btn.config(state="disabled", text="Conversion…")
-        out = os.path.splitext(state["file"])[0] + ".html"
+        go_btn.config(state="disabled", text="Conversion…", bg="#2e3342")
 
         def work():
-            try:
-                res = convert(state["file"], out, dpi=int(dpi_var.get()),
-                              embed=not assets_var.get(), log=log)
-                log(f"→ {res}")
-                open_folder(res)
-            except ConvError as e:
-                log("ERREUR : " + str(e))
-            except Exception as e:
-                log("ERREUR inattendue : " + repr(e))
-            finally:
-                state["busy"] = False
-                root.after(0, lambda: go_btn.config(
-                    state="normal", text="Convertir", bg=ACCENT))
+            done, last = 0, None
+            for f in list(state["queue"]):
+                out = os.path.splitext(f)[0] + ".html"
+                try:
+                    log(f"▶ {os.path.basename(f)}")
+                    last = convert(f, out, dpi=int(dpi_var.get()),
+                                   embed=not assets_var.get(), log=log)
+                    done += 1
+                except ConvError as e:
+                    log("ERREUR : " + str(e))
+                except Exception as e:
+                    log("ERREUR inattendue : " + repr(e))
+            if done and last:
+                open_folder(last)
+            state["busy"] = False
+            root.after(0, lambda: go_btn.config(
+                state="normal", text="Convertir", bg=ACCENT))
         threading.Thread(target=work, daemon=True).start()
 
-    go_btn.config(command=do_convert)
+    go_btn.config(command=start_convert)
 
-    def tick():
-        if state["file"] and not state["busy"]:
-            go_btn.config(state="normal", bg=ACCENT)
-        root.after(300, tick)
-    tick()
+    def set_files(paths, auto=True):
+        if state["busy"]:
+            log("Conversion en cours — dépose ton fichier quand c'est terminé.")
+            return
+        valid = [os.path.abspath(p) for p in paths
+                 if os.path.isfile(p) and p.lower().endswith(PPTX_EXTS)]
+        skipped = len(paths) - len(valid)
+        if skipped:
+            log(f"{skipped} fichier(s) ignoré(s) — seuls "
+                f"{', '.join(PPTX_EXTS)} sont acceptés.")
+        if not valid:
+            return
+        state["queue"] = valid
+        file_lbl.config(fg=FG, text=os.path.basename(valid[0])
+                        if len(valid) == 1 else f"{len(valid)} fichiers sélectionnés")
+        go_btn.config(state="normal", bg=ACCENT)
+        if auto:
+            start_convert()
 
-    log("Prêt. Dépendances : LibreOffice + Poppler + python-pptx.")
+    def choose(_event=None):
+        p = filedialog.askopenfilenames(
+            title="Choisir une ou plusieurs présentations",
+            filetypes=[("PowerPoint", "*.pptx *.ppt *.potx"), ("Tous", "*.*")])
+        if p:
+            set_files(list(p))
+
+    for w in (dropbox, drop_lbl, file_lbl):
+        w.bind("<Button-1>", choose)
+
+    if has_dnd:
+        def on_drop(e):
+            set_files(list(root.tk.splitlist(e.data)))
+        for w in (root, dropbox, drop_lbl, file_lbl):
+            w.drop_target_register(DND_FILES)
+            w.dnd_bind("<<Drop>>", on_drop)
+
+    def check_deps():
+        try:
+            find_soffice()
+            log("LibreOffice : OK")
+        except ConvError:
+            log("LibreOffice manquant — il sert à rendre les slides "
+                "(installation unique, tout reste hors ligne).")
+            tk.Button(root, text="Installer LibreOffice",
+                      command=lambda: webbrowser.open(LO_URL),
+                      bg="#c0392b", fg="white", relief="flat", cursor="hand2",
+                      font=("Segoe UI", 10, "bold"), padx=14, pady=5
+                      ).pack(pady=(0, 10))
+        try:
+            find_pdftoppm()
+            log("Poppler : OK")
+        except ConvError as e:
+            log("ERREUR : " + str(e))
+        log("Prêt — dépose un .pptx, la conversion démarre toute seule."
+            if has_dnd else "Prêt — clique dans la zone pour choisir un .pptx.")
+
+    check_deps()
+    if preload:
+        root.after(300, lambda: set_files([preload]))
     root.mainloop()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
+    argv = sys.argv[1:]
+    if argv and getattr(sys, "frozen", False) and os.path.isfile(argv[0]):
+        # fichier déposé sur l'icône de l'exe → GUI préchargée, conversion auto
+        launch_gui(preload=os.path.abspath(argv[0]))
+    elif argv:
         ap = argparse.ArgumentParser()
         ap.add_argument("pptx")
         ap.add_argument("-o", "--output", default=None)

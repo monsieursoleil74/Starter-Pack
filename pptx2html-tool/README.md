@@ -7,19 +7,32 @@ dans Slides vers d'autres diapos ou des URLs deviennent des zones cliquables).
 
 Fonctionne **100 % hors ligne** — aucun contenu ne quitte la machine.
 
-## Installation (Windows)
+## Windows : exe prêt à l'emploi (recommandé)
+
+**[Télécharger PPTX2HTML-Windows.zip](https://github.com/monsieursoleil74/Starter-Pack/releases/tag/exe-latest)**
+— dézipper, ouvrir `PPTX2HTML.exe`, **déposer le `.pptx`** dans la fenêtre
+(ou sur l'icône de l'exe) : la conversion démarre toute seule.
+
+Poppler est inclus dans le zip. Seul prérequis : [LibreOffice](https://fr.libreoffice.org)
+(installation unique — un bouton dans l'app t'y amène s'il manque).
+
+Le zip est reconstruit automatiquement par GitHub Actions
+(`.github/workflows/build-windows.yml`) à chaque mise à jour de l'outil.
+
+## Installation depuis les sources (Windows)
 
 1. [Python 3](https://python.org) — cocher *Add Python to PATH*
 2. [LibreOffice](https://libreoffice.org)
 3. [Poppler](https://github.com/oschwartz10612/poppler-windows/releases) — dézipper dans `C:\poppler`
 4. Double-clic sur `1_INSTALLER.bat`
 
-Mac/Linux : `brew install libreoffice poppler` puis `pip install python-pptx`.
+Mac/Linux : `brew install libreoffice poppler` puis `pip install python-pptx tkinterdnd2`.
 
 ## Utilisation
 
 Double-clic sur `2_LANCER_TOOL.bat` (ou `python PPTX2HTML_Tool.py`) :
-choisir le `.pptx`, options, Convertir. Le dossier de sortie s'ouvre seul.
+déposer le `.pptx` dans la fenêtre (plusieurs fichiers acceptés, conversion
+automatique) ou cliquer pour parcourir. Le dossier de sortie s'ouvre seul.
 
 En ligne de commande : `python PPTX2HTML_Tool.py deck.pptx [--assets] [--dpi 150]`
 

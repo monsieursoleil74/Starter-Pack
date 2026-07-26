@@ -1,0 +1,26 @@
+PPTX → HTML interactif — version Windows (exe)
+================================================
+
+DÉMARRAGE RAPIDE
+1. Installe LibreOffice (une seule fois) : https://fr.libreoffice.org
+   L'outil s'en sert en arrière-plan pour rendre les slides.
+   Rien n'est envoyé en ligne : tout se passe sur ta machine.
+2. Ouvre PPTX2HTML.exe
+3. Dépose ton fichier .pptx dans la fenêtre
+   (Google Slides : Fichier → Télécharger → Microsoft PowerPoint .pptx)
+   → la conversion démarre toute seule, le .html apparaît à côté du .pptx
+   et le dossier s'ouvre automatiquement.
+
+ASTUCES
+- Tu peux aussi déposer le .pptx directement sur l'icône de PPTX2HTML.exe.
+- Plusieurs fichiers d'un coup : ils sont convertis à la suite.
+- Si LibreOffice manque, un bouton rouge « Installer LibreOffice »
+  apparaît dans la fenêtre.
+
+IMPORTANT
+- Le dossier « poppler » doit rester à côté de PPTX2HTML.exe
+  (il génère les images des slides).
+- Premier lancement : Windows SmartScreen peut afficher un avertissement
+  « éditeur inconnu » → clique sur « Informations complémentaires »
+  puis « Exécuter quand même ».
+- Le premier rendu peut prendre une minute (démarrage de LibreOffice).

@@ -13,14 +13,14 @@ if errorlevel 1 (
     exit /b 1
 )
 echo Python : OK
-echo Installation de python-pptx...
-python -m pip install --quiet python-pptx
+echo Installation de python-pptx et tkinterdnd2...
+python -m pip install --quiet python-pptx tkinterdnd2
 if errorlevel 1 (
-    echo [!] Echec de l'installation de python-pptx.
+    echo [!] Echec de l'installation des dependances Python.
     pause
     exit /b 1
 )
-echo python-pptx : OK
+echo python-pptx + tkinterdnd2 : OK
 echo.
 if exist "C:\Program Files\LibreOffice\program\soffice.exe" (
     echo LibreOffice : OK
