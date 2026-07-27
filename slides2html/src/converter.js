@@ -118,6 +118,7 @@ async function pageZones(pdf, page, vp) {
     act.type = 'zone';
     act.x = r2(x); act.y = r2(y); act.w = r2(w); act.h = r2(h);
     act.look = 'hover';
+    act.hover = 'light';   // le bouton dessiné dans Slides s'éclaircit au survol
     out.push(act);
   }
   return dedupe(out);

@@ -38,7 +38,7 @@ la diapo et tu les places à la souris. La diapo d'origine n'est jamais modifié
 
 | Outil | Effet |
 |---|---|
-| **➕ Zone** | Zone cliquable dessinée à la souris. *Invisible* (halo au survol — pour rendre cliquable un bouton que tu as déjà dessiné dans Slides), *Contour visible*, ou *Bouton plein* (pastille colorée, texte + icône). |
+| **➕ Zone** | Zone cliquable dessinée à la souris. *Invisible* (rien ne s'affiche — pour rendre cliquable un bouton que tu as déjà dessiné dans Slides), *Contour visible*, ou *Bouton plein* (pastille colorée, texte + icône). Arrondi des coins réglable. |
 | **🖼 Image** | Ajoute une image par-dessus la diapo : logo, capture, photo. Cadrage, coins arrondis, ombre, opacité. Tu peux aussi la **déposer directement sur la diapo** ou la **coller** (`Ctrl+V`). |
 | **T Texte** | Bloc de texte : couleur, taille, graisse, alignement, ombre, fond coloré. Le cadre suit le texte automatiquement ; **double-clic** pour le réécrire sur la diapo. |
 | **▭ Forme** | Rectangle ou ellipse, couleur et opacité réglables : masquer une zone, surligner, poser un fond derrière du texte. |
@@ -109,7 +109,11 @@ Ces réglages transforment un enchaînement de pages en une vraie expérience.
 | Panneau de droite, rien de sélectionné | **Transition entre les pages** | Fondu, glissement, zoom ou vers le haut, au lieu de la coupe franche. Le glissement suit le sens de lecture. |
 | Sur un élément, section **Mouvement** | **Apparition** | L'élément entre en scène : fondu, monte, descend, vient de la gauche/droite, zoom. |
 | idem | **Retard** | De 0 à 1,5 s. En échelonnant les retards, tes boutons arrivent l'un après l'autre. |
-| idem | **Au survol** | Se soulève, grossit, ou s'illumine — les boutons réagissent sous la souris. |
+| idem | **Au survol** | *Éclaircit* / *Assombrit* agissent sur ce qu'il y a **dessous** — c'est le bouton que tu as dessiné dans Slides qui réagit, rien n'est peint par-dessus. *Se soulève*, *grossit*, *s'illumine* conviennent aux éléments qui ont un visuel propre (image, texte, bouton plein). |
+
+Pour une zone **invisible**, règle l'**arrondi des coins** afin d'épouser la
+forme du bouton dessiné en dessous : sinon les angles de la zone réagissent en
+dehors de lui.
 
 Le bouton **▶** de la barre d'outils rejoue les apparitions de la page sans
 quitter l'édition.

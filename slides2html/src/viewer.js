@@ -111,12 +111,19 @@ body.noarrows .navzone{display:none}\
 .el.an-zoom{animation:elZoom .5s cubic-bezier(.22,.9,.3,1) both}\
 /* survol */\
 .el.hv-lift,.el.hv-zoom,.el.hv-glow{transition:transform .18s ease,box-shadow .18s ease,filter .18s ease}\
+.el.hv-light,.el.hv-dark{transition:backdrop-filter .18s ease,background .18s ease}\
+.el.hv-light:hover{backdrop-filter:brightness(1.18) saturate(1.05)}\
+.el.hv-dark:hover{backdrop-filter:brightness(.75)}\
+@supports not (backdrop-filter:brightness(1.2)){\
+.el.hv-light:hover{background:rgba(255,255,255,.16)}\
+.el.hv-dark:hover{background:rgba(0,0,0,.22)}}\
 .el.hv-lift:hover{transform:translateY(-5px);box-shadow:0 12px 28px rgba(0,0,0,.45)}\
 .el.hv-zoom:hover{transform:scale(1.045)}\
 .el.hv-glow:hover{filter:brightness(1.18) drop-shadow(0 0 12px rgba(255,255,255,.45))}\
 /* element actif : ce que montre le panneau en ce moment */\
 .el.on.look-button{filter:brightness(1.15);box-shadow:0 0 0 3px rgba(255,255,255,.5),0 4px 16px rgba(0,0,0,.45)}\
-.el.on.look-hover,.el.on.look-outline{border-color:#fff;background:rgba(255,255,255,.16)}\
+.el.on.look-outline{border-color:#fff;background:rgba(255,255,255,.16)}\
+.el.on.look-hover{outline:3px solid rgba(255,255,255,.75);outline-offset:1px;border-radius:6px}\
 .el.on.el-image,.el.on.el-text,.el.on.el-shape{outline:3px solid rgba(255,255,255,.75);outline-offset:2px}\
 /* sommaire */\
 #nav{display:flex;gap:4px;align-items:center;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-shrink:0;overflow-x:auto}\
@@ -156,8 +163,7 @@ body.editing .navzone,#stage.onhidden .navzone{display:none}\
 .ovwrap .ovimg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}\
 .el-text{display:flex;padding:.1em .2em;overflow-wrap:anywhere;white-space:pre-wrap}\
 .act{cursor:pointer}\
-.look-hover{border:2px solid transparent;border-radius:6px;transition:border-color .15s,background .15s}\
-.act.look-hover:hover{border-color:var(--accent);background:rgba(91,140,255,.12)}\
+.look-hover{border-radius:6px}\
 .look-outline{border:2px solid var(--accent);border-radius:6px}\
 .look-button{display:flex;align-items:center;justify-content:center;gap:.35em;background:var(--accent);color:#fff;font-weight:600;border-radius:10px;box-shadow:0 3px 14px rgba(0,0,0,.4);text-align:center;overflow:hidden;padding:2px 10px}\
 .act.look-button:hover{filter:brightness(1.13)}\
@@ -452,6 +458,7 @@ function renderCandidates() {
       e.stopPropagation();
       pushUndo();
       els().push({ type: 'zone', x: o.x, y: o.y, w: o.w, h: o.h, look: 'hover',
+                   hover: 'light',
                    action: 'goto', slide: Math.min(cur + 1, SLIDES.length - 1) });
       select(els().length - 1);
       buildThumbs();
@@ -531,6 +538,9 @@ function buildEl(el, i, depth, box) {
     d.appendChild(v);
   } else if (el.type === 'zone') {
     d.classList.add('look-' + (el.look || 'hover'));
+    // l'arrondi épouse la forme du bouton dessiné en dessous : sans quoi les
+    // coins d'une zone rectangulaire réagissent au survol hors du bouton
+    if (el.radius != null) d.style.borderRadius = el.radius + 'px';
     if ((el.look || 'hover') === 'button') {
       d.textContent = (el.icon ? el.icon + ' ' : '') + (el.label || '');
       if (el.color) d.style.background = el.color;
@@ -1156,6 +1166,13 @@ function renderProps() {
       h += '<div class="grid2"><label>Texte<input type="text" id="pLbl" value="' + escA(el.label || '') + '"></label>' +
         '<label>Icône<input type="text" id="pIcon" value="' + escA(el.icon || '') + '" placeholder="→"></label></div>' +
         '<label>Couleur<input type="color" id="pCol" value="' + (el.color || '#5b8cff') + '"></label>';
+    var defR = (el.look || 'hover') === 'button' ? 10 : 6;
+    h += '<label>Arrondi des coins <span class="muted">' + (el.radius == null ? defR : el.radius) +
+      ' px</span><input type="range" id="pRadius" min="0" max="90" value="' +
+      (el.radius == null ? defR : el.radius) + '"></label>';
+    if ((el.look || 'hover') === 'hover')
+      h += '<p class="muted">Règle-le pour épouser la forme du bouton que tu as ' +
+        'dessiné dans Slides : sinon les coins de la zone réagissent en dehors de lui.</p>';
   } else if (el.type === 'text') {
     h += '<label>Texte<textarea id="pText">' + esc(el.text || '') + '</textarea></label>' +
       '<div class="grid2">' +
@@ -1253,10 +1270,16 @@ function renderProps() {
       '<input type="range" id="pDelay" min="0" max="1500" step="50" value="' + (el.delay || 0) + '"></label>';
   h += '<label>Au survol<select id="pHover">' +
     opt('none', 'Rien', el.hover || 'none') +
+    opt('light', 'Éclaircit ce qu’il y a dessous', el.hover) +
+    opt('dark', 'Assombrit ce qu’il y a dessous', el.hover) +
     opt('lift', 'Se soulève', el.hover) +
     opt('zoom', 'Grossit', el.hover) +
     opt('glow', 'S’illumine', el.hover) +
     '</select></label>';
+  if ((el.look || '') === 'hover' && ['lift', 'zoom', 'glow'].indexOf(el.hover) >= 0)
+    h += '<p class="muted">Une zone invisible n’a rien à soulever ni à grossir : ' +
+      'préfère <b>Éclaircit</b> ou <b>Assombrit</b>, qui agissent sur le bouton ' +
+      'dessiné en dessous.</p>';
 
   if (el.type !== 'video')
     h += '<label>Opacité <span class="muted">' + Math.round((el.opacity == null ? 1 : el.opacity) * 100) + ' %</span>' +

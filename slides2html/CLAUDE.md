@@ -111,6 +111,13 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   `#wrap`, avec `.back` selon le sens. Par élément : `anim` (+ `delay`) joue
   une apparition en lecture (et en aperçu via `previewing`, bouton ▶), `hover`
   ajoute un effet de survol. Tout est en CSS, aucune bibliothèque.
+- Une zone `look:'hover'` est **vraiment invisible** : pas de bordure ni de
+  fond. Le halo bleu d'origine a été retiré — il peignait un rectangle par
+  dessus le bouton dessiné dans Slides. Le retour visuel passe par `hover`
+  `light`/`dark`, qui agissent sur ce qu'il y a DESSOUS via `backdrop-filter`
+  (aucun fantôme, contrairement à un déplacement). `el.radius` sur la zone
+  permet d'épouser la forme du bouton sous-jacent, sinon les angles réagissent
+  hors de lui.
 - `el.on` : un élément dont l'action `panel` pointe sur ce que le panneau
   affiche en ce moment est marqué actif — c'est ce qui donne le comportement
   « onglet sélectionné » d'un vrai site.

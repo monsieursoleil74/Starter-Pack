@@ -29,9 +29,12 @@ LE RENDRE INTERACTIF : touche E dans le HTML obtenu
 Un petit outil de mise en page : tu ajoutes des elements PAR-DESSUS la
 diapo (elle n'est jamais modifiee) et tu les places a la souris.
 
-- + Zone   : zone cliquable. Invisible (halo au survol, pour rendre
+- + Zone   : zone cliquable. Invisible (rien ne s'affiche : pour rendre
              cliquable un bouton deja dessine dans Slides), contour
              visible, ou pastille coloree avec texte et icone.
+             Au survol, "Eclaircit"/"Assombrit" agissent sur ce qu'il y a
+             DESSOUS : c'est ton bouton qui reagit, rien n'est peint
+             par-dessus. Regle l'arrondi des coins pour epouser sa forme.
 - Image    : ajoute un logo, une capture, une photo. Tu peux aussi la
              deposer directement sur la diapo, ou la coller (Ctrl+V).
 - Texte    : couleur, taille, graisse, alignement, ombre, fond colore.
