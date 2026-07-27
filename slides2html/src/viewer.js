@@ -54,6 +54,9 @@ document.title = META.title;
 var VIEW_KEYS = ['arrows', 'counter', 'progress', 'thumbs', 'header'];
 if (!META.view) META.view = {};
 VIEW_KEYS.forEach(function (k) { if (META.view[k] === undefined) META.view[k] = true; });
+// « plein cadre » : par défaut non, pour ne pas changer l'allure des packs
+// déjà montés ; les nouvelles conversions l'activent (voir le convertisseur).
+if (META.view.full === undefined) META.view.full = false;
 if (META.transition === undefined) META.transition = 'fade';
 if (!META.nav) META.nav = [];   // sommaire : [{label, slide}]
 if (!META.master) META.master = [];   // éléments présents sur TOUTES les pages
@@ -80,6 +83,9 @@ button.icon:disabled{opacity:.35;cursor:default;background:var(--panel2)}\
 .sep{width:1px;height:22px;background:var(--line);margin:0 3px}\
 #main{flex:1;display:flex;min-height:0}\
 #stage{flex:1;display:flex;align-items:center;justify-content:center;position:relative;padding:18px;min-width:0}\
+body.full:not(.editing) #stage{padding:0}\
+body.full:not(.editing) #slide{border-radius:0;box-shadow:none}\
+body.full:not(.editing) #wrap{border-radius:0}\
 /* le cadre prend exactement le format de la page (aspect-ratio posé en JS depuis\
    les dimensions réelles de l'image) : ni étirement, ni décalage des éléments,\
    quel que soit le format du PDF — 16/9, A4 portrait ou autre */\
@@ -1099,8 +1105,15 @@ function viewFields() {
       (v[k] ? ' checked' : '') + '><span>' + VIEW_LABELS[k] + '</span></label>';
   });
   var immersive = VIEW_KEYS.every(function (k) { return !v[k]; });
-  h += '<div class="pbtns"><button id="vImmersive">🎬 Mode immersif</button>' +
-    '<button id="vAll">Tout afficher</button></div>';
+  h += '<label class="ck"><input type="checkbox" id="v_full"' + (v.full ? ' checked' : '') +
+    '><span>Page plein cadre (sans marge ni ombre)</span></label>' +
+    '<div class="pbtns"><button id="vSite">🌐 Site</button>' +
+    '<button id="vSlideshow">📄 Diaporama</button>' +
+    '<button id="vImmersive">🔒 Kiosque</button></div>' +
+    '<p class="muted" style="margin-top:8px"><b>Site</b> : rien autour de la page, ' +
+    'on navigue par tes boutons, le clavier reste actif en secours. ' +
+    '<b>Diaporama</b> : compteur, progression et vignettes. ' +
+    '<b>Kiosque</b> : plus aucune navigation libre.</p>';
   h += '<label>Transition entre les pages<select id="vTrans">' +
     opt('none', 'Aucune (coupe franche)', META.transition) +
     opt('fade', 'Fondu', META.transition) +
@@ -1124,7 +1137,7 @@ function viewFields() {
   return h;
 }
 function bindViewFields() {
-  VIEW_KEYS.forEach(function (k) {
+  VIEW_KEYS.concat(['full']).forEach(function (k) {
     var n = $('v_' + k);
     if (n) n.addEventListener('change', function (e) {
       META.view[k] = e.target.checked;
@@ -1133,18 +1146,23 @@ function bindViewFields() {
       renderProps();
     });
   });
-  var setAll = function (val) {
+  var profil = function (cfg2, msg) {
     return function () {
-      VIEW_KEYS.forEach(function (k) { META.view[k] = val; });
+      assign(META.view, cfg2);
       markDirty();
       applyViewChrome();
       renderProps();
-      toast(val ? 'Tous les repères affichés' : 'Mode immersif : navigation par boutons uniquement');
+      toast(msg);
     };
   };
-  var a = $('vImmersive'), b = $('vAll');
-  if (a) a.addEventListener('click', setAll(false));
-  if (b) b.addEventListener('click', setAll(true));
+  var w2 = function (id, fn) { var n = $(id); if (n) n.addEventListener('click', fn); };
+  w2('vSite', profil({ arrows: true, counter: false, progress: false, thumbs: false,
+                       header: false, full: true }, 'Mode site : rien autour de la page'));
+  w2('vSlideshow', profil({ arrows: true, counter: true, progress: true, thumbs: true,
+                            header: true, full: false }, 'Mode diaporama : tous les repères'));
+  w2('vImmersive', profil({ arrows: false, counter: false, progress: false, thumbs: false,
+                            header: false, full: true },
+                          'Kiosque : on ne navigue plus que par les boutons'));
 
   var tr = $('vTrans');
   if (tr) tr.addEventListener('change', function (e) {
@@ -1896,6 +1914,7 @@ function applyViewChrome() {
   if (!ed && !v.thumbs) thumbs.classList.add('hidden');
   $('fsFloat').classList.toggle('hidden', ed || v.header);
   document.body.classList.toggle('noarrows', !ed && !v.arrows);
+  document.body.classList.toggle('full', !!v.full);
   renderNav();
 }
 function freeNav() { return editMode || META.view.arrows; }
@@ -2093,7 +2112,7 @@ window.addEventListener('hashchange', function () {
 
 /* ============================ démarrage ============================ */
 var hintEl = $('hint');
-if (!META.view.arrows && !META.locked) hintEl.remove();
+if (!META.view.header || !META.view.arrows) hintEl.remove();
 else setTimeout(function () {
   if (hintEl && hintEl.parentNode) {
     hintEl.style.opacity = 0;

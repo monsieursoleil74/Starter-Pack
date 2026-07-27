@@ -93,12 +93,15 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   et `#slide` fait 100 % × 100 %. Ne JAMAIS repasser `#wrap` en `display:flex`
   avec une image en `max-width/max-height` : c'est ce qui étirait les PDF non
   16/9 (une page A4 s'affichait en 1.688 au lieu de 0.707).
-- `meta.view` = `{arrows, counter, progress, thumbs, header}`, tous à `true`
-  par défaut (fichiers anciens compris). `applyViewChrome()` les applique et
-  n'agit qu'en lecture — l'édition garde tous ses repères. `freeNav()` garde
-  clavier et swipe. Tout à `false` = mode immersif : on ne navigue plus que
-  par les boutons, d'où le `#fsFloat` (plein écran) et le rappel que `E`
-  reste l'accès à l'édition.
+- `meta.view` = `{arrows, counter, progress, thumbs, header, full}`. **Une
+  conversion neuve écrit le profil « site »** : tout à false SAUF `arrows` et
+  `full`. C'est délibéré — la lecture par défaut ne doit pas ressembler à un
+  visionneur PDF, mais le clavier reste actif pour ne bloquer personne tant
+  qu'aucun bouton n'a été posé. Les clés absentes valent `true` (`full` vaut
+  `false`) : les packs montés avant ce choix gardent leur allure.
+  `applyViewChrome()` n'agit qu'en lecture ; `freeNav()` garde clavier et
+  swipe. Trois profils dans l'éditeur : `#vSite`, `#vSlideshow`, `#vImmersive`
+  (kiosque, seul à couper `arrows`).
 - Pas d'infobulle `title` sur les éléments cliquables en lecture : le lecteur
   n'a pas à voir « Aller à la diapo 6 ».
 - `slides[i].objects` : formes relevées dans le .pptx (position seule), TOUJOURS

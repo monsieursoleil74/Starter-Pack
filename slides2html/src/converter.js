@@ -368,7 +368,12 @@ function buildHtml(title, images, zones, notes, objects, old) {
       log(m.coupes + ' renvoi(s) pointaient vers une page disparue — corrigés, à vérifier.', 'err');
   } else {
     cfg = {
-      meta: { title: title, lang: 'fr', embed: true, locked: false, app: APP_VERSION },
+      // par défaut on lit un SITE, pas un document : ni compteur, ni barre de
+      // progression, ni vignettes, ni entête. Le clavier reste actif pour ne
+      // bloquer personne tant qu'aucun bouton n'a été posé.
+      meta: { title: title, lang: 'fr', embed: true, locked: false, app: APP_VERSION,
+              view: { arrows: true, counter: false, progress: false,
+                      thumbs: false, header: false, full: true } },
       slides: images.map(function (_, i) {
         var s = { img: i, notes: notes[i] || '', hidden: false, elements: zones[i] || [] };
         // formes repérées dans le .pptx : des candidats à transformer en boutons

@@ -149,41 +149,31 @@ presse-papiers, un message le confirme. Parfait pour un chemin réseau
 (`\\serveur\projet\rigs\pipo`) qu'on veut coller dans un explorateur ou un
 logiciel, sans le retaper.
 
-### Mode immersif (expérience de lecture)
+### L'expérience de lecture : un site, pas un PDF
 
-Par défaut la page se lit comme un diaporama : flèches, compteur, barre de
-progression, vignettes. Pour un vrai petit site où **on ne navigue qu'avec tes
-boutons**, décoche ce que tu veux dans le panneau de droite, section
-**« Ce que voit le lecteur »** (clique dans le vide pour ne rien avoir de
-sélectionné) — ou clique **🎬 Mode immersif** pour tout masquer d'un coup :
+**C'est le réglage par défaut** d'une conversion neuve : pas d'entête, pas de
+compteur « 3 / 12 », pas de barre de progression, pas de bandeau de vignettes,
+et la page **occupe tout le cadre** — sans marge, sans coins arrondis, sans
+ombre de document posé sur un bureau. L'animateur qui ouvre le pack voit une
+page, pas un lecteur de PDF.
 
-| Réglage | Ce qu'il enlève |
+Le clavier et les bords de l'écran restent actifs en secours, discrètement :
+personne ne se retrouve coincé tant que tu n'as pas posé tes boutons.
+
+Trois profils dans le panneau de droite (rien de sélectionné), section
+**« Ce que voit le lecteur »** :
+
+| Profil | Pour quoi |
 |---|---|
-| Navigation libre | les flèches latérales, les flèches du clavier et le swipe |
-| Compteur de diapos | le « 3 / 12 » en haut |
-| Barre de progression | le trait bleu en bas |
-| Bandeau de vignettes | la colonne de miniatures |
-| Barre du haut | toute l'entête (un bouton plein écran discret reste en haut à droite) |
+| 🌐 **Site** *(par défaut)* | Rien autour de la page. On navigue par tes boutons et ton sommaire ; le clavier dépanne. |
+| 📄 **Diaporama** | Compteur, progression, vignettes, entête — le comportement d'un visionneur classique, si tu le veux. |
+| 🔒 **Kiosque** | Comme *Site*, mais **plus aucune navigation libre** : ni flèches, ni clavier, ni swipe. On n'avance que par tes boutons. |
 
-⚠️ Sans navigation libre, le lecteur ne peut avancer **que** par les boutons
-que tu poses : vérifie que chaque page en a au moins un. La touche `E` reste
-ton accès à l'édition, même quand tout est masqué.
+Chaque repère reste réglable un par un en dessous, et **✓ Vérifier** te
+signalera toute page devenue sans issue.
 
-### Transformer les objets de ton .pptx en boutons
-
-Si tu déposes le `.pptx` en même temps que le PDF, l'outil relève la position
-de **chaque forme, texte et image** de tes diapos. Dans l'éditeur, le bouton
-**⌖ Objets** les fait apparaître en vert : **un clic sur l'un d'eux crée une
-zone cliquable exactement à sa place**, tu n'as plus qu'à choisir sa
-destination.
-
-C'est la façon la plus rapide de travailler : tu dessines tes boutons dans
-Google Slides, avec ta charte et tes polices, et tu les rends cliquables ici
-sans rien redessiner ni aligner.
-
-Deux limites : une forme dont la position vient du **modèle de diapo** (un
-placeholder de titre non déplacé) n'est pas détectée, et un **groupe** est
-proposé d'un bloc, pas élément par élément.
+⚠️ En kiosque, vérifie que chaque page a au moins un bouton. La touche `E`
+reste ton accès à l'édition, même quand tout est masqué.
 
 ### ✓ Vérifier avant de diffuser
 
