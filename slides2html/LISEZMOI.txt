@@ -1,0 +1,60 @@
+Google Slides -> HTML interactif
+================================
+
+RIEN A INSTALLER. Convertisseur.html est une page web, pas un programme :
+aucun exe, aucun .bat, aucun Python. Smart App Control et l'antivirus
+n'ont rien a bloquer. Tout se passe dans ton navigateur, aucun fichier
+n'est envoye en ligne.
+
+
+UTILISATION
+-----------
+1. Dans Google Slides : Fichier -> Telecharger -> Document PDF (.pdf)
+
+2. Double-clic sur Convertisseur.html (il s'ouvre dans Edge ou Chrome),
+   puis depose le PDF dedans.
+   La conversion demarre toute seule -> bouton vert pour telecharger
+   le HTML.
+
+   Facultatif : depose AUSSI le .pptx (Fichier -> Telecharger ->
+   Microsoft PowerPoint) en meme temps que le PDF si tu veux garder les
+   notes du presentateur. Le PDF ne les contient pas.
+
+3. Ouvre le HTML obtenu (double-clic) : c'est ta presentation, navigable
+   au clavier, a la souris ou au doigt.
+
+
+LE RENDRE INTERACTIF : touche E dans le HTML obtenu
+---------------------------------------------------
+- + Zone      : dessine un bouton sur la diapo. Il peut aller a une diapo
+                precise, a la suivante/precedente, revenir en arriere,
+                ouvrir un lien, ou lancer une video en plein ecran.
+                Apparence au choix : invisible (halo au survol, pour
+                rendre cliquable un bouton deja dessine dans Slides),
+                contour visible, ou pastille coloree avec du texte.
+- Oeil sur une vignette : cache la diapo. Elle sort du fil de lecture et
+                n'est plus accessible QUE via un bouton qui pointe dessus.
+                Un bouton "Retour" y apparait automatiquement.
+- Video       : incruste une video (fichier local ou lien YouTube).
+- Glisser pour deplacer, poignee orange pour redimensionner, Suppr efface.
+
+Puis 💾 Enregistrer : le navigateur retelecharge le HTML a jour.
+Remplace l'ancien fichier par celui-ci, tes reglages sont dedans.
+🔒 Export final donne une copie sans mode edition, a diffuser.
+
+
+DEJA REPRIS DE TON SLIDES
+-------------------------
+Les liens que tu as poses dans Google Slides sont convertis tout seuls :
+sauts vers une autre diapo, liens URL, et videos YouTube (qui deviennent
+des zones "lire la video").
+
+
+A SAVOIR
+--------
+- Reconvertir un PDF repart d'une page vierge : les boutons et diapos
+  cachees de la version precedente ne sont pas repris. Mets ton HTML
+  edite de cote avant de reconvertir.
+- Raccourcis : fleches naviguer, F plein ecran, N notes, T vignettes,
+  E edition, Echap annuler.
+- Qualite "Haute" = images plus nettes mais fichier plus lourd.
