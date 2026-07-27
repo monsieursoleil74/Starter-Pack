@@ -42,6 +42,7 @@ la diapo et tu les places à la souris. La diapo d'origine n'est jamais modifié
 | **🖼 Image** | Ajoute une image par-dessus la diapo : logo, capture, photo. Cadrage, coins arrondis, ombre, opacité. Tu peux aussi la **déposer directement sur la diapo** ou la **coller** (`Ctrl+V`). |
 | **T Texte** | Bloc de texte : couleur, taille, graisse, alignement, ombre, fond coloré. Le cadre suit le texte automatiquement ; **double-clic** pour le réécrire sur la diapo. |
 | **▭ Forme** | Rectangle ou ellipse, couleur et opacité réglables : masquer une zone, surligner, poser un fond derrière du texte. |
+| **🗔 Panneau** | Une fenêtre qui affiche **une autre diapo à l'intérieur** de celle-ci. Les boutons de la page restent à l'écran, seul le contenu du panneau change — on ne quitte pas la page. |
 | **🎬 Vidéo** | Fichier local (embarqué, lecture hors ligne) ou lien YouTube. |
 | **👁 sur une vignette** | Cache la diapo : elle sort du fil de lecture (flèches, swipe, compteur) et n'est plus accessible **que** par un bouton qui pointe dessus. C'est ce qui casse le côté linéaire. |
 
@@ -52,6 +53,27 @@ visiteur), ouvrir un lien, ou lire une vidéo en plein écran. Une image fait
 souvent un meilleur bouton qu'une pastille.
 
 Sur une diapo cachée, un bouton **↩ Retour** apparaît tout seul.
+
+### Recette : un écran de sélection (personnages, rigs, départements…)
+
+Le cas typique : une page de sélection où l'on clique sur un personnage et où
+sa fiche s'affiche **en dessous**, sans quitter la page — la liste des
+personnages reste visible pour en choisir un autre.
+
+1. Dans Slides, fais **une page « sélection »** (avec tes vignettes de
+   personnages) et **une page par personnage**. Convertis le tout.
+2. Dans l'éditeur, **cache** les pages personnages (👁 sur leur vignette) :
+   elles ne serviront que de contenu.
+3. Sur la page sélection, outil **🗔 Panneau** : dessine la fenêtre à l'endroit
+   où la fiche doit apparaître. Laisse *Contenu au départ* sur « — vide — ».
+4. Pose une **➕ Zone** sur chaque personnage, puis
+   *Au clic → Afficher une diapo dans le panneau → sa fiche*.
+
+Et voilà : un clic remplit le panneau, un autre clic le remplace. Le panneau
+se remet à son état de départ quand on quitte la page et qu'on y revient.
+
+La diapo affichée dans un panneau garde **ses propres éléments** : sa fiche
+peut donc contenir ses propres boutons, une vidéo, etc.
 
 ### Manipulations
 

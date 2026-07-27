@@ -305,6 +305,9 @@ body.editing .navzone,#stage.onhidden .navzone{display:none}\
 .el-video{background:#000;border-radius:8px;overflow:hidden}\
 .el-video video,.el-video iframe{width:100%;height:100%;border:0;display:block}\
 .el-image img{width:100%;height:100%;display:block}\
+.el-panel{overflow:hidden}\
+.el-panel .panel-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}\
+.panel-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;text-align:center;padding:10px}\
 .el-text{display:flex;padding:.1em .2em;overflow-wrap:anywhere;white-space:pre-wrap}\
 .act{cursor:pointer}\
 .look-hover{border:2px solid transparent;border-radius:6px;transition:border-color .15s,background .15s}\
@@ -385,6 +388,7 @@ document.body.insertAdjacentHTML('beforeend',
 '<button class="icon" id="tImage" title="Ajouter une image par-dessus la diapo">🖼 Image</button>' +
 '<button class="icon" id="tText" title="Ajouter du texte">T Texte</button>' +
 '<button class="icon" id="tShape" title="Ajouter une forme (cadre, pastille, masque)">▭ Forme</button>' +
+'<button class="icon" id="tPanel" title="Panneau : affiche une autre diapo à l\u2019intérieur de celle-ci">🗔 Panneau</button>' +
 '<button class="icon" id="tVideo" title="Ajouter une vidéo">🎬 Vidéo</button>' +
 '<span class="sep"></span>' +
 '<button class="icon" id="tUndo" title="Annuler (Ctrl+Z)">↶</button>' +
@@ -424,7 +428,7 @@ var wrap = $('wrap'), slideEl = $('slide'), counter = $('counter'), thumbs = $('
     backBtn = $('backBtn'), hidBadge = $('hidBadge'), titleEl = $('title'), btnNotes = $('btnNotes');
 var cur = 0, editMode = false, drawMode = false, dirty = false,
     sel = null, drag = null, hist = [], thumbItems = [], clip = null,
-    undoStack = [], redoStack = [];
+    undoStack = [], redoStack = [], panelState = {}, scalables = [];
 titleEl.textContent = META.title;
 hidBadge.textContent = T.hidden;
 backBtn.textContent = T.back;
@@ -443,7 +447,9 @@ function markDirty() { dirty = true; titleEl.textContent = META.title + ' •'; 
 function clearDirty() { dirty = false; titleEl.textContent = META.title; }
 function els() { return SLIDES[cur].elements; }
 function selEl() { return sel == null ? null : els()[sel]; }
-function nodes() { return wrap.querySelectorAll('.el'); }
+// seulement les éléments posés sur la diapo : ceux imbriqués dans un panneau
+// portent la même classe et décaleraient l'indexation pendant un déplacement
+function nodes() { return wrap.querySelectorAll(':scope > .el'); }
 function toast(msg) {
   var t = $('toast');
   t.textContent = msg;
@@ -520,6 +526,7 @@ function go(i, opts) {
   opts = opts || {};
   i = clamp(i, 0, SLIDES.length - 1);
   if (!opts.noHist && i !== cur) { hist.push(cur); if (hist.length > 200) hist.shift(); }
+  if (i !== cur) panelState = {};        // les panneaux repartent de leur contenu par défaut
   cur = i;
   var apply = function () {
     slideEl.src = IMG(SLIDES[cur].img);
@@ -549,11 +556,27 @@ function goBack() { var p = hist.pop(); go(p == null ? firstVisible() : p, { noH
 
 function renderElements() {
   wrap.querySelectorAll('.el,.guide').forEach(function (n) { n.remove(); });
-  els().forEach(function (el, i) { wrap.appendChild(buildEl(el, i)); });
+  scalables.length = 0;
+  els().forEach(function (el, i) { wrap.appendChild(buildEl(el, i, 0, wrap)); });
   scaleText();
 }
 
-function buildEl(el, i) {
+/* Panneaux : une fenêtre posée sur la diapo qui affiche une AUTRE diapo à
+   l'intérieur, sans quitter la page. panelState garde ce qui est affiché
+   pendant la visite ; el.slide est le contenu de départ. */
+function panelKey(el) { return el.name || 'Panneau'; }
+function panelContent(el) {
+  var k = panelKey(el);
+  return Object.prototype.hasOwnProperty.call(panelState, k)
+    ? panelState[k]
+    : (typeof el.slide === 'number' ? el.slide : null);
+}
+function panelsHere() {
+  return els().filter(function (e) { return e.type === 'panel'; });
+}
+
+function buildEl(el, i, depth, box) {
+  depth = depth || 0;
   var d = document.createElement('div');
   d.className = 'el el-' + el.type;
   setRect(d, el);
@@ -601,11 +624,39 @@ function buildEl(el, i) {
     if ((el.look || 'hover') === 'button') {
       d.textContent = (el.icon ? el.icon + ' ' : '') + (el.label || '');
       if (el.color) d.style.background = el.color;
+      scalables.push({ node: d, el: el, box: box, kind: 'button' });
+    }
+  } else if (el.type === 'panel') {
+    d.style.background = el.bg || 'rgba(10,12,17,.92)';
+    d.style.borderRadius = (el.radius == null ? 10 : el.radius) + 'px';
+    if (el.shadow !== false) d.style.boxShadow = '0 10px 40px rgba(0,0,0,.55)';
+    var content = panelContent(el);
+    if (content != null && SLIDES[content]) {
+      var pi = document.createElement('img');
+      pi.src = IMG(SLIDES[content].img);
+      pi.className = 'panel-img';
+      pi.draggable = false;
+      d.appendChild(pi);
+      // la diapo affichée garde ses propres éléments (une seule imbrication :
+      // un panneau dans un panneau n'est pas redessiné)
+      if (depth === 0) {
+        SLIDES[content].elements.forEach(function (sub) {
+          if (sub.type === 'panel') return;
+          d.appendChild(buildEl(sub, -1, depth + 1, d));
+        });
+      }
+    } else if (editMode) {
+      var ph = document.createElement('span');
+      ph.className = 'panel-empty';
+      ph.textContent = 'Panneau « ' + panelKey(el) +' » — vide au départ';
+      d.appendChild(ph);
     }
   }
 
-  if (!editMode) {
-    if (el.action && el.action !== 'none') {
+  if (el.type === 'text') scalables.push({ node: d, el: el, box: box, kind: 'text', top: depth === 0 });
+
+  if (!editMode || depth > 0) {
+    if (el.action && el.action !== 'none' && !(editMode && depth > 0)) {
       d.classList.add('act');
       d.title = actionTitle(el);
       d.addEventListener('click', function (ev) { ev.stopPropagation(); doAction(el); });
@@ -630,22 +681,26 @@ function buildEl(el, i) {
   return d;
 }
 
-/* textes et boutons sont dimensionnés en % de la hauteur de la diapo :
-   ils gardent leurs proportions quelle que soit la taille de la fenêtre */
+/* Textes et boutons sont dimensionnés en % de la hauteur de leur conteneur —
+   la diapo, ou le panneau qui les affiche : ils gardent leurs proportions
+   quelle que soit la taille de la fenêtre, et se réduisent dans un panneau. */
 function scaleText() {
-  var H = wrap.clientHeight || 1, list = nodes();
-  els().forEach(function (el, i) {
-    var d = list[i];
-    if (!d) return;
-    if (el.type === 'text') {
-      d.style.fontSize = Math.max(8, H * (el.size || 6) / 100) + 'px';
-      // hauteur automatique : le cadre épouse toujours le texte, qui ne
-      // déborde donc jamais quand on change la taille ou le libellé
-      d.style.height = 'auto';
-      var hp = r2(d.offsetHeight / H * 100);
-      if (hp > 0.5) { el.h = hp; d.style.height = hp + '%'; }
-    } else if (el.type === 'zone' && (el.look || 'hover') === 'button')
-      d.style.fontSize = Math.max(10, H * el.h / 100 * 0.36) + 'px';
+  scalables.forEach(function (s) {
+    var H = s.box.clientHeight || 1;
+    if (s.kind === 'button') {
+      s.node.style.fontSize = Math.max(9, H * s.el.h / 100 * 0.36) + 'px';
+      return;
+    }
+    s.node.style.fontSize = Math.max(7, H * (s.el.size || 6) / 100) + 'px';
+    // hauteur automatique : le cadre épouse toujours le texte, qui ne déborde
+    // donc jamais quand on change la taille ou le libellé. On ne réécrit le
+    // modèle que pour un élément posé sur la diapo, jamais depuis un panneau.
+    s.node.style.height = 'auto';
+    var hp = r2(s.node.offsetHeight / H * 100);
+    if (hp > 0.5) {
+      if (s.top) s.el.h = hp;
+      s.node.style.height = hp + '%';
+    }
   });
 }
 
@@ -657,6 +712,8 @@ function actionTitle(el) {
     case 'back': return T.back;
     case 'next': return FR ? 'Diapo suivante' : 'Next';
     case 'prev': return FR ? 'Diapo précédente' : 'Previous';
+    case 'panel': return (el.slide == null || el.slide < 0)
+      ? 'Vider le panneau' : 'Afficher la diapo ' + (el.slide + 1) + ' dans le panneau';
   }
   return '';
 }
@@ -668,6 +725,15 @@ function doAction(el) {
     case 'back': goBack(); break;
     case 'url': if (el.url) window.open(el.url, '_blank'); break;
     case 'video': openLightbox(el.video); break;
+    case 'panel': {
+      // on reste sur la diapo : seul le contenu du panneau change.
+      // Sans panneau nommé explicitement, on vise celui de la diapo.
+      var ps = panelsHere();
+      var target = el.panelName || (ps[0] ? panelKey(ps[0]) : 'Panneau');
+      panelState[target] = (el.slide == null || el.slide < 0) ? null : el.slide;
+      renderElements();
+      break;
+    }
   }
 }
 
@@ -817,6 +883,7 @@ function defaultSize(type) {
   return type === 'text' ? { w: 40, h: 10 }
     : type === 'zone' ? { w: 22, h: 9 }
     : type === 'video' ? { w: 50, h: 45 }
+    : type === 'panel' ? { w: 56, h: 50 }
     : { w: 30, h: 22 };
 }
 function newElement(type, x, y) {
@@ -829,6 +896,13 @@ function newElement(type, x, y) {
                           align: 'left', shadow: true, action: 'none' });
   if (type === 'shape')
     return assign(base, { shape: 'rect', color: '#5b8cff', opacity: 0.85, radius: 10, action: 'none' });
+  if (type === 'panel') {
+    var n = 1, taken = {};
+    panelsHere().forEach(function (p) { taken[panelKey(p)] = 1; });
+    while (taken['Panneau ' + n]) n++;
+    return assign(base, { name: 'Panneau ' + n, radius: 10, shadow: true,
+                          bg: 'rgba(10,12,17,.92)', bgHex: '#0a0c11' });
+  }
   return base;
 }
 function addElement(el, msg) {
@@ -914,15 +988,30 @@ function opt(v, label, curv) {
     '>' + esc(label) + '</option>';
 }
 function actionFields(el) {
+  var panels = panelsHere();
   var h = '<label>Au clic<select id="pAct">' +
     opt('none', 'Rien', el.action || 'none') +
     opt('goto', 'Aller à une diapo', el.action) +
+    (panels.length ? opt('panel', 'Afficher une diapo dans le panneau', el.action) : '') +
     opt('next', 'Diapo suivante', el.action) +
     opt('prev', 'Diapo précédente', el.action) +
     opt('back', 'Retour (diapo précédemment vue)', el.action) +
     opt('url', 'Ouvrir un lien', el.action) +
     opt('video', 'Lire une vidéo en grand', el.action) +
     '</select></label>';
+  if (el.action === 'panel') {
+    if (panels.length > 1) {
+      h += '<label>Quel panneau<select id="pPanel">';
+      panels.forEach(function (p) { h += opt(panelKey(p), panelKey(p), el.panelName); });
+      h += '</select></label>';
+    }
+    h += '<label>Contenu à afficher<select id="pTgt">' +
+      opt(-1, '— vider le panneau —', el.slide);
+    SLIDES.forEach(function (t, i) {
+      h += opt(i, 'Diapo ' + (i + 1) + (t.hidden ? ' (cachée)' : ''), el.slide);
+    });
+    h += '</select></label>';
+  }
   if (el.action === 'goto') {
     h += '<label>Diapo cible<select id="pTgt">';
     SLIDES.forEach(function (t, i) {
@@ -966,13 +1055,17 @@ function renderProps() {
       '• une image peut aussi être <b>déposée</b> directement sur la diapo' +
       '<br><br>' +
       'N’importe quel élément peut devenir cliquable : une image ou un texte font ' +
-      'de très bons boutons.</p>';
+      'de très bons boutons.<br><br>' +
+      '<b>🗔 Panneau</b> : une fenêtre qui affiche une AUTRE diapo à l’intérieur ' +
+      'de celle-ci. Idéal pour un écran de sélection : les boutons restent à ' +
+      'l’écran, seul le contenu du panneau change.</p>';
     props.innerHTML = h;
     bindSlideFields(s);
     return;
   }
 
-  var names = { zone: 'Zone cliquable', image: 'Image', text: 'Texte', shape: 'Forme', video: 'Vidéo' };
+  var names = { zone: 'Zone cliquable', image: 'Image', text: 'Texte', shape: 'Forme',
+                video: 'Vidéo', panel: 'Panneau' };
   h += '<hr><h3>' + names[el.type] + '</h3>';
 
   if (el.type === 'zone') {
@@ -1024,6 +1117,23 @@ function renderProps() {
       '<label>Coins arrondis <span class="muted">' + (el.radius || 0) + ' px</span>' +
       '<input type="range" id="pRadius" min="0" max="80" value="' + (el.radius || 0) + '"></label>' +
       actionFields(el);
+  } else if (el.type === 'panel') {
+    h += '<p class="muted">Une fenêtre qui affiche une autre diapo à l’intérieur ' +
+      'de celle-ci. Les boutons de la diapo restent visibles et changent le ' +
+      'contenu du panneau, sans changer de page.</p>' +
+      '<label>Nom du panneau<input type="text" id="pName" value="' + escA(panelKey(el)) + '"></label>' +
+      '<label>Contenu au départ<select id="pDefault">' +
+      opt(-1, '— vide —', typeof el.slide === 'number' ? el.slide : -1);
+    SLIDES.forEach(function (t, i) {
+      h += opt(i, 'Diapo ' + (i + 1) + (t.hidden ? ' (cachée)' : ''),
+               typeof el.slide === 'number' ? el.slide : -1);
+    });
+    h += '</select></label>' +
+      '<label>Coins arrondis <span class="muted">' + (el.radius == null ? 10 : el.radius) + ' px</span>' +
+      '<input type="range" id="pRadius" min="0" max="60" value="' + (el.radius == null ? 10 : el.radius) + '"></label>' +
+      '<label>Fond<input type="color" id="pBgPanel" value="' + (el.bgHex || '#0a0c11') + '"></label>' +
+      '<label class="ck"><input type="checkbox" id="pShadow"' + (el.shadow !== false ? ' checked' : '') +
+      '><span>Ombre portée</span></label>';
   } else if (el.type === 'video') {
     if (el.url) h += '<p class="muted">YouTube :<br>' + esc(el.url) + '</p>';
     else h += '<label class="ck"><input type="checkbox" id="pCtl"' + (el.controls !== false ? ' checked' : '') +
@@ -1104,8 +1214,32 @@ function bindElementFields(el) {
     el.action = e.target.value;
     if (el.action === 'goto' && typeof el.slide !== 'number') el.slide = Math.min(cur + 1, SLIDES.length - 1);
     if (el.action === 'video' && !el.video) el.video = { url: '' };
+    if (el.action === 'panel' && !el.panelName) {
+      var ps = panelsHere();
+      if (ps[0]) el.panelName = panelKey(ps[0]);   // le panneau de la diapo
+    }
   }, true);
-  set('pTgt', 'change', function (e) { el.slide = parseInt(e.target.value, 10) || 0; });
+  set('pTgt', 'change', function (e) {
+    var v = parseInt(e.target.value, 10);
+    el.slide = isNaN(v) ? 0 : v;                    // -1 = vider le panneau
+  });
+  set('pPanel', 'change', function (e) { el.panelName = e.target.value; });
+  set('pDefault', 'change', function (e) {
+    var v = parseInt(e.target.value, 10);
+    if (isNaN(v) || v < 0) delete el.slide; else el.slide = v;
+    panelState = {};
+  });
+  typed('pName', function (e) {
+    var old = panelKey(el);
+    el.name = e.target.value;
+    els().forEach(function (o) {                    // suivre le renommage
+      if (o.action === 'panel' && (o.panelName || 'Panneau') === old) o.panelName = el.name;
+    });
+  });
+  live('pBgPanel', function (e) {
+    el.bgHex = e.target.value;
+    el.bg = e.target.value;
+  });
   typed('pUrl', function (e) { el.url = e.target.value.trim(); });
   set('pVSrc', 'change', function (e) {
     el.video = e.target.value === 'yt' ? { url: '' } : { media: e.target.value };
@@ -1295,7 +1429,7 @@ window.addEventListener('beforeunload', function (e) {
 /* ============================ mode édition ============================ */
 function setDraw(kind) {
   drawMode = kind || false;
-  [['tZone', 'zone'], ['tText', 'text'], ['tShape', 'shape']].forEach(function (p) {
+  [['tZone', 'zone'], ['tText', 'text'], ['tShape', 'shape'], ['tPanel', 'panel']].forEach(function (p) {
     var b = $(p[0]);
     if (b) b.classList.toggle('active', drawMode === p[1]);
   });
@@ -1328,6 +1462,7 @@ titleEl.addEventListener('dblclick', function () {
 $('tZone').addEventListener('click', function () { setDraw(drawMode === 'zone' ? false : 'zone'); });
 $('tText').addEventListener('click', function () { setDraw(drawMode === 'text' ? false : 'text'); });
 $('tShape').addEventListener('click', function () { setDraw(drawMode === 'shape' ? false : 'shape'); });
+$('tPanel').addEventListener('click', function () { setDraw(drawMode === 'panel' ? false : 'panel'); });
 $('tImage').addEventListener('click', function (e) {
   e.stopPropagation();
   pickFile('image/*', addImageFile);

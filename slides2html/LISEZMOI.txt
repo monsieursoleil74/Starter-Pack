@@ -38,6 +38,9 @@ diapo (elle n'est jamais modifiee) et tu les places a la souris.
              Double-clic sur le texte pour le reecrire directement.
 - Forme    : rectangle ou ellipse, pour masquer, surligner, poser un
              fond derriere du texte.
+- Panneau  : une fenetre qui affiche UNE AUTRE DIAPO a l'interieur de
+             celle-ci. Les boutons de la page restent a l'ecran, seul le
+             contenu du panneau change : on ne quitte pas la page.
 - Video    : fichier local (lecture hors ligne) ou lien YouTube.
 - Oeil sur une vignette : cache la diapo. Elle sort du fil de lecture et
              n'est plus accessible QUE via un bouton qui pointe dessus.
@@ -60,6 +63,20 @@ Manipulations :
 Puis 💾 Enregistrer : le navigateur retelecharge le HTML a jour.
 Remplace l'ancien fichier par celui-ci, tes reglages sont dedans.
 🔒 Export final donne une copie sans mode edition, a diffuser.
+
+
+RECETTE : UN ECRAN DE SELECTION
+-------------------------------
+Cliquer sur un personnage et voir sa fiche s'afficher en dessous, sans
+quitter la page :
+1. Dans Slides : une page "selection" + une page par personnage.
+2. Dans l'editeur, cache les pages personnages (oeil sur la vignette).
+3. Sur la page selection, outil Panneau : dessine la fenetre la ou la
+   fiche doit apparaitre, et laisse "Contenu au depart" sur "vide".
+4. Pose une Zone sur chaque personnage, puis
+   Au clic -> Afficher une diapo dans le panneau -> sa fiche.
+La diapo affichee garde ses propres elements : sa fiche peut donc avoir
+ses propres boutons ou sa video.
 
 
 DEJA REPRIS DE TON SLIDES
