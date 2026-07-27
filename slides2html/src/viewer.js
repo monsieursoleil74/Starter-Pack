@@ -75,7 +75,8 @@ button.icon{background:var(--panel2);color:var(--fg);border:none;border-radius:8
 button.icon:hover{background:var(--panel3)}\
 button.icon.active{background:var(--accent);color:#fff}\
 button.icon:disabled{opacity:.35;cursor:default;background:var(--panel2)}\
-#tools{display:flex;gap:6px;align-items:center}\
+#tools{display:flex;gap:5px;align-items:center}\
+#tools .tool{padding:7px 10px;font-size:15px;line-height:1}\
 .sep{width:1px;height:22px;background:var(--line);margin:0 3px}\
 #main{flex:1;display:flex;min-height:0}\
 #stage{flex:1;display:flex;align-items:center;justify-content:center;position:relative;padding:18px;min-width:0}\
@@ -207,6 +208,9 @@ body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);curs
 #props button.wide{width:100%;background:var(--panel2);color:var(--fg);border:none;border-radius:7px;padding:8px;cursor:pointer;font-size:13px;margin-top:10px}\
 #props button.wide:hover{background:var(--panel3)}\
 #props button.danger{margin-top:8px;background:#3a2326;color:#ff8a8a;border:none;border-radius:7px;padding:8px 12px;cursor:pointer;width:100%;font-size:13px}\
+.aud{background:var(--panel2);border-left:3px solid var(--warn);border-radius:6px;padding:8px 10px;margin-bottom:6px;cursor:pointer;font-size:12.5px;line-height:1.5}\
+.aud:hover{background:var(--panel3)}\
+.aud.bad{border-left-color:#e0524a}\
 #props button.danger:hover{background:#54282d}\
 \
 #thumbs{width:164px;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}\
@@ -232,6 +236,11 @@ body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);curs
 #menu{position:fixed;z-index:40;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:2px;box-shadow:0 8px 30px rgba(0,0,0,.5);min-width:250px}\
 #menu button{background:none;border:none;color:var(--fg);padding:8px 12px;text-align:left;border-radius:6px;cursor:pointer;font-size:13px}\
 #menu button:hover{background:var(--panel)}\
+#floatbar{position:fixed;z-index:22;display:flex;gap:2px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:4px;box-shadow:0 6px 22px rgba(0,0,0,.5)}\
+#floatbar button{background:none;border:none;color:var(--fg);width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:14px;line-height:1}\
+#floatbar button:hover{background:var(--panel)}\
+#floatbar button.del:hover{background:#3a2326;color:#ff8a8a}\
+#floatbar .fsep{width:1px;height:18px;background:var(--line);margin:0 2px}\
 @media (max-width:760px){#thumbs{display:none}.navzone span{display:none}}";
 document.head.appendChild(style);
 
@@ -242,20 +251,21 @@ document.body.insertAdjacentHTML('beforeend',
 '<h1 id="title"></h1>' +
 '<span id="counter"></span>' +
 '<span id="tools" class="hidden">' +
-'<button class="icon" id="tZone" title="Zone cliquable — dessine-la sur la diapo">➕ Zone</button>' +
-'<button class="icon" id="tImage" title="Ajouter une image par-dessus la diapo">🖼 Image</button>' +
-'<button class="icon" id="tText" title="Ajouter du texte">T Texte</button>' +
-'<button class="icon" id="tShape" title="Ajouter une forme (cadre, pastille, masque)">▭ Forme</button>' +
-'<button class="icon" id="tPanel" title="Panneau : affiche une autre diapo à l\u2019intérieur de celle-ci">🗔 Panneau</button>' +
-'<button class="icon" id="tVideo" title="Ajouter une vidéo">🎬 Vidéo</button>' +
-'<button class="icon hidden" id="tObjects" title="Montrer les formes venues du .pptx : un clic en fait un bouton">⌖ Objets</button>' +
-'<button class="icon" id="tPreview" title="Rejouer les apparitions de cette page">▶</button>' +
+'<button class="icon tool" id="tZone" title="Zone cliquable — dessine-la sur la diapo">➕</button>' +
+'<button class="icon tool" id="tImage" title="Image">🖼</button>' +
+'<button class="icon tool" id="tText" title="Texte">T</button>' +
+'<button class="icon tool" id="tShape" title="Forme (cadre, pastille, masque)">▭</button>' +
+'<button class="icon tool" id="tPanel" title="Panneau : affiche une autre page à l\u2019intérieur de celle-ci">🗔</button>' +
+'<button class="icon tool" id="tVideo" title="Vidéo">🎬</button>' +
+'<button class="icon tool hidden" id="tObjects" title="Formes venues du .pptx : un clic en fait un bouton">⌖</button>' +
 '<span class="sep"></span>' +
-'<button class="icon" id="tUndo" title="Annuler (Ctrl+Z)">↶</button>' +
-'<button class="icon" id="tRedo" title="Rétablir (Ctrl+Y)">↷</button>' +
+'<button class="icon tool" id="tPreview" title="Rejouer les apparitions de cette page">▶</button>' +
+'<button class="icon tool" id="tUndo" title="Annuler (Ctrl+Z)">↶</button>' +
+'<button class="icon tool" id="tRedo" title="Rétablir (Ctrl+Y)">↷</button>' +
 '<span class="sep"></span>' +
-'<button class="icon" id="tSave" title="Télécharger ce fichier mis à jour (Ctrl+S)">💾 Enregistrer</button>' +
-'<button class="icon" id="tLock" title="Copie verrouillée, sans mode édition">🔒</button>' +
+'<button class="icon" id="tAudit" title="Vérifier avant diffusion">✓ Vérifier</button>' +
+'<button class="icon" id="tSave" title="Télécharger ce fichier mis à jour (Ctrl+S)">💾</button>' +
+'<button class="icon tool" id="tLock" title="Copie verrouillée, sans mode édition">🔒</button>' +
 '</span>' +
 (META.locked ? '' : '<button class="icon" id="btnEdit" title="Mode édition (E)">✏️</button>') +
 '<button class="icon hidden" id="btnNotes" title="N">🗒 ' + T.notes + '</button>' +
@@ -280,6 +290,13 @@ document.body.insertAdjacentHTML('beforeend',
 '<div id="lightbox" class="hidden"><div id="lb"></div></div>' +
 '<button id="lbClose" class="hidden">✕</button>' +
 '<div id="menu" class="hidden"></div>' +
+'<div id="floatbar" class="hidden">' +
+'<button data-fb="dup" title="Dupliquer (Ctrl+D)">⧉</button>' +
+'<button data-fb="front" title="Mettre devant">⬆</button>' +
+'<button data-fb="back" title="Mettre derrière">⬇</button>' +
+'<span class="fsep"></span>' +
+'<button data-fb="del" title="Supprimer (Suppr)" class="del">🗑</button>' +
+'</div>' +
 '<input type="file" id="filePick" class="hidden">' +
 '<button id="fsFloat" class="hidden" title="Plein écran (F)">⛶</button>' +
 '<div id="toast"></div>' +
@@ -291,7 +308,7 @@ var wrap = $('wrap'), slideEl = $('slide'), counter = $('counter'), thumbs = $('
 var cur = 0, editMode = false, drawMode = false, dirty = false,
     sel = null, drag = null, hist = [], thumbItems = [], clip = null,
     undoStack = [], redoStack = [], panelState = {}, scalables = [], showObjects = false,
-    previewing = false, galleryTimers = [];
+    previewing = false, galleryTimers = [], auditMode = false, advOpen = false;
 titleEl.textContent = META.title;
 hidBadge.textContent = T.hidden;
 backBtn.textContent = T.back;
@@ -449,6 +466,7 @@ function renderElements() {
   allEls().forEach(function (el, i) { wrap.appendChild(buildEl(el, i, 0, wrap)); });
   renderCandidates();
   scaleText();
+  placeFloatbar();
 }
 
 /* Formes repérées dans le .pptx : elles ne font rien tant qu'on n'a pas
@@ -771,6 +789,29 @@ function editText(d, el) {
 function select(i) { sel = i; renderElements(); renderProps(); }
 function deselect() { sel = null; renderElements(); renderProps(); }
 
+/* Petite barre au-dessus de l'élément sélectionné : les gestes les plus
+   fréquents sous la main, sans traverser l'écran jusqu'au panneau. */
+function placeFloatbar() {
+  var fb = $('floatbar');
+  var node = sel == null ? null : nodes()[sel];
+  if (!editMode || !node || drag) { fb.classList.add('hidden'); return; }
+  var r = node.getBoundingClientRect();
+  fb.classList.remove('hidden');
+  var w = fb.offsetWidth || 150;
+  var top = r.top - fb.offsetHeight - 8;
+  if (top < 60) top = r.bottom + 8;
+  fb.style.top = Math.round(top) + 'px';
+  fb.style.left = Math.round(clamp(r.left + r.width / 2 - w / 2, 8, window.innerWidth - w - 8)) + 'px';
+}
+$('floatbar').addEventListener('click', function (e) {
+  var b = e.target.closest('button');
+  if (!b || sel == null) return;
+  var what = b.dataset.fb;
+  if (what === 'dup') duplicate();
+  else if (what === 'del') deleteSel();
+  else { pushUndo(); moveSel(what); }
+});
+
 /* aimantation : bords et centre de la diapo, bords des autres éléments */
 function showGuide(kind, pos) {
   var g = document.createElement('div');
@@ -840,6 +881,7 @@ wrap.addEventListener('pointermove', function (e) {
   }
   var node = nodes()[drag.i];
   if (node) setRect(node, o);
+  $('floatbar').classList.add('hidden');
   scaleText();
 });
 
@@ -1136,6 +1178,7 @@ function bindViewFields() {
 function renderProps() {
   if (!editMode) { props.classList.add('hidden'); return; }
   props.classList.remove('hidden');
+  if (auditMode) { renderAudit(); return; }
   var s = SLIDES[cur], el = selEl();
   var h = '<h3>Diapo ' + (cur + 1) + ' / ' + SLIDES.length + '</h3>' +
     '<label class="ck"><input type="checkbox" id="pHid"' + (s.hidden ? ' checked' : '') +
@@ -1273,7 +1316,8 @@ function renderProps() {
       '><span>En boucle</span></label>';
   }
 
-  h += '<hr><h3>Mouvement</h3>' +
+  h += '<hr><button class="wide" id="advTgl">' + (advOpen ? '▾' : '▸') +
+    ' Mouvement et survol</button><div id="advBox"' + (advOpen ? '' : ' class="hidden"') + '>' +
     '<label>Apparition<select id="pAnim">' +
     opt('none', 'Aucune', el.anim || 'none') +
     opt('fade', 'Fondu', el.anim) +
@@ -1298,16 +1342,15 @@ function renderProps() {
     h += '<p class="muted">Une zone invisible n’a rien à soulever ni à grossir : ' +
       'préfère <b>Éclaircit</b> ou <b>Assombrit</b>, qui agissent sur le bouton ' +
       'dessiné en dessous.</p>';
+  h += '</div>';
 
   if (el.type !== 'video')
     h += '<label>Opacité <span class="muted">' + Math.round((el.opacity == null ? 1 : el.opacity) * 100) + ' %</span>' +
       '<input type="range" id="pOpacity" min="10" max="100" value="' +
       Math.round((el.opacity == null ? 1 : el.opacity) * 100) + '"></label>';
 
-  h += '<div class="pbtns"><button id="pFront" title="Premier plan">⬆ Devant</button>' +
-    '<button id="pBack" title="Arrière-plan">⬇ Derrière</button>' +
-    '<button id="pDup" title="Ctrl+D">⧉ Dupliquer</button></div>' +
-    '<button class="danger" id="pDel">🗑 Supprimer</button>';
+  h += '<p class="muted" style="margin-top:12px">Dupliquer, empiler et supprimer ' +
+    'sont dans la petite barre au-dessus de l’élément.</p>';
 
   props.innerHTML = h;
   bindSlideFields(s);
@@ -1451,6 +1494,7 @@ function bindElementFields(el) {
   set('pAuto', 'change', function (e) { el.autoplay = e.target.checked; if (el.autoplay) el.muted = true; });
   set('pLoop', 'change', function (e) { el.loop = e.target.checked; });
 
+  on('advTgl', 'click', function () { advOpen = !advOpen; renderProps(); });
   on('pMaster', 'change', function (e) {
     pushUndo();
     var o = ownerOf(sel);
@@ -1473,10 +1517,7 @@ function bindElementFields(el) {
       readAsMedia(f, function (id) { pushUndo(); el.media = id; renderElements(); });
     });
   });
-  on('pFront', 'click', function () { pushUndo(); moveSel('front'); });
-  on('pBack', 'click', function () { pushUndo(); moveSel('back'); });
-  on('pDup', 'click', duplicate);
-  on('pDel', 'click', deleteSel);
+
 }
 
 /* rejoue les apparitions sans quitter l'édition */
@@ -1527,6 +1568,126 @@ function gcMedia() {
     });
   });
   Object.keys(ASSETS.media).forEach(function (id) { if (!used[id]) delete ASSETS.media[id]; });
+}
+
+/* ==================== vérification avant diffusion ====================
+   Repère ce qui piégerait le lecteur : page sans issue, renvoi vers une
+   page disparue, bouton sans destination, page cachée que rien n'atteint. */
+function navigates(a) {
+  return a === 'goto' || a === 'next' || a === 'prev' || a === 'back';
+}
+function auditDeck() {
+  var n = SLIDES.length, probs = [];
+  var okSlide = function (v) { return typeof v === 'number' && v >= 0 && v < n; };
+  var reached = {}, panelFed = {}, masterExit = false;
+  var add = function (grave, page, idx, txt) {
+    probs.push({ grave: grave, page: page, idx: idx, txt: txt });
+  };
+
+  var scan = function (el, page, idx) {
+    var où = page < 0 ? 'Élément commun' : 'Page ' + (page + 1);
+    switch (el.action) {
+      case 'goto': case 'overlay':
+        if (el.slide === -2) break;
+        if (!okSlide(el.slide)) add(1, page, idx, où + ' : renvoi vers une page qui n’existe pas');
+        else reached[el.slide] = 1;
+        break;
+      case 'panel':
+        if (okSlide(el.slide)) reached[el.slide] = 1;
+        else if (el.slide !== -1) add(1, page, idx, où + ' : renvoi vers une page qui n’existe pas');
+        panelFed[el.panelName || '*'] = 1;
+        break;
+      case 'url':
+        if (!el.url) add(1, page, idx, où + ' : bouton « ouvrir un lien » sans adresse');
+        break;
+      case 'copy':
+        if (!el.copyText) add(1, page, idx, où + ' : bouton « copier » sans texte');
+        break;
+      case 'video':
+        if (!el.video || (!el.video.url && !el.video.media))
+          add(1, page, idx, où + ' : bouton vidéo sans vidéo choisie');
+        break;
+    }
+    if (page < 0 && navigates(el.action)) masterExit = true;
+    if (el.media && !ASSETS.media[el.media])
+      add(1, page, idx, où + ' : média introuvable (image ou vidéo perdue)');
+    if (el.type === 'panel' && el.list) el.list.forEach(function (v) {
+      if (okSlide(v)) reached[v] = 1;
+      else add(1, page, idx, où + ' : la galerie renvoie à une page disparue');
+    });
+    if (el.x > 100 || el.y > 100 || el.x + el.w < 0 || el.y + el.h < 0)
+      add(0, page, idx, où + ' : élément entièrement hors du cadre');
+  };
+
+  SLIDES.forEach(function (sl, i) { sl.elements.forEach(function (el, j) { scan(el, i, j); }); });
+  META.master.forEach(function (el, j) { scan(el, -1, j); });
+  (META.nav || []).forEach(function (it) {
+    if (okSlide(it.slide)) reached[it.slide] = 1;
+    else add(1, null, null, 'Sommaire : l’entrée « ' + (it.label || '?') + ' » vise une page disparue');
+  });
+
+  // pages cachées que rien n'atteint
+  SLIDES.forEach(function (sl, i) {
+    if (sl.hidden && !reached[i])
+      add(1, i, null, 'Page ' + (i + 1) + ' cachée, et aucun bouton n’y mène : elle est inatteignable');
+  });
+  // panneaux qui resteront vides
+  SLIDES.forEach(function (sl, i) {
+    sl.elements.forEach(function (el, j) {
+      if (el.type !== 'panel') return;
+      var vide = typeof el.slide !== 'number' && !(el.list && el.list.length);
+      if (vide && !panelFed[el.name || '*'] && !panelFed['*'])
+        add(0, i, j, 'Page ' + (i + 1) + ' : panneau « ' + panelKey(el) + ' » vide, qu’aucun bouton ne remplit');
+    });
+  });
+  // sans navigation libre, chaque page visible doit offrir une sortie
+  if (!META.view.arrows && !(META.nav || []).length && !masterExit) {
+    SLIDES.forEach(function (sl, i) {
+      if (sl.hidden) return;
+      var sortie = sl.elements.some(function (el) { return navigates(el.action); });
+      if (!sortie)
+        add(1, i, null, 'Page ' + (i + 1) + ' : mode immersif et aucun bouton pour en sortir — ' +
+            'le lecteur est bloqué');
+    });
+  }
+  return probs;
+}
+
+function renderAudit() {
+  var probs = auditDeck();
+  var graves = probs.filter(function (p) { return p.grave; }).length;
+  var h = '<h3>Vérification</h3>';
+  if (!probs.length)
+    h += '<p class="muted">Rien à signaler : aucun renvoi cassé, aucune page ' +
+      'inatteignable, aucun bouton sans destination. Tu peux diffuser.</p>';
+  else {
+    h += '<p class="muted">' + graves + ' problème(s) à corriger' +
+      (probs.length - graves ? ' et ' + (probs.length - graves) + ' point(s) à vérifier' : '') +
+      '. Clique une ligne pour y aller.</p><div id="auditList">';
+    probs.forEach(function (p, i) {
+      h += '<div class="aud' + (p.grave ? ' bad' : '') + '" data-aud="' + i + '">' + esc(p.txt) + '</div>';
+    });
+    h += '</div>';
+  }
+  h += '<button class="wide" id="aClose">Fermer la vérification</button>';
+  props.innerHTML = h;
+  props.querySelectorAll('[data-aud]').forEach(function (n2) {
+    n2.addEventListener('click', function () {
+      var p = probs[+n2.dataset.aud];
+      if (p.page == null) return;
+      auditMode = false;
+      $('tAudit').classList.remove('active');
+      if (p.page < 0) { sel = els().length + p.idx; refresh(); }
+      else { go(p.page, { noHist: true }); if (p.idx != null) sel = p.idx; }
+      renderElements();
+      renderProps();
+    });
+  });
+  $('aClose').addEventListener('click', function () {
+    auditMode = false;
+    $('tAudit').classList.remove('active');
+    renderProps();
+  });
 }
 
 /* ============================ vignettes ============================ */
@@ -1745,6 +1906,7 @@ function setEdit(onOff) {
   sel = null;
   setDraw(false);
   document.body.classList.toggle('editing', onOff);
+  if (!onOff) { auditMode = false; $('floatbar').classList.add('hidden'); }
   $('tools').classList.toggle('hidden', !onOff);
   var be = $('btnEdit');
   if (be) be.classList.toggle('active', onOff);
@@ -1790,6 +1952,11 @@ $('tVideo').addEventListener('click', function (e) {
   ]);
 });
 $('tPreview').addEventListener('click', previewOnce);
+$('tAudit').addEventListener('click', function () {
+  auditMode = !auditMode;
+  $('tAudit').classList.toggle('active', auditMode);
+  renderProps();
+});
 $('tUndo').addEventListener('click', undo);
 $('tRedo').addEventListener('click', redo);
 $('tSave').addEventListener('click', save);
@@ -1917,7 +2084,7 @@ function fitFrame() {
     wrap.style.aspectRatio = slideEl.naturalWidth + ' / ' + slideEl.naturalHeight;
   scaleText();
 }
-window.addEventListener('resize', scaleText);
+window.addEventListener('resize', function () { scaleText(); placeFloatbar(); });
 slideEl.addEventListener('load', fitFrame);
 window.addEventListener('hashchange', function () {
   var h = parseInt(location.hash.slice(1), 10) - 1;

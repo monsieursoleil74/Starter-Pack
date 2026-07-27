@@ -185,6 +185,24 @@ Deux limites : une forme dont la position vient du **modèle de diapo** (un
 placeholder de titre non déplacé) n'est pas détectée, et un **groupe** est
 proposé d'un bloc, pas élément par élément.
 
+### ✓ Vérifier avant de diffuser
+
+Le bouton **✓ Vérifier** de la barre d'outils passe le pack en revue et liste
+ce qui piégerait le lecteur. Clique une ligne pour aller directement au
+problème :
+
+- une **page sans issue** en mode immersif (plus de flèches, et aucun bouton
+  pour en sortir) — le lecteur y resterait bloqué ;
+- un **renvoi vers une page qui n'existe plus** (bouton, galerie ou sommaire) ;
+- une **page cachée que rien n'atteint**, donc invisible pour toujours ;
+- un **bouton sans destination** : lien vide, texte à copier vide, vidéo non
+  choisie ;
+- un **panneau qui restera vide**, qu'aucun bouton ne remplit ;
+- un **média perdu** ou un élément **hors du cadre**.
+
+Un élément commun qui navigue (bouton d'accueil sur toutes les pages) ou un
+sommaire suffisent à donner une issue partout : la vérification en tient compte.
+
 ### Manipulations
 
 | | |
@@ -194,7 +212,7 @@ proposé d'un bloc, pas élément par élément.
 | Ajuster finement | flèches du clavier (`Maj` = pas plus grand) |
 | Annuler / rétablir | `Ctrl+Z` / `Ctrl+Y` |
 | Dupliquer, copier, coller | `Ctrl+D`, `Ctrl+C`, `Ctrl+V` |
-| Empiler | boutons *Devant* / *Derrière* |
+| Dupliquer, empiler, supprimer | la petite barre qui apparaît au-dessus de l'élément sélectionné |
 | Supprimer | `Suppr` |
 | Enregistrer | `Ctrl+S` |
 

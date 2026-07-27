@@ -116,6 +116,19 @@ Action "Copier un texte" : le lecteur clique, le texte part dans son
 presse-papiers. Parfait pour un chemin reseau a coller ailleurs.
 
 
+VERIFIER AVANT DE DIFFUSER
+--------------------------
+Le bouton "Verifier" passe le pack en revue et liste ce qui piegerait le
+lecteur ; clique une ligne pour aller au probleme :
+- page sans issue en mode immersif (le lecteur y resterait bloque)
+- renvoi vers une page qui n'existe plus
+- page cachee que rien n'atteint
+- bouton sans destination (lien vide, texte a copier vide, video non
+  choisie)
+- panneau qui restera vide
+- media perdu, element hors du cadre
+
+
 MODE IMMERSIF (experience de lecture)
 -------------------------------------
 Par defaut la page se lit comme un diaporama : fleches, compteur, barre

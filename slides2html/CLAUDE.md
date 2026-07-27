@@ -118,6 +118,18 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   (aucun fantôme, contrairement à un déplacement). `el.radius` sur la zone
   permet d'épouser la forme du bouton sous-jacent, sinon les angles réagissent
   hors de lui.
+- **Audit** (`auditDeck()`) : ne signale que ce qui piège le lecteur — page
+  sans issue en mode immersif, renvoi hors bornes, page cachée non atteinte,
+  bouton sans destination, panneau jamais alimenté, média perdu, élément hors
+  cadre. Un élément commun qui navigue, ou un sommaire, valent issue pour
+  toutes les pages : ne pas signaler dans ce cas, sinon l'alerte devient du
+  bruit et on cesse de la lire.
+- **Interface** : barre du haut en icônes seules (classe `.tool`), gestes
+  fréquents (dupliquer / empiler / supprimer) dans `#floatbar`, une barre
+  flottante posée au-dessus de la sélection et masquée pendant un glissement.
+  La section « Mouvement » du panneau est repliée par défaut (`advOpen`).
+  Le panneau ne doit pas redevenir un mur de champs : tout nouveau réglage
+  peu fréquent va dans le repli.
 - **Gabarit** : `meta.master` = éléments présents sur toutes les pages, rendus
   APRÈS ceux de la page donc au-dessus. `allEls()` = page + master, et c'est
   cet index concaténé qui sert à la sélection et au rendu (`sel`, `drag.i`,
