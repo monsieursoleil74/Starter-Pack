@@ -5,7 +5,7 @@
 (function () {
 'use strict';
 
-var APP_VERSION = '3.0.0';
+var APP_VERSION = '4.0.0';
 var $ = function (id) { return document.getElementById(id); };
 
 /* pdf.js a besoin d'un worker : on le sert depuis un blob, aucun fichier
@@ -115,6 +115,7 @@ async function pageZones(pdf, page, vp) {
       } catch (e) { /* destination illisible : on ignore ce lien */ }
     }
     if (!act) continue;
+    act.type = 'zone';
     act.x = r2(x); act.y = r2(y); act.w = r2(w); act.h = r2(h);
     act.look = 'hover';
     out.push(act);
@@ -234,7 +235,7 @@ function buildHtml(title, images, zones, notes) {
   var cfg = {
     meta: { title: title, lang: 'fr', embed: true, locked: false, app: APP_VERSION },
     slides: images.map(function (_, i) {
-      return { img: i, notes: notes[i] || '', hidden: false, zones: zones[i] || [], videos: [] };
+      return { img: i, notes: notes[i] || '', hidden: false, elements: zones[i] || [] };
     })
   };
   var assets = { images: images, media: {} };

@@ -16,8 +16,9 @@ vers la dernière version.
 1. Dans Google Slides : `Fichier → Télécharger → Document PDF (.pdf)`
 2. Double-clic sur `Convertisseur.html`, dépose le PDF dedans → le HTML se
    télécharge
-3. Ouvre ce HTML et appuie sur `E` : dessine des boutons, cache des diapos,
-   ajoute des vidéos, puis 💾 Enregistrer
+3. Ouvre ce HTML et appuie sur `E` : ajoute des boutons, des images, du texte,
+   des formes et des vidéos par-dessus tes diapos, cache celles qui ne doivent
+   être accessibles que par un bouton, puis 💾 Enregistrer
 
 Tout se passe dans le navigateur : aucun fichier n'est envoyé en ligne.
 

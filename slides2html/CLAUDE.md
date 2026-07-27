@@ -56,10 +56,21 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   (viewer.js). `serialize()` dans viewer.js régénère le fichier à partir de
   ces trois-là : viewer.js construit donc tout son DOM par
   `insertAdjacentHTML('beforeend')` et **ne doit jamais écraser le body**.
-- Modèle de données : `SLIDES[i] = {img, notes, hidden, zones[], videos[]}` ;
-  `img` est un **index** dans `ASSETS.images`. Zone =
-  `{x,y,w,h, action, look, label?, color?, slide?|url?|video?}`, coordonnées
-  en % de la diapo. `look` ∈ hover | outline | button.
+- Modèle de données : `SLIDES[i] = {img, notes, hidden, elements[]}` ; `img`
+  est un **index** dans `ASSETS.images`. Un élément =
+  `{type, x, y, w, h, opacity?, action?, …}`, coordonnées en % de la diapo,
+  `type` ∈ zone | image | text | shape | video. L'ordre du tableau EST l'ordre
+  d'empilement. `action` est optionnel sur **tous** les types (pas seulement
+  `zone`) : c'est ce qui permet de rendre une image ou un texte cliquable.
+  Les fichiers produits avant la v4 (`zones[]` + `videos[]`) sont convertis au
+  chargement par la migration en tête de viewer.js — ne pas la retirer.
+- Les textes ont une **hauteur automatique** : `scaleText()` mesure le contenu
+  et réécrit `el.h`. Le redimensionnement d'un texte ne touche donc que sa
+  largeur. Taille de police et boutons sont exprimés en % de la hauteur de la
+  diapo, pour être indépendants de la taille de la fenêtre.
+- L'historique (`undoStack`) stocke des instantanés JSON de `SLIDES`. Les
+  médias ajoutés ne sont pas annulés : `gcMedia()` purge les orphelins à
+  l'enregistrement.
 - `hidden` retire la diapo du fil (`linNext`/`linPrev`, compteur
   `visPos`/`visCount`) ; la pile `hist` alimente l'action `back` et le bouton
   ↩ Retour automatique.
@@ -76,14 +87,22 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
 
 ## Tests
 Pas de suite au dépôt (elle demanderait Playwright + Chromium). Scénario
-vérifié manuellement à chaque changement, sur Chromium en `file://` :
-convertisseur ouvert sans serveur → dépôt PDF + pptx → liens internes et
-YouTube convertis → notes récupérées → HTML téléchargé → diapo cachée +
-bouton dessiné → 💾 → relecture de la copie (diapo hors du fil, bouton qui y
-mène, retour qui ramène) → export verrouillé → zéro erreur JS.
+vérifié manuellement à chaque changement, sur Chromium en `file://`, en deux
+scénarios :
+1. convertisseur ouvert sans serveur → dépôt PDF + pptx → liens internes et
+   YouTube convertis → notes récupérées → HTML téléchargé → diapo cachée +
+   bouton dessiné → 💾 → relecture de la copie (diapo hors du fil, bouton qui
+   y mène, retour qui ramène) → export verrouillé ;
+2. éditeur : image importée (centrée, ratio conservé, embarquée en base64),
+   texte (rendu + taille), forme (ellipse), duplication, ordre d'empilement,
+   Ctrl+Z / Ctrl+Y, flèches, enregistrement puis relecture (éléments
+   conservés, image cliquable opérante, élément sans action non cliquable).
+Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
+balise `#cfg` du document garde la config d'ORIGINE, l'état vivant est dans
+la fermeture JS — vérifier via le DOM, ou après un enregistrement.
 
 ## Pistes suivantes
 - Reporter les réglages d'un HTML édité sur une reconversion du même deck
   (aujourd'hui la reconversion repart d'une page vierge)
-- Zones de texte / images ajoutées par-dessus une diapo
-- Sommaire auto généré à partir des titres
+- Sommaire auto généré à partir des titres de diapos
+- Sélection multiple et alignement de plusieurs éléments d'un coup

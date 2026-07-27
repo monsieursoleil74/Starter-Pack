@@ -26,17 +26,36 @@ UTILISATION
 
 LE RENDRE INTERACTIF : touche E dans le HTML obtenu
 ---------------------------------------------------
-- + Zone      : dessine un bouton sur la diapo. Il peut aller a une diapo
-                precise, a la suivante/precedente, revenir en arriere,
-                ouvrir un lien, ou lancer une video en plein ecran.
-                Apparence au choix : invisible (halo au survol, pour
-                rendre cliquable un bouton deja dessine dans Slides),
-                contour visible, ou pastille coloree avec du texte.
+Un petit outil de mise en page : tu ajoutes des elements PAR-DESSUS la
+diapo (elle n'est jamais modifiee) et tu les places a la souris.
+
+- + Zone   : zone cliquable. Invisible (halo au survol, pour rendre
+             cliquable un bouton deja dessine dans Slides), contour
+             visible, ou pastille coloree avec texte et icone.
+- Image    : ajoute un logo, une capture, une photo. Tu peux aussi la
+             deposer directement sur la diapo, ou la coller (Ctrl+V).
+- Texte    : couleur, taille, graisse, alignement, ombre, fond colore.
+             Double-clic sur le texte pour le reecrire directement.
+- Forme    : rectangle ou ellipse, pour masquer, surligner, poser un
+             fond derriere du texte.
+- Video    : fichier local (lecture hors ligne) ou lien YouTube.
 - Oeil sur une vignette : cache la diapo. Elle sort du fil de lecture et
-                n'est plus accessible QUE via un bouton qui pointe dessus.
-                Un bouton "Retour" y apparait automatiquement.
-- Video       : incruste une video (fichier local ou lien YouTube).
-- Glisser pour deplacer, poignee orange pour redimensionner, Suppr efface.
+             n'est plus accessible QUE via un bouton qui pointe dessus.
+             Un bouton "Retour" y apparait automatiquement.
+
+N'IMPORTE QUEL element peut devenir cliquable, pas seulement les zones :
+le menu "Au clic" existe aussi sur une image, un texte ou une forme.
+Une image fait souvent un meilleur bouton qu'une pastille.
+
+Manipulations :
+  glisser              deplacer (aimantation ; Alt pour l'ignorer)
+  poignees orange      redimensionner
+  fleches              ajuster finement
+  Ctrl+Z / Ctrl+Y      annuler / retablir
+  Ctrl+D, Ctrl+C/V     dupliquer, copier, coller
+  Devant / Derriere    ordre d'empilement
+  Suppr                supprimer
+  Ctrl+S               enregistrer
 
 Puis 💾 Enregistrer : le navigateur retelecharge le HTML a jour.
 Remplace l'ancien fichier par celui-ci, tes reglages sont dedans.

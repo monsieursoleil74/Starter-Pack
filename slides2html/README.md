@@ -33,15 +33,38 @@ présentateur** — le PDF ne les contient pas.
 
 ## Le mode édition (touche `E` dans le HTML produit)
 
+C'est un petit outil de mise en page : tu ajoutes des éléments **par-dessus**
+la diapo et tu les places à la souris. La diapo d'origine n'est jamais modifiée.
+
 | Outil | Effet |
 |---|---|
-| **➕ Zone** | Dessine une zone cliquable à la souris. Action au choix : aller à une diapo précise, suivante / précédente, **retour** (revient d'où venait le visiteur), ouvrir un lien, ou lire une vidéo en plein écran. |
-| **Apparence** | *Invisible* (halo au survol — pour rendre cliquable un bouton que tu as déjà dessiné dans Slides), *Contour visible*, ou *Bouton* (pastille colorée avec son texte). |
+| **➕ Zone** | Zone cliquable dessinée à la souris. *Invisible* (halo au survol — pour rendre cliquable un bouton que tu as déjà dessiné dans Slides), *Contour visible*, ou *Bouton plein* (pastille colorée, texte + icône). |
+| **🖼 Image** | Ajoute une image par-dessus la diapo : logo, capture, photo. Cadrage, coins arrondis, ombre, opacité. Tu peux aussi la **déposer directement sur la diapo** ou la **coller** (`Ctrl+V`). |
+| **T Texte** | Bloc de texte : couleur, taille, graisse, alignement, ombre, fond coloré. Le cadre suit le texte automatiquement ; **double-clic** pour le réécrire sur la diapo. |
+| **▭ Forme** | Rectangle ou ellipse, couleur et opacité réglables : masquer une zone, surligner, poser un fond derrière du texte. |
+| **🎬 Vidéo** | Fichier local (embarqué, lecture hors ligne) ou lien YouTube. |
 | **👁 sur une vignette** | Cache la diapo : elle sort du fil de lecture (flèches, swipe, compteur) et n'est plus accessible **que** par un bouton qui pointe dessus. C'est ce qui casse le côté linéaire. |
-| **🎬 Vidéo** | Incruste une vidéo : fichier local (embarqué dans le HTML, lecture hors ligne) ou lien YouTube, positionné à la souris. |
-| **Déplacer / redimensionner** | Glisse la zone, poignée orange en bas à droite pour la taille, `Suppr` pour l'effacer. |
+
+**N'importe quel élément peut devenir cliquable** — pas seulement les zones.
+Le menu *Au clic* est disponible sur une image, un texte ou une forme : aller à
+une diapo précise, suivante / précédente, **retour** (revient d'où venait le
+visiteur), ouvrir un lien, ou lire une vidéo en plein écran. Une image fait
+souvent un meilleur bouton qu'une pastille.
 
 Sur une diapo cachée, un bouton **↩ Retour** apparaît tout seul.
+
+### Manipulations
+
+| | |
+|---|---|
+| Déplacer | glisser — ça s'aimante aux bords et au centre (`Alt` pour l'ignorer) |
+| Redimensionner | poignées orange (coin haut-gauche et bas-droit) |
+| Ajuster finement | flèches du clavier (`Maj` = pas plus grand) |
+| Annuler / rétablir | `Ctrl+Z` / `Ctrl+Y` |
+| Dupliquer, copier, coller | `Ctrl+D`, `Ctrl+C`, `Ctrl+V` |
+| Empiler | boutons *Devant* / *Derrière* |
+| Supprimer | `Suppr` |
+| Enregistrer | `Ctrl+S` |
 
 **💾 Enregistrer** retélécharge le HTML à jour : tu remplaces l'ancien fichier
 par celui-ci, tes réglages sont dedans. Il n'y a pas de fichier de projet à
