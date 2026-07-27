@@ -65,6 +65,32 @@ Remplace l'ancien fichier par celui-ci, tes reglages sont dedans.
 🔒 Export final donne une copie sans mode edition, a diffuser.
 
 
+DONNER VIE A LA PAGE
+--------------------
+- Transition entre les pages (panneau de droite, rien de selectionne) :
+  fondu, glissement, zoom, vers le haut -- au lieu de la coupe franche.
+- Sur un element, section "Mouvement" : Apparition (fondu, monte, vient
+  de la gauche...), Retard de 0 a 1,5 s pour les faire arriver l'un
+  apres l'autre, et effet Au survol (se souleve, grossit, s'illumine).
+- Le bouton ">" de la barre rejoue les apparitions sans quitter
+  l'edition.
+
+SOMMAIRE
+--------
+Panneau de droite (rien de selectionne) -> section Sommaire ->
+"Ajouter la diapo au sommaire". Une barre apparait en haut de la page
+produite, un bouton par partie, et la partie courante reste surlignee.
+C'est ce qui supprime les allers-retours.
+
+SELECTEURS : LE BOUTON ACTIF RESTE MARQUE
+Quand un bouton alimente un panneau, celui qui est affiche se marque
+tout seul. Une rangee de personnages se comporte comme des onglets.
+
+COPIER UN CHEMIN SERVEUR
+Action "Copier un texte" : le lecteur clique, le texte part dans son
+presse-papiers. Parfait pour un chemin reseau a coller ailleurs.
+
+
 MODE IMMERSIF (experience de lecture)
 -------------------------------------
 Par defaut la page se lit comme un diaporama : fleches, compteur, barre

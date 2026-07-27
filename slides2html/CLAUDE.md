@@ -106,6 +106,20 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   en édition et un clic crée une zone à leur place. Extraction dans
   `slideObjects()` : formes de premier niveau ayant leur propre `a:xfrm`
   (placeholders hérités ignorés, groupe = un seul objet).
+- **Mouvement** : `meta.transition` (none|fade|slide|zoom|up) pilote la
+  transition entre pages — `go()` pose `data-tr` + `.tr-out`/`.tr-in` sur
+  `#wrap`, avec `.back` selon le sens. Par élément : `anim` (+ `delay`) joue
+  une apparition en lecture (et en aperçu via `previewing`, bouton ▶), `hover`
+  ajoute un effet de survol. Tout est en CSS, aucune bibliothèque.
+- `el.on` : un élément dont l'action `panel` pointe sur ce que le panneau
+  affiche en ce moment est marqué actif — c'est ce qui donne le comportement
+  « onglet sélectionné » d'un vrai site.
+- `meta.nav` = `[{label, slide}]` → barre `#nav` rendue en lecture, partie
+  courante = la dernière entrée dont `slide <= cur`. Indépendante de
+  `meta.view.header` : elle reste visible en mode immersif, c'est la
+  navigation.
+- Action `copy` : `copyText()` avec repli `execCommand` (l'API presse-papiers
+  n'est pas garantie en `file://`).
 - `meta.locked` : export « final » — le bouton ✏️ n'est pas rendu et
   `setEdit()` sort immédiatement.
 

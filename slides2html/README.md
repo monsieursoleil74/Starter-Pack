@@ -75,6 +75,42 @@ se remet à son état de départ quand on quitte la page et qu'on y revient.
 La diapo affichée dans un panneau garde **ses propres éléments** : sa fiche
 peut donc contenir ses propres boutons, une vidéo, etc.
 
+### Donner vie à la page
+
+Ces réglages transforment un enchaînement de pages en une vraie expérience.
+
+| Où | Réglage | Effet |
+|---|---|---|
+| Panneau de droite, rien de sélectionné | **Transition entre les pages** | Fondu, glissement, zoom ou vers le haut, au lieu de la coupe franche. Le glissement suit le sens de lecture. |
+| Sur un élément, section **Mouvement** | **Apparition** | L'élément entre en scène : fondu, monte, descend, vient de la gauche/droite, zoom. |
+| idem | **Retard** | De 0 à 1,5 s. En échelonnant les retards, tes boutons arrivent l'un après l'autre. |
+| idem | **Au survol** | Se soulève, grossit, ou s'illumine — les boutons réagissent sous la souris. |
+
+Le bouton **▶** de la barre d'outils rejoue les apparitions de la page sans
+quitter l'édition.
+
+### Sommaire : une barre toujours accessible
+
+Panneau de droite (rien de sélectionné) → section **Sommaire** → **➕ Ajouter
+la diapo au sommaire**. Une barre apparaît en haut de la page produite, avec
+un bouton par partie, et **la partie où l'on se trouve reste surlignée**.
+
+C'est ce qui supprime les allers-retours : depuis n'importe quelle page, on
+saute directement à la partie voulue.
+
+### Sélecteurs : le bouton actif reste marqué
+
+Quand un bouton alimente un panneau, **celui qui est actuellement affiché se
+marque tout seul** (halo blanc). Une rangée de personnages se comporte donc
+comme les onglets d'un vrai site : on voit d'un coup d'œil lequel on regarde.
+
+### Copier un chemin serveur
+
+Nouvelle action **Copier un texte** : le lecteur clique, le texte part dans son
+presse-papiers, un message le confirme. Parfait pour un chemin réseau
+(`\\serveur\projet\rigs\pipo`) qu'on veut coller dans un explorateur ou un
+logiciel, sans le retaper.
+
 ### Mode immersif (expérience de lecture)
 
 Par défaut la page se lit comme un diaporama : flèches, compteur, barre de

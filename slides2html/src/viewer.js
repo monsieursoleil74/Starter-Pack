@@ -54,6 +54,8 @@ document.title = META.title;
 var VIEW_KEYS = ['arrows', 'counter', 'progress', 'thumbs', 'header'];
 if (!META.view) META.view = {};
 VIEW_KEYS.forEach(function (k) { if (META.view[k] === undefined) META.view[k] = true; });
+if (META.transition === undefined) META.transition = 'fade';
+if (!META.nav) META.nav = [];   // sommaire : [{label, slide}]
 
 /* ============================ styles ============================ */
 var style = document.createElement('style');
@@ -84,6 +86,48 @@ body:not(.editing) #wrap{overflow:hidden;border-radius:var(--radius)}\
 #wrap.fading{opacity:0}\
 #slide{width:100%;height:100%;object-fit:contain;border-radius:var(--radius);box-shadow:0 8px 40px rgba(0,0,0,.55);user-select:none;display:block}\
 body.noarrows .navzone{display:none}\
+/* transitions entre pages */\
+#wrap[data-tr=fade].tr-out,#wrap[data-tr=fade].tr-in{opacity:0}\
+#wrap[data-tr=slide].tr-out{opacity:0;transform:translateX(-5%)}\
+#wrap[data-tr=slide].tr-in{opacity:0;transform:translateX(5%)}\
+#wrap[data-tr=slide].back.tr-out{transform:translateX(5%)}\
+#wrap[data-tr=slide].back.tr-in{transform:translateX(-5%)}\
+#wrap[data-tr=zoom].tr-out{opacity:0;transform:scale(.965)}\
+#wrap[data-tr=zoom].tr-in{opacity:0;transform:scale(1.035)}\
+#wrap[data-tr=up].tr-out{opacity:0;transform:translateY(-3%)}\
+#wrap[data-tr=up].tr-in{opacity:0;transform:translateY(3%)}\
+/* apparition des elements */\
+@keyframes elFade{from{opacity:0}to{opacity:1}}\
+@keyframes elUp{from{opacity:0;transform:translateY(14%)}to{opacity:1;transform:none}}\
+@keyframes elDown{from{opacity:0;transform:translateY(-14%)}to{opacity:1;transform:none}}\
+@keyframes elLeft{from{opacity:0;transform:translateX(-12%)}to{opacity:1;transform:none}}\
+@keyframes elRight{from{opacity:0;transform:translateX(12%)}to{opacity:1;transform:none}}\
+@keyframes elZoom{from{opacity:0;transform:scale(.86)}to{opacity:1;transform:none}}\
+.el.an-fade{animation:elFade .5s both}\
+.el.an-up{animation:elUp .55s cubic-bezier(.22,.9,.3,1) both}\
+.el.an-down{animation:elDown .55s cubic-bezier(.22,.9,.3,1) both}\
+.el.an-left{animation:elLeft .55s cubic-bezier(.22,.9,.3,1) both}\
+.el.an-right{animation:elRight .55s cubic-bezier(.22,.9,.3,1) both}\
+.el.an-zoom{animation:elZoom .5s cubic-bezier(.22,.9,.3,1) both}\
+/* survol */\
+.el.hv-lift,.el.hv-zoom,.el.hv-glow{transition:transform .18s ease,box-shadow .18s ease,filter .18s ease}\
+.el.hv-lift:hover{transform:translateY(-5px);box-shadow:0 12px 28px rgba(0,0,0,.45)}\
+.el.hv-zoom:hover{transform:scale(1.045)}\
+.el.hv-glow:hover{filter:brightness(1.18) drop-shadow(0 0 12px rgba(255,255,255,.45))}\
+/* element actif : ce que montre le panneau en ce moment */\
+.el.on.look-button{filter:brightness(1.15);box-shadow:0 0 0 3px rgba(255,255,255,.5),0 4px 16px rgba(0,0,0,.45)}\
+.el.on.look-hover,.el.on.look-outline{border-color:#fff;background:rgba(255,255,255,.16)}\
+.el.on.el-image,.el.on.el-text,.el.on.el-shape{outline:3px solid rgba(255,255,255,.75);outline-offset:2px}\
+/* sommaire */\
+#nav{display:flex;gap:4px;align-items:center;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-shrink:0;overflow-x:auto}\
+#nav button{background:none;border:none;color:var(--muted);padding:6px 13px;border-radius:8px;cursor:pointer;font-size:13.5px;white-space:nowrap;transition:color .15s,background .15s}\
+#nav button:hover{color:var(--fg);background:var(--panel2)}\
+#nav button.on{color:var(--fg);background:var(--panel2);font-weight:600}\
+#navList{margin-top:6px}\
+#navList .row2{display:flex;gap:6px;align-items:center;margin-top:5px}\
+#navList input{flex:1;min-width:0}\
+#navList button{background:var(--panel2);color:var(--muted);border:none;border-radius:6px;padding:6px 9px;cursor:pointer}\
+#navList button:hover{color:#ff8a8a}\
 #fsFloat{position:fixed;top:14px;right:16px;z-index:25;background:rgba(20,22,30,.7);color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:15px;cursor:pointer;opacity:.22;transition:opacity .2s}\
 #fsFloat:hover{opacity:1}\
 body.editing{user-select:none}\
@@ -188,6 +232,7 @@ document.body.insertAdjacentHTML('beforeend',
 '<button class="icon" id="tPanel" title="Panneau : affiche une autre diapo à l\u2019intérieur de celle-ci">🗔 Panneau</button>' +
 '<button class="icon" id="tVideo" title="Ajouter une vidéo">🎬 Vidéo</button>' +
 '<button class="icon hidden" id="tObjects" title="Montrer les formes venues du .pptx : un clic en fait un bouton">⌖ Objets</button>' +
+'<button class="icon" id="tPreview" title="Rejouer les apparitions de cette page">▶</button>' +
 '<span class="sep"></span>' +
 '<button class="icon" id="tUndo" title="Annuler (Ctrl+Z)">↶</button>' +
 '<button class="icon" id="tRedo" title="Rétablir (Ctrl+Y)">↷</button>' +
@@ -200,6 +245,7 @@ document.body.insertAdjacentHTML('beforeend',
 '<button class="icon" id="btnThumbs" title="T">▦</button>' +
 '<button class="icon" id="btnFS" title="F">⛶</button>' +
 '</header>' +
+'<nav id="nav" class="hidden"></nav>' +
 '<div id="main">' +
 '<div id="stage">' +
 '<div id="wrap"><img id="slide" alt=""></div>' +
@@ -227,7 +273,8 @@ var wrap = $('wrap'), slideEl = $('slide'), counter = $('counter'), thumbs = $('
     backBtn = $('backBtn'), hidBadge = $('hidBadge'), titleEl = $('title'), btnNotes = $('btnNotes');
 var cur = 0, editMode = false, drawMode = false, dirty = false,
     sel = null, drag = null, hist = [], thumbItems = [], clip = null,
-    undoStack = [], redoStack = [], panelState = {}, scalables = [], showObjects = false;
+    undoStack = [], redoStack = [], panelState = {}, scalables = [], showObjects = false,
+    previewing = false;
 titleEl.textContent = META.title;
 hidBadge.textContent = T.hidden;
 backBtn.textContent = T.back;
@@ -326,13 +373,27 @@ function go(i, opts) {
   i = clamp(i, 0, SLIDES.length - 1);
   if (!opts.noHist && i !== cur) { hist.push(cur); if (hist.length > 200) hist.shift(); }
   if (i !== cur) panelState = {};        // les panneaux repartent de leur contenu par défaut
+  var back = i < cur;
   cur = i;
   var apply = function () {
     slideEl.src = IMG(SLIDES[cur].img);
     renderElements();
-    wrap.classList.remove('fading');
   };
-  if (opts.instant) apply(); else { wrap.classList.add('fading'); setTimeout(apply, 120); }
+  var tr = META.transition || 'fade';
+  if (opts.instant || tr === 'none') { wrap.classList.remove('tr-out', 'tr-in'); apply(); }
+  else {
+    wrap.dataset.tr = tr;
+    wrap.classList.toggle('back', back);
+    wrap.classList.add('tr-out');
+    setTimeout(function () {
+      apply();
+      wrap.classList.remove('tr-out');
+      wrap.classList.add('tr-in');
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { wrap.classList.remove('tr-in'); });
+      });
+    }, 170);
+  }
 
   var s = SLIDES[cur];
   if (editMode) counter.textContent = T.slide + ' ' + (cur + 1) + ' / ' + SLIDES.length;
@@ -345,6 +406,7 @@ function go(i, opts) {
   backBtn.classList.toggle('hidden', editMode || !s.hidden);
   hidBadge.classList.toggle('hidden', !(editMode && s.hidden));
   syncThumbs();
+  renderNav();
   notesEl.innerHTML = '<b>' + T.notes + ' — ' + T.slide + ' ' + (cur + 1) + '</b>' +
     (s.notes ? esc(s.notes) : '<i>' + T.noNotes + '</i>');
   location.hash = cur + 1;
@@ -483,6 +545,21 @@ function buildEl(el, i, depth, box) {
 
   if (el.type === 'text') scalables.push({ node: d, el: el, box: box, kind: 'text', top: depth === 0 });
 
+  // apparition à l'arrivée sur la page (lecture, ou aperçu depuis l'éditeur)
+  if ((!editMode || previewing) && el.anim && el.anim !== 'none') {
+    d.classList.add('an-' + el.anim);
+    if (el.delay) d.style.animationDelay = el.delay + 'ms';
+  }
+  if (!editMode && el.hover && el.hover !== 'none') d.classList.add('hv-' + el.hover);
+  // bouton actif : c'est lui qu'affiche le panneau en ce moment
+  if (!editMode && el.action === 'panel' && typeof el.slide === 'number') {
+    var ps0 = panelsHere();
+    var k0 = el.panelName || (ps0[0] ? panelKey(ps0[0]) : 'Panneau');
+    var cur0 = Object.prototype.hasOwnProperty.call(panelState, k0)
+      ? panelState[k0] : (ps0[0] && typeof ps0[0].slide === 'number' ? ps0[0].slide : null);
+    if (cur0 === el.slide) d.classList.add('on');
+  }
+
   if (!editMode || depth > 0) {
     if (el.action && el.action !== 'none' && !(editMode && depth > 0)) {
       d.classList.add('act');   // pas d'infobulle : le lecteur n'a pas à lire « Aller à la diapo 6 »
@@ -531,6 +608,24 @@ function scaleText() {
   });
 }
 
+/* Copie dans le presse-papiers — pratique pour un chemin serveur.
+   Repli sur execCommand là où l'API n'est pas disponible en file://. */
+function copyText(txt) {
+  var done = function () { toast('Copié : ' + (txt.length > 40 ? txt.slice(0, 40) + '…' : txt)); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(done, function () { legacyCopy(txt, done); });
+  } else legacyCopy(txt, done);
+}
+function legacyCopy(txt, done) {
+  var ta = document.createElement('textarea');
+  ta.value = txt;
+  ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) { alert(txt); }
+  ta.remove();
+}
+
 function actionTitle(el) {
   switch (el.action) {
     case 'goto': return (FR ? 'Aller à la diapo ' : 'Go to slide ') + ((el.slide || 0) + 1);
@@ -552,6 +647,7 @@ function doAction(el) {
     case 'back': goBack(); break;
     case 'url': if (el.url) window.open(el.url, '_blank'); break;
     case 'video': openLightbox(el.video); break;
+    case 'copy': copyText(el.copyText || ''); break;
     case 'panel': {
       // on reste sur la diapo : seul le contenu du panneau change.
       // Sans panneau nommé explicitement, on vise celui de la diapo.
@@ -825,6 +921,7 @@ function actionFields(el) {
     opt('back', 'Retour (diapo précédemment vue)', el.action) +
     opt('url', 'Ouvrir un lien', el.action) +
     opt('video', 'Lire une vidéo en grand', el.action) +
+    opt('copy', 'Copier un texte (chemin serveur…)', el.action) +
     '</select></label>';
   if (el.action === 'panel') {
     if (panels.length > 1) {
@@ -848,6 +945,9 @@ function actionFields(el) {
   }
   if (el.action === 'url')
     h += '<label>URL<input type="text" id="pUrl" value="' + escA(el.url || '') + '" placeholder="https://…"></label>';
+  if (el.action === 'copy')
+    h += '<label>Texte à copier<textarea id="pCopy" placeholder="\\\\serveur\\projet\\rigs\\pipo">' +
+      esc(el.copyText || '') + '</textarea></label>';
   if (el.action === 'video') {
     var vv = el.video || {};
     h += '<label>Vidéo<select id="pVSrc">' + opt('yt', 'Lien YouTube', vv.media ? '' : 'yt');
@@ -882,6 +982,21 @@ function viewFields() {
   var immersive = VIEW_KEYS.every(function (k) { return !v[k]; });
   h += '<div class="pbtns"><button id="vImmersive">🎬 Mode immersif</button>' +
     '<button id="vAll">Tout afficher</button></div>';
+  h += '<label>Transition entre les pages<select id="vTrans">' +
+    opt('none', 'Aucune (coupe franche)', META.transition) +
+    opt('fade', 'Fondu', META.transition) +
+    opt('slide', 'Glissement', META.transition) +
+    opt('zoom', 'Zoom', META.transition) +
+    opt('up', 'Vers le haut', META.transition) +
+    '</select></label>';
+  h += '<hr><h3>Sommaire</h3><p class="muted">Une barre toujours visible pour ' +
+    'sauter d’une partie à l’autre, sans repasser par toutes les pages.</p>' +
+    '<div id="navList">';
+  META.nav.forEach(function (it, i) {
+    h += '<div class="row2"><input type="text" data-nav="' + i + '" value="' + escA(it.label) +
+      '" title="Diapo ' + (it.slide + 1) + '"><button data-navdel="' + i + '">✕</button></div>';
+  });
+  h += '</div><button class="wide" id="vNavAdd">➕ Ajouter la diapo ' + (cur + 1) + ' au sommaire</button>';
   if (!v.arrows)
     h += '<p class="muted" style="margin-top:10px">Navigation libre coupée : ' +
       'le lecteur ne peut avancer <b>que</b> par les boutons que tu poses. ' +
@@ -911,6 +1026,34 @@ function bindViewFields() {
   var a = $('vImmersive'), b = $('vAll');
   if (a) a.addEventListener('click', setAll(false));
   if (b) b.addEventListener('click', setAll(true));
+
+  var tr = $('vTrans');
+  if (tr) tr.addEventListener('change', function (e) {
+    META.transition = e.target.value;
+    markDirty();
+    toast('Transition : ' + e.target.selectedOptions[0].textContent);
+  });
+  var add = $('vNavAdd');
+  if (add) add.addEventListener('click', function () {
+    if (META.nav.some(function (it) { return it.slide === cur; })) { toast('Déjà au sommaire'); return; }
+    META.nav.push({ label: 'Partie ' + (META.nav.length + 1), slide: cur });
+    META.nav.sort(function (x, y) { return x.slide - y.slide; });
+    markDirty();
+    renderProps();
+  });
+  props.querySelectorAll('[data-nav]').forEach(function (n) {
+    n.addEventListener('input', function (e) {
+      META.nav[+e.target.dataset.nav].label = e.target.value;
+      markDirty();
+    });
+  });
+  props.querySelectorAll('[data-navdel]').forEach(function (n) {
+    n.addEventListener('click', function (e) {
+      META.nav.splice(+e.currentTarget.dataset.navdel, 1);
+      markDirty();
+      renderProps();
+    });
+  });
 }
 
 function renderProps() {
@@ -1024,6 +1167,26 @@ function renderProps() {
       '><span>En boucle</span></label>';
   }
 
+  h += '<hr><h3>Mouvement</h3>' +
+    '<label>Apparition<select id="pAnim">' +
+    opt('none', 'Aucune', el.anim || 'none') +
+    opt('fade', 'Fondu', el.anim) +
+    opt('up', 'Monte', el.anim) +
+    opt('down', 'Descend', el.anim) +
+    opt('left', 'Vient de la gauche', el.anim) +
+    opt('right', 'Vient de la droite', el.anim) +
+    opt('zoom', 'Zoom', el.anim) +
+    '</select></label>';
+  if (el.anim && el.anim !== 'none')
+    h += '<label>Retard <span class="muted">' + (el.delay || 0) + ' ms</span>' +
+      '<input type="range" id="pDelay" min="0" max="1500" step="50" value="' + (el.delay || 0) + '"></label>';
+  h += '<label>Au survol<select id="pHover">' +
+    opt('none', 'Rien', el.hover || 'none') +
+    opt('lift', 'Se soulève', el.hover) +
+    opt('zoom', 'Grossit', el.hover) +
+    opt('glow', 'S’illumine', el.hover) +
+    '</select></label>';
+
   if (el.type !== 'video')
     h += '<label>Opacité <span class="muted">' + Math.round((el.opacity == null ? 1 : el.opacity) * 100) + ' %</span>' +
       '<input type="range" id="pOpacity" min="10" max="100" value="' +
@@ -1121,6 +1284,10 @@ function bindElementFields(el) {
     el.bg = e.target.value;
   });
   typed('pUrl', function (e) { el.url = e.target.value.trim(); });
+  typed('pCopy', function (e) { el.copyText = e.target.value; });
+  set('pAnim', 'change', function (e) { el.anim = e.target.value; previewOnce(); }, true);
+  live('pDelay', function (e) { el.delay = parseInt(e.target.value, 10); });
+  set('pHover', 'change', function (e) { el.hover = e.target.value; });
   set('pVSrc', 'change', function (e) {
     el.video = e.target.value === 'yt' ? { url: '' } : { media: e.target.value };
   }, true);
@@ -1154,6 +1321,13 @@ function bindElementFields(el) {
   on('pBack', 'click', function () { pushUndo(); moveSel(0); });
   on('pDup', 'click', duplicate);
   on('pDel', 'click', deleteSel);
+}
+
+/* rejoue les apparitions sans quitter l'édition */
+function previewOnce() {
+  previewing = true;
+  renderElements();
+  setTimeout(function () { previewing = false; }, 2600);
 }
 
 function moveSel(to) {
@@ -1317,6 +1491,25 @@ function setDraw(kind) {
 }
 /* montre ou masque tout ce qui entoure la diapo, selon META.view.
    En édition, on garde évidemment tous les repères. */
+/* Sommaire : une barre toujours accessible, pour sauter d'une partie à
+   l'autre sans repasser par toutes les pages. */
+function renderNav() {
+  var nav = $('nav');
+  if (editMode || !META.nav.length) { nav.classList.add('hidden'); return; }
+  nav.classList.remove('hidden');
+  nav.innerHTML = '';
+  // la partie courante : la dernière entrée dont la page est déjà atteinte
+  var active = -1;
+  META.nav.forEach(function (it, i) { if (it.slide <= cur) active = i; });
+  META.nav.forEach(function (it, i) {
+    var b = document.createElement('button');
+    b.textContent = it.label || ('Diapo ' + (it.slide + 1));
+    if (i === active) b.classList.add('on');
+    b.addEventListener('click', function () { go(it.slide); });
+    nav.appendChild(b);
+  });
+}
+
 function applyViewChrome() {
   var v = META.view, ed = editMode;
   document.querySelector('header').classList.toggle('hidden', !ed && !v.header);
@@ -1326,6 +1519,7 @@ function applyViewChrome() {
   if (!ed && !v.thumbs) thumbs.classList.add('hidden');
   $('fsFloat').classList.toggle('hidden', ed || v.header);
   document.body.classList.toggle('noarrows', !ed && !v.arrows);
+  renderNav();
 }
 function freeNav() { return editMode || META.view.arrows; }
 
@@ -1353,14 +1547,7 @@ if (btnEdit) btnEdit.addEventListener('click', function () { setEdit(!editMode);
 titleEl.addEventListener('dblclick', function () {
   if (!editMode) return;
   var t = prompt('Titre de la présentation :', META.title);
-  if (t && t.trim()) { META.title = t.trim(); document.title = META.title;
-
-/* Réglages de lecture : ce qui s'affiche autour de la diapo pour le lecteur.
-   Tout à true = comportement historique ; tout à false = mode immersif, où
-   l'on ne navigue plus qu'avec les boutons posés sur les pages. */
-var VIEW_KEYS = ['arrows', 'counter', 'progress', 'thumbs', 'header'];
-if (!META.view) META.view = {};
-VIEW_KEYS.forEach(function (k) { if (META.view[k] === undefined) META.view[k] = true; }); markDirty(); }
+  if (t && t.trim()) { META.title = t.trim(); document.title = META.title; markDirty(); }
 });
 
 $('tZone').addEventListener('click', function () { setDraw(drawMode === 'zone' ? false : 'zone'); });
@@ -1386,6 +1573,7 @@ $('tVideo').addEventListener('click', function (e) {
     }]
   ]);
 });
+$('tPreview').addEventListener('click', previewOnce);
 $('tUndo').addEventListener('click', undo);
 $('tRedo').addEventListener('click', redo);
 $('tSave').addEventListener('click', save);
