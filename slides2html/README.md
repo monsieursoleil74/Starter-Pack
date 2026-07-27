@@ -38,7 +38,7 @@ la diapo et tu les places à la souris. La diapo d'origine n'est jamais modifié
 
 | Outil | Effet |
 |---|---|
-| **➕ Zone** | Zone cliquable dessinée à la souris. *Invisible* (rien ne s'affiche — pour rendre cliquable un bouton que tu as déjà dessiné dans Slides), *Contour visible*, ou *Bouton plein* (pastille colorée, texte + icône). Arrondi des coins réglable. |
+| **➕ Zone** | Zone cliquable dessinée à la souris. *Invisible* (rien ne s'affiche — pour rendre cliquable un bouton que tu as déjà dessiné dans Slides), *Contour visible*, ou *Bouton avec un texte* (voir [les six styles](#les-boutons-cest-le-texte-qui-fait-la-forme)). |
 | **🖼 Image** | Ajoute une image par-dessus la diapo : logo, capture, photo. Cadrage, coins arrondis, ombre, opacité. Tu peux aussi la **déposer directement sur la diapo** ou la **coller** (`Ctrl+V`). |
 | **T Texte** | Bloc de texte : couleur, taille, graisse, alignement, ombre, fond coloré. Le cadre suit le texte automatiquement ; **double-clic** pour le réécrire sur la diapo. |
 | **▭ Forme** | Rectangle ou ellipse, couleur et opacité réglables : masquer une zone, surligner, poser un fond derrière du texte. |
@@ -53,6 +53,34 @@ visiteur), ouvrir un lien, ou lire une vidéo en plein écran. Une image fait
 souvent un meilleur bouton qu'une pastille.
 
 Sur une diapo cachée, un bouton **↩ Retour** apparaît tout seul.
+
+### Les boutons : c'est le texte qui fait la forme
+
+Un bouton n'est **pas** un rectangle posé par-dessus la diapo. Le cadre que tu
+dessines ne sert qu'à le **placer** : la forme, elle, se colle au texte, comme
+sur un site. Un libellé court donne un bouton court.
+
+Le menu **Style du bouton** apparaît dès qu'une zone est en *Bouton avec un
+texte*, et sur **n'importe quel texte** à qui tu donnes une action :
+
+| Style | À quoi ça ressemble |
+|---|---|
+| **Texte seul** | Aucune boîte : le texte est le bouton. Il se soulève et s'éclaircit au survol. *(défaut pour un texte cliquable)* |
+| **Lien souligné** | Le soulignement se déploie de gauche à droite au survol — le lien de site classique. |
+| **Contour fin** | Un filet autour du texte, qui se **remplit** au survol. |
+| **Pastille pleine** | Fond plein, coins ronds, léger relief au survol. *(défaut pour une zone)* |
+| **Verre dépoli** | Fond translucide et flouté, qui laisse voir la diapo au travers. |
+| **Bandeau** | Le seul qui remplit tout le cadre dessiné : pour une barre pleine largeur. |
+
+Deux détails qui font la différence avec un PDF :
+
+- **la couleur du texte s'adapte toute seule** au fond du bouton (un bouton
+  blanc reçoit du texte sombre, jamais du blanc sur blanc) ;
+- **seul le bouton visible est cliquable.** Le cadre autour de lui laisse
+  passer la souris : plus de clic fantôme à côté du bouton.
+
+**Taille du texte** est libre sur une zone (*auto* = calée sur la hauteur du
+cadre) : tu peux garder un grand cadre et un petit bouton dedans.
 
 ### Les trois modes
 

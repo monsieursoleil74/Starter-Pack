@@ -31,10 +31,23 @@ diapo (elle n'est jamais modifiee) et tu les places a la souris.
 
 - + Zone   : zone cliquable. Invisible (rien ne s'affiche : pour rendre
              cliquable un bouton deja dessine dans Slides), contour
-             visible, ou pastille coloree avec texte et icone.
+             visible, ou bouton avec un texte.
              Au survol, "Eclaircit"/"Assombrit" agissent sur ce qu'il y a
              DESSOUS : c'est ton bouton qui reagit, rien n'est peint
              par-dessus. Regle l'arrondi des coins pour epouser sa forme.
+
+  LES BOUTONS : C'EST LE TEXTE QUI FAIT LA FORME
+  Le cadre que tu dessines ne sert qu'a PLACER le bouton ; la forme se
+  colle au texte, comme sur un site. Six styles, sur une zone comme sur
+  n'importe quel texte a qui tu donnes une action :
+    Texte seul       - aucune boite, le texte se souleve au survol
+    Lien souligne    - le soulignement se deploie au survol
+    Contour fin      - un filet, qui se remplit au survol
+    Pastille pleine  - fond plein, coins ronds
+    Verre depoli     - fond translucide et floute
+    Bandeau          - le seul qui remplit tout le cadre
+  La couleur du texte s'adapte au fond (pas de blanc sur blanc), et seul
+  le bouton visible est cliquable : plus de clic fantome a cote.
 - Image    : ajoute un logo, une capture, une photo. Tu peux aussi la
              deposer directement sur la diapo, ou la coller (Ctrl+V).
 - Texte    : couleur, taille, graisse, alignement, ombre, fond colore.

@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.0.0';
+var APP_VERSION = '4.1.0';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {
@@ -118,21 +118,21 @@ body.noarrows .navzone{display:none}\
 .el.an-right{animation:elRight .55s cubic-bezier(.22,.9,.3,1) both}\
 .el.an-zoom{animation:elZoom .5s cubic-bezier(.22,.9,.3,1) both}\
 /* survol */\
-.el.hv-lift,.el.hv-zoom,.el.hv-glow{transition:transform .18s ease,box-shadow .18s ease,filter .18s ease}\
-.el.hv-light,.el.hv-dark{transition:backdrop-filter .18s ease,background .18s ease}\
-.el.hv-light:hover{backdrop-filter:brightness(1.18) saturate(1.05)}\
-.el.hv-dark:hover{backdrop-filter:brightness(.75)}\
+.hv-lift,.hv-zoom,.hv-glow{transition:transform .18s ease,box-shadow .18s ease,filter .18s ease}\
+.hv-light,.hv-dark{transition:backdrop-filter .18s ease,background .18s ease}\
+.hv-light:hover{backdrop-filter:brightness(1.18) saturate(1.05)}\
+.hv-dark:hover{backdrop-filter:brightness(.75)}\
 @supports not (backdrop-filter:brightness(1.2)){\
-.el.hv-light:hover{background:rgba(255,255,255,.16)}\
-.el.hv-dark:hover{background:rgba(0,0,0,.22)}}\
-.el.hv-lift:hover{transform:translateY(-5px);box-shadow:0 12px 28px rgba(0,0,0,.45)}\
-.el.hv-zoom:hover{transform:scale(1.045)}\
-.el.hv-glow:hover{filter:brightness(1.18) drop-shadow(0 0 12px rgba(255,255,255,.45))}\
+.hv-light:hover{background:rgba(255,255,255,.16)}\
+.hv-dark:hover{background:rgba(0,0,0,.22)}}\
+.hv-lift:hover{transform:translateY(-5px);box-shadow:0 12px 28px rgba(0,0,0,.45)}\
+.hv-zoom:hover{transform:scale(1.045)}\
+.hv-glow:hover{filter:brightness(1.18) drop-shadow(0 0 12px rgba(255,255,255,.45))}\
 /* element actif : ce que montre le panneau en ce moment */\
-.el.on.look-button{filter:brightness(1.15);box-shadow:0 0 0 3px rgba(255,255,255,.5),0 4px 16px rgba(0,0,0,.45)}\
+.el.on>.btn-in{box-shadow:0 0 0 .14em rgba(255,255,255,.6),0 .2em .7em rgba(0,0,0,.45);filter:brightness(1.12)}\
 .el.on.look-outline{border-color:#fff;background:rgba(255,255,255,.16)}\
-.el.on.look-hover{outline:3px solid rgba(255,255,255,.75);outline-offset:1px;border-radius:6px}\
-.el.on.el-image,.el.on.el-text,.el.on.el-shape{outline:3px solid rgba(255,255,255,.75);outline-offset:2px}\
+.el.on.look-hover:not(.hasbtn){outline:3px solid rgba(255,255,255,.75);outline-offset:1px;border-radius:6px}\
+.el.on.el-image,.el.on.el-shape,.el.on.el-text:not(.hasbtn){outline:3px solid rgba(255,255,255,.75);outline-offset:2px}\
 /* sommaire */\
 #nav{display:flex;gap:4px;align-items:center;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-shrink:0;overflow-x:auto}\
 #nav button{background:none;border:none;color:var(--muted);padding:6px 13px;border-radius:8px;cursor:pointer;font-size:13.5px;white-space:nowrap;transition:color .15s,background .15s}\
@@ -173,9 +173,29 @@ body.editing .navzone,#stage.onhidden .navzone{display:none}\
 .act{cursor:pointer}\
 .look-hover{border-radius:6px}\
 .look-outline{border:2px solid var(--accent);border-radius:6px}\
-.look-button{display:flex;align-items:center;justify-content:center;gap:.35em;background:var(--accent);color:#fff;font-weight:600;border-radius:10px;box-shadow:0 3px 14px rgba(0,0,0,.4);text-align:center;overflow:hidden;padding:2px 10px}\
-.act.look-button:hover{filter:brightness(1.13)}\
-.act.look-button:active{transform:translateY(1px)}\
+.look-button{display:flex;align-items:center;justify-content:center;text-align:center;font-weight:600}\
+/* Boutons : la forme épouse le texte. Le cadre qu'on dessine ne sert plus qu'à\
+   le placer — c'est le texte lui-même qui est le bouton, comme sur un site.\
+   .hug rend le cadre transparent au clic : seul le bouton visible réagit. */\
+.btn-in{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:.4em;max-width:100%;line-height:1.3;white-space:pre-wrap;overflow-wrap:anywhere;text-align:inherit;box-sizing:border-box;transition:background-color .2s ease,color .2s ease,border-color .2s ease,box-shadow .2s ease,transform .16s ease,filter .2s ease}\
+.hug{pointer-events:none}\
+.hug>.btn-in{pointer-events:auto}\
+.bs-plain,.bs-link{color:var(--bc)}\
+.bs-plain{padding:0 .06em}\
+.act .bs-plain:hover{transform:translateY(-.06em);filter:brightness(1.15) drop-shadow(0 .1em .28em rgba(0,0,0,.5))}\
+.bs-link{padding:.04em .02em}\
+.bs-link::after{content:'';position:absolute;left:0;right:0;bottom:-.08em;height:.075em;min-height:1px;background:currentColor;border-radius:1em;transform:scaleX(0);transform-origin:left center;transition:transform .3s cubic-bezier(.22,.61,.36,1)}\
+.act .bs-link:hover::after{transform:scaleX(1)}\
+.act .bs-link:hover{filter:brightness(1.12)}\
+.bs-pill{padding:.42em 1.05em;border-radius:999px;background:var(--bc);color:var(--bt);box-shadow:0 .12em .5em rgba(0,0,0,.28)}\
+.act .bs-pill:hover{transform:translateY(-.09em);box-shadow:0 .3em .9em rgba(0,0,0,.42);filter:brightness(1.08)}\
+.bs-ghost{padding:.4em 1em;border:.085em solid var(--bc);border-radius:.55em;color:var(--bc)}\
+.act .bs-ghost:hover{background:var(--bc);color:var(--bt);box-shadow:0 .25em .8em rgba(0,0,0,.32)}\
+.bs-soft{padding:.42em 1.05em;border-radius:.6em;color:var(--bc);background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.26);backdrop-filter:blur(8px) saturate(1.3)}\
+.act .bs-soft:hover{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.46);transform:translateY(-.09em)}\
+.bs-bloc{width:100%;height:100%;padding:.2em .7em;background:var(--bc);color:var(--bt);box-shadow:0 .12em .5em rgba(0,0,0,.28)}\
+.act .bs-bloc:hover{filter:brightness(1.1)}\
+.act .btn-in:active{transform:translateY(.03em) scale(.985)}\
 body.editing .el{outline:1px dashed rgba(91,140,255,.55);cursor:grab}\
 body.editing .el.sel{outline:2px solid var(--warn)}\
 body.editing .el.master{outline:1px dashed rgba(62,207,142,.85)}\
@@ -549,6 +569,50 @@ function panelsHere() {
   return allEls().filter(function (e) { return e.type === 'panel'; });
 }
 
+/* ---------------------------------------------------------------------------
+   Boutons. Un bouton n'est pas un rectangle qu'on pose par-dessus la diapo :
+   c'est le texte lui-même qui prend la forme, et le cadre dessiné ne fait que
+   le placer. On rend donc le libellé dans un <span> qui se dimensionne sur son
+   contenu, et c'est lui qui porte le style et le survol.
+--------------------------------------------------------------------------- */
+var BTN_STYLES = { plain: 1, link: 1, ghost: 1, pill: 1, soft: 1, bloc: 1 };
+var BTN_FLAT = { plain: 1, link: 1 };            // styles sans fond ni contour
+function btnStyle(el) {
+  if (BTN_STYLES[el.btn]) return el.btn;
+  return el.type === 'zone' ? 'pill' : 'plain';  // repli : les anciens packs
+}
+function btnFill(el) {
+  return el.btnColor || (el.type === 'zone' ? el.color : el.bg) || '#5b8cff';
+}
+/* Texte noir ou blanc selon le fond : un bouton clair reste lisible. */
+function contrastOn(hex) {
+  var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return '#ffffff';
+  var n = parseInt(m[1], 16);
+  var l = (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
+  return l > 0.62 ? '#15181f' : '#ffffff';
+}
+function makeBtn(d, el, txt) {
+  var st = btnStyle(el), fill = btnFill(el);
+  var sp = document.createElement('span');
+  sp.className = 'btn-in bs-' + st;
+  sp.textContent = txt;
+  d.style.setProperty('--bc',
+    el.type === 'text' && BTN_FLAT[st] ? (el.color || '#ffffff') : fill);
+  d.style.setProperty('--bt', contrastOn(fill));
+  if (st === 'bloc') {
+    sp.style.borderRadius = (el.radius == null ? 10 : el.radius) + 'px';
+    d.style.padding = '0';            // le bandeau occupe le cadre au pixel près
+  }
+  else if (el.radius != null && !BTN_FLAT[st] && st !== 'pill')
+    sp.style.borderRadius = el.radius + 'px';
+  d.classList.add('hasbtn');
+  // en lecture, seul le bouton visible réagit — pas le cadre autour de lui
+  if (st !== 'bloc' && !editMode) { d.classList.add('hug'); d.hugNode = sp; }
+  d.appendChild(sp);
+  return sp;
+}
+
 function buildEl(el, i, depth, box) {
   depth = depth || 0;
   var d = document.createElement('div');
@@ -565,14 +629,20 @@ function buildEl(el, i, depth, box) {
     if (el.shadow) im.style.boxShadow = '0 6px 26px rgba(0,0,0,.5)';
     d.appendChild(im);
   } else if (el.type === 'text') {
-    d.textContent = el.text || '';
+    var tBtn = el.action && el.action !== 'none' ? btnStyle(el) : null;
     d.style.color = el.color || '#ffffff';
     d.style.fontWeight = el.weight || 600;
     d.style.justifyContent = el.align === 'center' ? 'center' : el.align === 'right' ? 'flex-end' : 'flex-start';
     d.style.alignItems = 'center';
     d.style.textAlign = el.align || 'left';
-    if (el.bg) { d.style.background = el.bg; d.style.borderRadius = (el.radius == null ? 8 : el.radius) + 'px'; }
+    // un texte-bouton porte son fond sur sa propre forme, pas sur le cadre
+    if (el.bg && !(tBtn && !BTN_FLAT[tBtn])) {
+      d.style.background = el.bg;
+      d.style.borderRadius = (el.radius == null ? 8 : el.radius) + 'px';
+    }
     if (el.shadow) d.style.textShadow = '0 2px 10px rgba(0,0,0,.65)';
+    if (tBtn) makeBtn(d, el, el.text || '');
+    else d.textContent = el.text || '';
   } else if (el.type === 'shape') {
     d.style.background = el.color || '#5b8cff';
     d.style.borderRadius = el.shape === 'ellipse' ? '50%' : (el.radius || 0) + 'px';
@@ -597,10 +667,9 @@ function buildEl(el, i, depth, box) {
     d.classList.add('look-' + (el.look || 'hover'));
     // l'arrondi épouse la forme du bouton dessiné en dessous : sans quoi les
     // coins d'une zone rectangulaire réagissent au survol hors du bouton
-    if (el.radius != null) d.style.borderRadius = el.radius + 'px';
+    if (el.radius != null && (el.look || 'hover') !== 'button') d.style.borderRadius = el.radius + 'px';
     if ((el.look || 'hover') === 'button') {
-      d.textContent = (el.icon ? el.icon + ' ' : '') + (el.label || '');
-      if (el.color) d.style.background = el.color;
+      makeBtn(d, el, (el.icon ? el.icon + ' ' : '') + (el.label || ''));
       scalables.push({ node: d, el: el, box: box, kind: 'button' });
     }
   } else if (el.type === 'panel') {
@@ -656,7 +725,9 @@ function buildEl(el, i, depth, box) {
     d.classList.add('an-' + el.anim);
     if (el.delay) d.style.animationDelay = el.delay + 'ms';
   }
-  if (!editMode && el.hover && el.hover !== 'none') d.classList.add('hv-' + el.hover);
+  // sur un bouton dont la forme épouse le texte, le survol porte sur le bouton
+  if (!editMode && el.hover && el.hover !== 'none')
+    (d.hugNode || d).classList.add('hv-' + el.hover);
   // bouton actif : c'est lui qu'affiche le panneau en ce moment
   if (!editMode && el.action === 'panel' && typeof el.slide === 'number') {
     var ps0 = panelsHere();
@@ -699,7 +770,12 @@ function scaleText() {
   scalables.forEach(function (s) {
     var H = s.box.clientHeight || 1;
     if (s.kind === 'button') {
-      s.node.style.fontSize = Math.max(9, H * s.el.h / 100 * 0.36) + 'px';
+      // le texte remplit le cadre dessiné : la marge dépend du style choisi,
+      // un bouton plein en réclame plus qu'un texte seul
+      var st = btnStyle(s.el);
+      var f = BTN_FLAT[st] ? 0.62 : st === 'bloc' ? 0.4 : 0.44;
+      s.node.style.fontSize =
+        Math.max(9, s.el.size ? H * s.el.size / 100 : H * s.el.h / 100 * f) + 'px';
       return;
     }
     s.node.style.fontSize = Math.max(7, H * (s.el.size || 6) / 100) + 'px';
@@ -773,11 +849,24 @@ function doAction(el) {
 }
 
 /* ============================ édition à la souris ============================ */
+/* Le double-clic est détecté à la main : on annule l'événement pointerdown pour
+   déplacer l'élément, ce qui supprime aussi le dblclick que le navigateur
+   aurait produit. Et de toute façon le premier clic redessine les éléments :
+   le second n'arriverait plus sur le même nœud. */
+var lastTap = { i: -1, t: 0 };
 function attachEdit(d, i, el) {
   d.addEventListener('pointerdown', function (e) {
     if (!editMode || drawMode || d.getAttribute('contenteditable') === 'true') return;
     e.preventDefault();
     e.stopPropagation();
+    if (el.type === 'text' && lastTap.i === i && Date.now() - lastTap.t < 450) {
+      lastTap.t = 0;
+      select(i);
+      var n2 = nodes()[i];
+      if (n2) editText(n2, el);
+      return;
+    }
+    lastTap = { i: i, t: Date.now() };
     select(i);
     var corner = e.target.dataset ? e.target.dataset.corner : null;
     var p = relPct(e);
@@ -788,13 +877,12 @@ function attachEdit(d, i, el) {
     redoStack.length = 0;
     try { wrap.setPointerCapture(e.pointerId); } catch (err) {}
   });
-  if (el.type === 'text') {
-    d.addEventListener('dblclick', function (e) { e.stopPropagation(); editText(d, el); });
-  }
 }
 
 function editText(d, el) {
   pushUndo();
+  // on tape du texte brut : la forme du bouton est refaite à la sortie
+  d.textContent = el.text || '';
   d.setAttribute('contenteditable', 'true');
   d.focus();
   var range = document.createRange();
@@ -806,6 +894,7 @@ function editText(d, el) {
     d.removeAttribute('contenteditable');
     el.text = d.textContent;
     markDirty();
+    renderElements();
     renderProps();
   }, { once: true });
   d.addEventListener('keydown', function (e) {
@@ -1046,6 +1135,39 @@ function opt(v, label, curv) {
   return '<option value="' + escA(v) + '"' + (String(curv) === String(v) ? ' selected' : '') +
     '>' + esc(label) + '</option>';
 }
+/* Apparence d'un élément cliquable. Le principe : la forme colle au texte,
+   comme un bouton de site, plutôt qu'un rectangle plaqué par-dessus. */
+function btnFields(el) {
+  var st = btnStyle(el), zone = el.type === 'zone';
+  var h = '<label>Style du bouton<select id="pBtn">' +
+    opt('plain', 'Texte seul', st) +
+    opt('link', 'Lien souligné au survol', st) +
+    opt('ghost', 'Contour fin', st) +
+    opt('pill', 'Pastille pleine', st) +
+    opt('soft', 'Verre dépoli', st) +
+    opt('bloc', 'Bandeau (remplit le cadre)', st) +
+    '</select></label>';
+  if (zone)
+    h += '<div class="grid2"><label>Texte<input type="text" id="pLbl" value="' +
+      escA(el.label || '') + '"></label>' +
+      '<label>Icône<input type="text" id="pIcon" value="' + escA(el.icon || '') +
+      '" placeholder="→"></label></div>';
+  if (zone || !BTN_FLAT[st])
+    h += '<label>Couleur' + (BTN_FLAT[st] ? ' du texte' : ' du bouton') +
+      '<input type="color" id="pBtnCol" value="' + btnFill(el) + '"></label>';
+  if (st === 'ghost' || st === 'soft' || st === 'bloc')
+    h += '<label>Arrondi <span class="muted">' + (el.radius == null ? 8 : el.radius) +
+      ' px</span><input type="range" id="pRadius" min="0" max="60" value="' +
+      (el.radius == null ? 8 : el.radius) + '"></label>';
+  if (zone)
+    h += '<label>Taille du texte <span class="muted">' +
+      (el.size ? el.size + ' %' : 'auto') + '</span>' +
+      '<input type="range" id="pBSize" min="0" max="16" step="0.5" value="' +
+      (el.size || 0) + '"></label>';
+  h += '<p class="muted">Le cadre ne sert qu’à placer le bouton : c’est le ' +
+    'texte qui prend la forme, et lui seul réagit au clic.</p>';
+  return h;
+}
 function actionFields(el) {
   var panels = panelsHere();
   var h = '<label>Au clic<select id="pAct">' +
@@ -1278,19 +1400,18 @@ function renderProps() {
       '<label>Apparence<select id="pLook">' +
       opt('hover', 'Invisible (halo au survol)', el.look || 'hover') +
       opt('outline', 'Contour visible', el.look || 'hover') +
-      opt('button', 'Bouton plein', el.look || 'hover') +
+      opt('button', 'Bouton avec un texte', el.look || 'hover') +
       '</select></label>';
-    if ((el.look || 'hover') === 'button')
-      h += '<div class="grid2"><label>Texte<input type="text" id="pLbl" value="' + escA(el.label || '') + '"></label>' +
-        '<label>Icône<input type="text" id="pIcon" value="' + escA(el.icon || '') + '" placeholder="→"></label></div>' +
-        '<label>Couleur<input type="color" id="pCol" value="' + (el.color || '#5b8cff') + '"></label>';
-    var defR = (el.look || 'hover') === 'button' ? 10 : 6;
-    h += '<label>Arrondi des coins <span class="muted">' + (el.radius == null ? defR : el.radius) +
-      ' px</span><input type="range" id="pRadius" min="0" max="90" value="' +
-      (el.radius == null ? defR : el.radius) + '"></label>';
-    if ((el.look || 'hover') === 'hover')
-      h += '<p class="muted">Règle-le pour épouser la forme du bouton que tu as ' +
-        'dessiné dans Slides : sinon les coins de la zone réagissent en dehors de lui.</p>';
+    if ((el.look || 'hover') === 'button') {
+      h += btnFields(el);
+    } else {
+      h += '<label>Arrondi des coins <span class="muted">' + (el.radius == null ? 6 : el.radius) +
+        ' px</span><input type="range" id="pRadius" min="0" max="90" value="' +
+        (el.radius == null ? 6 : el.radius) + '"></label>';
+      if ((el.look || 'hover') === 'hover')
+        h += '<p class="muted">Règle-le pour épouser la forme du bouton que tu as ' +
+          'dessiné dans Slides : sinon les coins de la zone réagissent en dehors de lui.</p>';
+    }
   } else if (el.type === 'text') {
     h += '<label>Texte<textarea id="pText">' + esc(el.text || '') + '</textarea></label>' +
       '<div class="grid2">' +
@@ -1304,11 +1425,15 @@ function renderProps() {
       opt('400', 'Normale', el.weight) + opt('600', 'Semi-grasse', el.weight) + opt('800', 'Grasse', el.weight) +
       '</select></label>' +
       '<label class="ck"><input type="checkbox" id="pShadow"' + (el.shadow ? ' checked' : '') +
-      '><span>Ombre portée (lisible sur fond chargé)</span></label>' +
-      '<label class="ck"><input type="checkbox" id="pBgOn"' + (el.bg ? ' checked' : '') +
-      '><span>Fond coloré</span></label>' +
-      (el.bg ? '<label>Couleur du fond<input type="color" id="pBg" value="' + el.bg + '"></label>' : '') +
-      actionFields(el);
+      '><span>Ombre portée (lisible sur fond chargé)</span></label>';
+    // un texte-bouton habille sa propre forme : le fond du cadre ferait doublon
+    var tSt = el.action && el.action !== 'none' ? btnStyle(el) : null;
+    if (!tSt || BTN_FLAT[tSt])
+      h += '<label class="ck"><input type="checkbox" id="pBgOn"' + (el.bg ? ' checked' : '') +
+        '><span>Fond coloré</span></label>' +
+        (el.bg ? '<label>Couleur du fond<input type="color" id="pBg" value="' + el.bg + '"></label>' : '');
+    h += actionFields(el);
+    if (tSt) h += btnFields(el);
   } else if (el.type === 'image') {
     h += '<label>Cadrage<select id="pFit">' +
       opt('contain', 'Image entière', el.fit) +
@@ -1547,6 +1672,15 @@ function bindElementFields(el) {
   });
   set('pVUrl', 'change', function (e) { el.video = { url: ytEmbed(e.target.value.trim()) }; }, true);
   set('pLook', 'change', function (e) { el.look = e.target.value; }, true);
+  set('pBtn', 'change', function (e) {
+    el.btn = e.target.value;
+    delete el.radius;                 // chaque style a son arrondi naturel
+  }, true);
+  live('pBtnCol', function (e) { el.btnColor = e.target.value; });
+  live('pBSize', function (e) {
+    var v = parseFloat(e.target.value);
+    if (v) el.size = v; else delete el.size;
+  });
   typed('pLbl', function (e) { el.label = e.target.value; });
   typed('pIcon', function (e) { el.icon = e.target.value; });
   typed('pText', function (e) { el.text = e.target.value; });

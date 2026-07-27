@@ -121,6 +121,28 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   (aucun fantôme, contrairement à un déplacement). `el.radius` sur la zone
   permet d'épouser la forme du bouton sous-jacent, sinon les angles réagissent
   hors de lui.
+- **Boutons** : un bouton n'est pas le cadre dessiné, c'est son texte. Le
+  libellé part dans un `<span class="btn-in bs-…">` (`makeBtn()`) qui se
+  dimensionne sur son contenu ; le cadre ne fait que le placer. Six styles
+  (`el.btn` : plain, link, ghost, pill, soft, bloc — repli pill pour une zone,
+  plain pour un texte), disponibles sur une zone `look:'button'` comme sur tout
+  texte porteur d'une action. Ce qu'il ne faut pas casser :
+  - `.hug` met `pointer-events:none` sur le cadre et `auto` sur le span, en
+    lecture seulement : le clic ne prend que sur le bouton visible. Le
+    gestionnaire de clic reste sur le cadre (l'événement remonte), et l'effet
+    `hover` va sur le span (`d.hugNode`) — d'où des sélecteurs `.hv-*` **sans**
+    `.el` devant, un span n'en étant pas un.
+  - `contrastOn()` choisit le texte (clair/sombre) d'après la luminance du
+    fond : un bouton blanc ne doit jamais recevoir du blanc.
+  - `scaleText()` calcule la police d'après la hauteur du cadre avec un
+    facteur par style (les styles à fond ont leur propre marge intérieure), ou
+    d'après `el.size` s'il est réglé.
+  - le double-clic pour réécrire un texte est détecté **à la main**
+    (`lastTap`) : `pointerdown` fait `preventDefault()` pour le glissement, ce
+    qui supprime le `dblclick` du navigateur, et le premier clic redessine de
+    toute façon les éléments — l'événement ne porterait plus sur le même nœud.
+    `editText()` repose le texte brut le temps de la saisie, puis
+    `renderElements()` refait la forme.
 - **Audit** (`auditDeck()`) : ne signale que ce qui piège le lecteur — page
   sans issue en mode immersif, renvoi hors bornes, page cachée non atteinte,
   bouton sans destination, panneau jamais alimenté, média perdu, élément hors
@@ -225,7 +247,11 @@ scénarios :
    tout en remplaçant réellement les images ;
 6. panneaux : écran de sélection complet — diapos cachées servant de contenu,
    panneau vide au départ, deux boutons qui le remplissent tour à tour sans
-   changer de page, remise à zéro à l'aller-retour, fil de lecture intact.
+   changer de page, remise à zéro à l'aller-retour, fil de lecture intact ;
+7. boutons : la forme reste plus étroite que le cadre, chaque style rend ce
+   qu'il annonce, texte sombre sur pastille claire, le cadre laisse passer la
+   souris à côté du bouton, un texte à qui on donne une action devient un
+   bouton typographique, et le double-clic le réécrit toujours.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
 balise `#cfg` du document garde la config d'ORIGINE, l'état vivant est dans
 la fermeture JS — vérifier via le DOM, ou après un enregistrement.
