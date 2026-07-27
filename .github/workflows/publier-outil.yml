@@ -1,0 +1,48 @@
+name: Publier le convertisseur
+
+# Publie slides2html/Convertisseur.html comme fichier téléchargeable, sur une
+# release au tag fixe « outil ». Le lien ci-dessous ne change donc jamais et
+# télécharge toujours la dernière version :
+#   https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Convertisseur.html
+
+on:
+  push:
+    branches:
+      - claude/git-github-publish-5u5ayq   # branche par défaut du dépôt
+    paths:
+      - 'slides2html/Convertisseur.html'
+      - '.github/workflows/publier-outil.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # l'artefact livré doit correspondre à ses sources
+      - run: python3 slides2html/build.py --check
+
+      - name: Publier la release « outil »
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          NOTES="Ouvre **Convertisseur.html** dans Edge ou Chrome (double-clic) et dépose dedans le PDF exporté depuis Google Slides.
+
+          Rien à installer : c'est une page web, pas un programme. Tout se passe dans le navigateur, aucun fichier n'est envoyé en ligne.
+
+          Mode d'emploi : [slides2html/README.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/slides2html/README.md)
+
+          Version publiée depuis le commit ${{ github.sha }}."
+          if gh release view outil >/dev/null 2>&1; then
+            gh release edit outil --notes "$NOTES" --latest
+            gh release upload outil slides2html/Convertisseur.html --clobber
+          else
+            gh release create outil slides2html/Convertisseur.html \
+              --title "Convertisseur — dernière version" \
+              --notes "$NOTES" --latest
+          fi
