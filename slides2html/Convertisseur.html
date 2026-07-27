@@ -365,6 +365,14 @@ body.editing .navzone,#stage.onhidden .navzone{display:none}\
 .el-panel{overflow:hidden}\
 .el-panel .panel-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}\
 .panel-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;text-align:center;padding:10px}\
+.gal-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:6;background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:19px;line-height:1;cursor:pointer;opacity:.5;transition:opacity .15s}\
+.gal-nav:hover{opacity:1}\
+.gal-prev{left:9px}\
+.gal-next{right:9px}\
+.gal-count{position:absolute;right:11px;bottom:9px;z-index:6;background:rgba(0,0,0,.55);color:#fff;padding:3px 10px;border-radius:12px;font-size:12px;pointer-events:none}\
+#lb.slideov{background:transparent;box-shadow:none}\
+.ovwrap{position:relative;width:100%;height:100%;background:#0a0c11;border-radius:10px;overflow:hidden;box-shadow:0 12px 60px rgba(0,0,0,.7)}\
+.ovwrap .ovimg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}\
 .el-text{display:flex;padding:.1em .2em;overflow-wrap:anywhere;white-space:pre-wrap}\
 .act{cursor:pointer}\
 .look-hover{border:2px solid transparent;border-radius:6px;transition:border-color .15s,background .15s}\
@@ -493,7 +501,7 @@ var wrap = $('wrap'), slideEl = $('slide'), counter = $('counter'), thumbs = $('
 var cur = 0, editMode = false, drawMode = false, dirty = false,
     sel = null, drag = null, hist = [], thumbItems = [], clip = null,
     undoStack = [], redoStack = [], panelState = {}, scalables = [], showObjects = false,
-    previewing = false;
+    previewing = false, galleryTimers = [];
 titleEl.textContent = META.title;
 hidBadge.textContent = T.hidden;
 backBtn.textContent = T.back;
@@ -635,6 +643,8 @@ function refresh() { go(cur, { instant: true, noHist: true, keepSel: true }); }
 function goBack() { var p = hist.pop(); go(p == null ? firstVisible() : p, { noHist: true }); }
 
 function renderElements() {
+  galleryTimers.forEach(clearInterval);
+  galleryTimers.length = 0;
   wrap.querySelectorAll('.el,.guide,.cand').forEach(function (n) { n.remove(); });
   scalables.length = 0;
   els().forEach(function (el, i) { wrap.appendChild(buildEl(el, i, 0, wrap)); });
@@ -676,9 +686,19 @@ function renderCandidates() {
 function panelKey(el) { return el.name || 'Panneau'; }
 function panelContent(el) {
   var k = panelKey(el);
-  return Object.prototype.hasOwnProperty.call(panelState, k)
-    ? panelState[k]
-    : (typeof el.slide === 'number' ? el.slide : null);
+  if (Object.prototype.hasOwnProperty.call(panelState, k)) return panelState[k];
+  if (el.list && el.list.length) return el.list[0];     // galerie : première image
+  return typeof el.slide === 'number' ? el.slide : null;
+}
+/* Galerie : le panneau contient plusieurs diapos et on défile dedans. */
+function galleryStep(el, dir) {
+  var list = el.list || [];
+  if (!list.length) return;
+  var k = panelKey(el), cur0 = panelContent(el);
+  var i = list.indexOf(cur0);
+  if (i < 0) i = 0;
+  panelState[k] = list[(i + dir + list.length) % list.length];
+  renderElements();
 }
 function panelsHere() {
   return els().filter(function (e) { return e.type === 'panel'; });
@@ -759,6 +779,25 @@ function buildEl(el, i, depth, box) {
       ph.className = 'panel-empty';
       ph.textContent = 'Panneau « ' + panelKey(el) +' » — vide au départ';
       d.appendChild(ph);
+    }
+    // flèches et compteur quand le panneau contient plusieurs diapos
+    if (el.list && el.list.length > 1) {
+      [['prev', '‹', -1], ['next', '›', 1]].forEach(function (a) {
+        var b = document.createElement('button');
+        b.className = 'gal-nav gal-' + a[0];
+        b.textContent = a[1];
+        b.addEventListener('pointerdown', function (ev) { ev.stopPropagation(); });
+        b.addEventListener('click', function (ev) { ev.stopPropagation(); galleryStep(el, a[2]); });
+        d.appendChild(b);
+      });
+      var cnt = document.createElement('span');
+      cnt.className = 'gal-count';
+      var pos = el.list.indexOf(content);
+      cnt.textContent = (pos < 0 ? 1 : pos + 1) + ' / ' + el.list.length;
+      d.appendChild(cnt);
+      if (!editMode && el.auto > 0) {
+        galleryTimers.push(setInterval(function () { galleryStep(el, 1); }, el.auto * 1000));
+      }
     }
   }
 
@@ -867,6 +906,10 @@ function doAction(el) {
     case 'url': if (el.url) window.open(el.url, '_blank'); break;
     case 'video': openLightbox(el.video); break;
     case 'copy': copyText(el.copyText || ''); break;
+    case 'overlay':
+      if (el.slide === -2 && el.media) openImageOverlay(MEDIA(el.media));
+      else if (typeof el.slide === 'number' && SLIDES[el.slide]) openSlideOverlay(el.slide);
+      break;
     case 'panel': {
       // on reste sur la diapo : seul le contenu du panneau change.
       // Sans panneau nommé explicitement, on vise celui de la diapo.
@@ -1141,6 +1184,7 @@ function actionFields(el) {
     opt('url', 'Ouvrir un lien', el.action) +
     opt('video', 'Lire une vidéo en grand', el.action) +
     opt('copy', 'Copier un texte (chemin serveur…)', el.action) +
+    opt('overlay', 'Ouvrir en grand par-dessus la page', el.action) +
     '</select></label>';
   if (el.action === 'panel') {
     if (panels.length > 1) {
@@ -1162,6 +1206,15 @@ function actionFields(el) {
     });
     h += '</select></label>';
   }
+  if (el.action === 'overlay') {
+    h += '<label>Ce qui s’ouvre<select id="pTgt">' +
+      (el.type === 'image' ? opt(-2, '— cette image, en grand —', el.slide) : '');
+    SLIDES.forEach(function (t, i) {
+      h += opt(i, 'Diapo ' + (i + 1) + (t.hidden ? ' (cachée)' : ''), el.slide);
+    });
+    h += '</select></label><p class="muted">Le lecteur reste sur la page : ' +
+      '<b>Échap</b> ou un clic à côté referme.</p>';
+  }
   if (el.action === 'url')
     h += '<label>URL<input type="text" id="pUrl" value="' + escA(el.url || '') + '" placeholder="https://…"></label>';
   if (el.action === 'copy')
@@ -1177,6 +1230,7 @@ function actionFields(el) {
     h += '</select></label>';
     if (!vv.media)
       h += '<label>Lien YouTube<input type="text" id="pVUrl" value="' + escA(vv.url || '') + '"></label>';
+    h += '<button class="wide" id="pVFile">📁 Choisir un fichier vidéo local</button>';
   }
   return h;
 }
@@ -1370,7 +1424,24 @@ function renderProps() {
       h += opt(i, 'Diapo ' + (i + 1) + (t.hidden ? ' (cachée)' : ''),
                typeof el.slide === 'number' ? el.slide : -1);
     });
-    h += '</select></label>' +
+    h += '</select></label>';
+    h += '<hr><h3>Galerie</h3><p class="muted">Mets plusieurs diapos dans ce ' +
+      'panneau : des flèches et un compteur apparaissent, et on défile dedans.</p>' +
+      '<div id="navList">';
+    (el.list || []).forEach(function (idx, i) {
+      h += '<div class="row2"><input type="text" value="Diapo ' + (idx + 1) +
+        '" disabled><button data-galdel="' + i + '">✕</button></div>';
+    });
+    h += '</div><label>Ajouter au défilement<select id="pGalAdd"><option value="">— choisir une diapo —</option>';
+    SLIDES.forEach(function (t, i) {
+      h += '<option value="' + i + '">Diapo ' + (i + 1) + (t.hidden ? ' (cachée)' : '') + '</option>';
+    });
+    h += '</select></label>';
+    if ((el.list || []).length > 1)
+      h += '<label>Défilement auto <span class="muted">' +
+        (el.auto ? el.auto + ' s' : 'désactivé') + '</span>' +
+        '<input type="range" id="pAuto2" min="0" max="15" step="1" value="' + (el.auto || 0) + '"></label>';
+    h += '<hr>' +
       '<label>Coins arrondis <span class="muted">' + (el.radius == null ? 10 : el.radius) + ' px</span>' +
       '<input type="range" id="pRadius" min="0" max="60" value="' + (el.radius == null ? 10 : el.radius) + '"></label>' +
       '<label>Fond<input type="color" id="pBgPanel" value="' + (el.bgHex || '#0a0c11') + '"></label>' +
@@ -1502,6 +1573,21 @@ function bindElementFields(el) {
     el.bgHex = e.target.value;
     el.bg = e.target.value;
   });
+  set('pGalAdd', 'change', function (e) {
+    if (e.target.value === '') return;
+    el.list = (el.list || []).concat([parseInt(e.target.value, 10)]);
+    panelState = {};
+  }, true);
+  live('pAuto2', function (e) { el.auto = parseInt(e.target.value, 10); });
+  props.querySelectorAll('[data-galdel]').forEach(function (n) {
+    n.addEventListener('click', function (e) {
+      pushUndo();
+      el.list.splice(+e.currentTarget.dataset.galdel, 1);
+      panelState = {};
+      renderElements();
+      renderProps();
+    });
+  });
   typed('pUrl', function (e) { el.url = e.target.value.trim(); });
   typed('pCopy', function (e) { el.copyText = e.target.value; });
   set('pAnim', 'change', function (e) { el.anim = e.target.value; previewOnce(); }, true);
@@ -1510,6 +1596,18 @@ function bindElementFields(el) {
   set('pVSrc', 'change', function (e) {
     el.video = e.target.value === 'yt' ? { url: '' } : { media: e.target.value };
   }, true);
+  on('pVFile', 'click', function () {
+    pickFile('video/*', function (f) {
+      if (f.size > 60 * 1024 * 1024 &&
+          !confirm('Fichier de ' + Math.round(f.size / 1e6) + ' Mo : le HTML final sera très lourd. Continuer ?')) return;
+      readAsMedia(f, function (id) {
+        pushUndo();
+        el.video = { media: id };
+        renderProps();
+        toast('Vidéo prête — elle se lira en grand, hors ligne');
+      });
+    });
+  });
   set('pVUrl', 'change', function (e) { el.video = { url: ytEmbed(e.target.value.trim()) }; }, true);
   set('pLook', 'change', function (e) { el.look = e.target.value; }, true);
   typed('pLbl', function (e) { el.label = e.target.value; });
@@ -1636,6 +1734,53 @@ function syncThumbs() {
 }
 
 /* ============================ lecteur vidéo ============================ */
+/* Ouvrir une diapo par-dessus la page courante : on ne change pas de page,
+   Échap ou un clic à côté referme et on retrouve exactement où on était. */
+function openSlideOverlay(idx) {
+  var lb = $('lb');
+  lb.innerHTML = '';
+  lb.classList.add('slideov');
+  lb.style.aspectRatio = wrap.style.aspectRatio || '16 / 9';
+  var box = document.createElement('div');
+  box.className = 'ovwrap';
+  var im = document.createElement('img');
+  im.className = 'ovimg';
+  im.src = IMG(SLIDES[idx].img);
+  im.draggable = false;
+  im.addEventListener('load', function () {
+    if (im.naturalWidth) lb.style.aspectRatio = im.naturalWidth + ' / ' + im.naturalHeight;
+    scaleText();
+  });
+  box.appendChild(im);
+  // la diapo affichée garde ses éléments (une seule imbrication)
+  SLIDES[idx].elements.forEach(function (sub) {
+    if (sub.type === 'panel') return;
+    box.appendChild(buildEl(sub, -1, 1, box));
+  });
+  lb.appendChild(box);
+  $('lightbox').classList.remove('hidden');
+  $('lbClose').classList.remove('hidden');
+  scaleText();
+}
+function openImageOverlay(src) {
+  var lb = $('lb');
+  lb.innerHTML = '';
+  lb.classList.add('slideov');
+  lb.style.aspectRatio = '16 / 9';
+  var box = document.createElement('div');
+  box.className = 'ovwrap';
+  var im = document.createElement('img');
+  im.className = 'ovimg';
+  im.src = src;
+  im.addEventListener('load', function () {
+    if (im.naturalWidth) lb.style.aspectRatio = im.naturalWidth + ' / ' + im.naturalHeight;
+  });
+  box.appendChild(im);
+  lb.appendChild(box);
+  $('lightbox').classList.remove('hidden');
+  $('lbClose').classList.remove('hidden');
+}
+
 function openLightbox(v) {
   if (!v) return;
   var lb = $('lb'), el = null;
@@ -1657,6 +1802,11 @@ function openLightbox(v) {
   $('lbClose').classList.remove('hidden');
 }
 function closeLightbox() {
+  var lb = $('lb');
+  lb.innerHTML = '';
+  lb.classList.remove('slideov');
+  lb.style.aspectRatio = '';
+  renderElements();          // les éléments de l'overlay sortent du registre
   $('lb').innerHTML = '';
   $('lightbox').classList.add('hidden');
   $('lbClose').classList.add('hidden');

@@ -75,6 +75,31 @@ se remet à son état de départ quand on quitte la page et qu'on y revient.
 La diapo affichée dans un panneau garde **ses propres éléments** : sa fiche
 peut donc contenir ses propres boutons, une vidéo, etc.
 
+### Une galerie qui défile dans un panneau
+
+Sélectionne un panneau → section **Galerie** → *Ajouter au défilement*, autant
+de diapos que tu veux. Des **flèches** et un **compteur** (« 2 / 6 »)
+apparaissent dans le panneau, et on fait défiler sans quitter la page. Un
+curseur **Défilement auto** enchaîne tout seul, de 1 à 15 secondes.
+
+C'est la façon de remettre tes séries de planches ou de décors.
+
+### Ouvrir une diapo (ou une image) en grand, par-dessus la page
+
+Action **Ouvrir en grand par-dessus la page** : le lecteur clique sur une
+planche, elle s'ouvre en grand au-dessus de la page — **Échap** ou un clic à
+côté referme, et il se retrouve exactement là où il était, page intacte.
+
+La cible est au choix une diapo (avec ses propres boutons, qui restent
+cliquables en grand) ou, sur un élément image, **l'image elle-même**.
+
+### Vidéo : fichier local aussi bien que YouTube
+
+Action **Lire une vidéo en grand** → bouton **📁 Choisir un fichier vidéo
+local**. La vidéo est embarquée dans le HTML et se lit **hors ligne**, sans
+rien demander à YouTube. Le lien YouTube reste disponible pour ce qui est déjà
+en ligne.
+
 ### Donner vie à la page
 
 Ces réglages transforment un enchaînement de pages en une vraie expérience.

@@ -65,6 +65,28 @@ Remplace l'ancien fichier par celui-ci, tes reglages sont dedans.
 🔒 Export final donne une copie sans mode edition, a diffuser.
 
 
+GALERIE QUI DEFILE DANS UN PANNEAU
+----------------------------------
+Selectionne un panneau -> section Galerie -> "Ajouter au defilement",
+autant de diapos que tu veux. Des fleches et un compteur (2 / 6)
+apparaissent dans le panneau, on defile sans quitter la page. Un curseur
+"Defilement auto" enchaine tout seul (1 a 15 s).
+C'est la facon de remettre tes series de planches ou de decors.
+
+OUVRIR UNE DIAPO EN GRAND PAR-DESSUS LA PAGE
+--------------------------------------------
+Action "Ouvrir en grand par-dessus la page" : le lecteur clique sur une
+planche, elle s'ouvre en grand ; Echap ou un clic a cote referme et il
+retrouve sa page exactement comme il l'avait laissee.
+La cible est une diapo (qui garde ses boutons) ou, sur une image,
+l'image elle-meme.
+
+VIDEO LOCALE
+------------
+Action "Lire une video en grand" -> "Choisir un fichier video local".
+La video est embarquee et se lit hors ligne, sans passer par YouTube.
+
+
 DONNER VIE A LA PAGE
 --------------------
 - Transition entre les pages (panneau de droite, rien de selectionne) :

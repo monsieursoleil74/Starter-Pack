@@ -118,6 +118,16 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   courante = la dernière entrée dont `slide <= cur`. Indépendante de
   `meta.view.header` : elle reste visible en mode immersif, c'est la
   navigation.
+- **Galerie** : un panneau avec `list` (indices de diapos) affiche flèches +
+  compteur ; `galleryStep()` déplace `panelState[nom]` dans la liste.
+  `el.auto` (secondes) enclenche un `setInterval` gardé dans `galleryTimers`,
+  purgé au début de chaque `renderElements()` — sans quoi les minuteries
+  s'empilent à chaque rendu.
+- Action `overlay` : `openSlideOverlay()` réutilise `#lightbox` avec la classe
+  `slideov`, l'`aspect-ratio` recalculé sur l'image, et les éléments de la
+  diapo cible rendus à `depth 1` (donc cliquables). `slide === -2` = l'image de
+  l'élément lui-même. `closeLightbox()` rappelle `renderElements()` pour que
+  les nœuds de l'overlay sortent de `scalables`.
 - Action `copy` : `copyText()` avec repli `execCommand` (l'API presse-papiers
   n'est pas garantie en `file://`).
 - `meta.locked` : export « final » — le bouton ✏️ n'est pas rendu et
@@ -148,7 +158,10 @@ scénarios :
    vignettes / flèches, clavier neutralisé, bouton toujours opérant et sans
    infobulle, `E` qui ramène l'édition ; objets du .pptx détectés et
    transformés en zone d'un clic ;
-4. panneaux : écran de sélection complet — diapos cachées servant de contenu,
+4. galerie dans un panneau (défilement avant/arrière, compteur), ouverture
+   d'une diapo en grand (Échap et clic à côté referment, page intacte),
+   vidéo locale importée depuis l'action « lire en grand » ;
+5. panneaux : écran de sélection complet — diapos cachées servant de contenu,
    panneau vide au départ, deux boutons qui le remplissent tour à tour sans
    changer de page, remise à zéro à l'aller-retour, fil de lecture intact.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
