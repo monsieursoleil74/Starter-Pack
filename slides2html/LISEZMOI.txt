@@ -65,6 +65,33 @@ Remplace l'ancien fichier par celui-ci, tes reglages sont dedans.
 🔒 Export final donne une copie sans mode edition, a diffuser.
 
 
+MODE IMMERSIF (experience de lecture)
+-------------------------------------
+Par defaut la page se lit comme un diaporama : fleches, compteur, barre
+de progression, vignettes. Pour un vrai petit site ou l'on ne navigue
+qu'avec TES boutons : en edition, clique dans le vide (rien de
+selectionne) puis, dans le panneau de droite, section "Ce que voit le
+lecteur", decoche ce que tu veux -- ou clique "Mode immersif" pour tout
+masquer d'un coup.
+
+Attention : sans navigation libre, le lecteur n'avance QUE par les
+boutons que tu poses. Verifie que chaque page en a au moins un.
+La touche E reste ton acces a l'edition, meme tout masque.
+
+
+LES OBJETS DE TON PPTX DEVIENNENT TES BOUTONS
+---------------------------------------------
+Si tu deposes le .pptx en meme temps que le PDF, l'outil releve la
+position de chaque forme, texte et image de tes diapos. Dans l'editeur,
+le bouton "Objets" les fait apparaitre en vert : un clic sur l'un d'eux
+cree une zone cliquable exactement a sa place.
+
+C'est le plus rapide : tu dessines tes boutons dans Google Slides, avec
+ta charte, et tu les rends cliquables ici sans rien redessiner.
+Deux limites : une forme dont la position vient du modele de diapo n'est
+pas detectee, et un groupe est propose d'un bloc.
+
+
 RECETTE : UN ECRAN DE SELECTION
 -------------------------------
 Cliquer sur un personnage et voir sa fiche s'afficher en dessous, sans

@@ -172,7 +172,8 @@ function resolvePath(base, target) {
   return parts.join('/');
 }
 
-function extractNotes(zip, count) {
+/* Ouvre le .pptx une fois : accès XML, ordre réel des diapos, taille de page. */
+function pptxOpen(zip) {
   var dec = new TextDecoder('utf-8');
   var parser = new DOMParser();
   var xml = function (path) {
@@ -181,7 +182,7 @@ function extractNotes(zip, count) {
     return d.getElementsByTagName('parsererror').length ? null : d;
   };
   var pres = xml('ppt/presentation.xml'), presRels = xml('ppt/_rels/presentation.xml.rels');
-  if (!pres || !presRels) return [];
+  if (!pres || !presRels) return null;
 
   var rel = {};
   localEls(presRels, 'Relationship').forEach(function (r) {
@@ -192,9 +193,64 @@ function extractNotes(zip, count) {
     var t = rel[relAttr(s, 'id')];
     return t ? resolvePath('ppt/presentation.xml', t) : null;
   });
+  var sz = localEls(pres, 'sldSz')[0];
+  return {
+    xml: xml,
+    slidePaths: slidePaths,
+    sw: sz ? +sz.getAttribute('cx') : 0,
+    sh: sz ? +sz.getAttribute('cy') : 0
+  };
+}
 
+/* Les formes du .pptx deviennent des « objets » : des rectangles déjà
+   positionnés que l'éditeur propose de transformer en boutons d'un clic.
+   On ne lit que les formes de premier niveau ayant leur propre position ;
+   un groupe est renvoyé comme un seul objet (son cadre). */
+function slideObjects(doc, sw, sh) {
+  var tree = localEls(doc, 'spTree')[0];
+  if (!tree || !sw || !sh) return [];
+  var out = [];
+  Array.prototype.forEach.call(tree.children, function (node) {
+    var kind = node.localName;
+    if (['sp', 'pic', 'graphicFrame', 'grpSp', 'cxnSp'].indexOf(kind) < 0) return;
+    var xfrm = null;
+    Array.prototype.forEach.call(node.children, function (c) {
+      if (xfrm) return;
+      if (c.localName === 'xfrm') xfrm = c;                        // graphicFrame
+      else if (c.localName === 'spPr' || c.localName === 'grpSpPr')
+        xfrm = localEls(c, 'xfrm')[0] || null;
+    });
+    if (!xfrm) return;                    // position héritée du modèle : incalculable ici
+    var off = localEls(xfrm, 'off')[0], ext = localEls(xfrm, 'ext')[0];
+    if (!off || !ext) return;
+    var w = +ext.getAttribute('cx') / sw * 100, h = +ext.getAttribute('cy') / sh * 100;
+    if (!(w > 0.8 && h > 0.8)) return;                  // miettes
+    if (w > 97 && h > 97) return;                       // fond de page
+    var text = localEls(node, 't').map(function (t) { return t.textContent; }).join(' ').trim();
+    out.push({
+      x: r2(+off.getAttribute('x') / sw * 100),
+      y: r2(+off.getAttribute('y') / sh * 100),
+      w: r2(w), h: r2(h),
+      kind: kind === 'pic' ? 'image' : (text ? 'text' : 'shape'),
+      label: text.slice(0, 60)
+    });
+  });
+  return out;
+}
+
+function extractObjects(idx, count) {
+  var out = idx.slidePaths.map(function (sp) {
+    var d = sp ? idx.xml(sp) : null;
+    return d ? slideObjects(d, idx.sw, idx.sh) : [];
+  });
+  while (out.length < count) out.push([]);
+  return out;
+}
+
+function extractNotes(idx, count) {
+  var xml = idx.xml;
   var notes = [];
-  slidePaths.forEach(function (sp) {
+  idx.slidePaths.forEach(function (sp) {
     var txt = '';
     if (sp) {
       var srels = xml(sp.replace(/([^\/]+)$/, '_rels/$1.rels'));
@@ -231,11 +287,14 @@ function notesText(doc) {
 
 /* ---------------- fabrication du HTML ---------------- */
 
-function buildHtml(title, images, zones, notes) {
+function buildHtml(title, images, zones, notes, objects) {
   var cfg = {
     meta: { title: title, lang: 'fr', embed: true, locked: false, app: APP_VERSION },
     slides: images.map(function (_, i) {
-      return { img: i, notes: notes[i] || '', hidden: false, elements: zones[i] || [] };
+      var s = { img: i, notes: notes[i] || '', hidden: false, elements: zones[i] || [] };
+      // formes repérées dans le .pptx : des candidats à transformer en boutons
+      if (objects && objects[i] && objects[i].length) s.objects = objects[i];
+      return s;
     })
   };
   var assets = { images: images, media: {} };
@@ -290,22 +349,28 @@ async function convert() {
     }
     if (nz) log(nz + ' lien(s) du PDF converti(s) en zones cliquables');
 
-    var notes = [];
+    var notes = [], objects = [];
     if (state.pptx) {
       try {
         var zip = fflate.unzipSync(new Uint8Array(await state.pptx.arrayBuffer()));
-        notes = extractNotes(zip, n);
+        var idx = pptxOpen(zip);
+        if (!idx) throw new Error('structure du .pptx illisible');
+        notes = extractNotes(idx, n);
         var got = notes.filter(function (t) { return t; }).length;
         log(got ? got + ' note(s) du présentateur récupérée(s)' : 'Aucune note trouvée dans le .pptx');
+        objects = extractObjects(idx, n);
+        var nb = objects.reduce(function (a, o) { return a + o.length; }, 0);
+        if (nb) log(nb + ' objet(s) du .pptx repérés — dans l’éditeur, « ⌖ Objets » ' +
+                    'les transforme en boutons d’un clic');
         if (notes.length !== n)
           log('Le .pptx a ' + notes.length + ' diapo(s) et le PDF ' + n + ' — vérifie que les deux exports correspondent.', 'err');
       } catch (e) {
-        log('Notes non récupérées (' + e.message + ') — le reste est bon.', 'err');
+        log('Lecture du .pptx incomplète (' + e.message + ') — le reste est bon.', 'err');
       }
     }
 
     var title = $('title').value.trim() || baseName(state.pdf.name) || 'Présentation';
-    var html = buildHtml(title, images, zones, notes);
+    var html = buildHtml(title, images, zones, notes, objects);
     progress(1);
 
     state.url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));

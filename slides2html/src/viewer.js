@@ -48,6 +48,13 @@ var T = FR
 
 document.title = META.title;
 
+/* Réglages de lecture : ce qui s'affiche autour de la diapo pour le lecteur.
+   Tout à true = comportement historique ; tout à false = mode immersif, où
+   l'on ne navigue plus qu'avec les boutons posés sur les pages. */
+var VIEW_KEYS = ['arrows', 'counter', 'progress', 'thumbs', 'header'];
+if (!META.view) META.view = {};
+VIEW_KEYS.forEach(function (k) { if (META.view[k] === undefined) META.view[k] = true; });
+
 /* ============================ styles ============================ */
 var style = document.createElement('style');
 style.textContent = "\
@@ -69,10 +76,16 @@ button.icon:disabled{opacity:.35;cursor:default;background:var(--panel2)}\
 .sep{width:1px;height:22px;background:var(--line);margin:0 3px}\
 #main{flex:1;display:flex;min-height:0}\
 #stage{flex:1;display:flex;align-items:center;justify-content:center;position:relative;padding:18px;min-width:0}\
-#wrap{position:relative;max-width:100%;max-height:100%;display:flex;transition:opacity .18s ease}\
+/* le cadre prend exactement le format de la page (aspect-ratio posé en JS depuis\
+   les dimensions réelles de l'image) : ni étirement, ni décalage des éléments,\
+   quel que soit le format du PDF — 16/9, A4 portrait ou autre */\
+#wrap{position:relative;max-width:100%;max-height:100%;width:auto;height:auto;aspect-ratio:16/9;transition:opacity .18s ease}\
 body:not(.editing) #wrap{overflow:hidden;border-radius:var(--radius)}\
 #wrap.fading{opacity:0}\
-#slide{max-width:100%;max-height:100%;border-radius:var(--radius);box-shadow:0 8px 40px rgba(0,0,0,.55);user-select:none;display:block}\
+#slide{width:100%;height:100%;object-fit:contain;border-radius:var(--radius);box-shadow:0 8px 40px rgba(0,0,0,.55);user-select:none;display:block}\
+body.noarrows .navzone{display:none}\
+#fsFloat{position:fixed;top:14px;right:16px;z-index:25;background:rgba(20,22,30,.7);color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:15px;cursor:pointer;opacity:.22;transition:opacity .2s}\
+#fsFloat:hover{opacity:1}\
 body.editing{user-select:none}\
 body.drawing #stage{cursor:crosshair}\
 .navzone{position:absolute;top:0;bottom:0;width:22%;cursor:pointer;display:flex;align-items:center;opacity:0;transition:opacity .2s;z-index:1}\
@@ -107,6 +120,9 @@ body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);curs
 .guide{position:absolute;background:var(--warn);z-index:7;pointer-events:none;opacity:.9}\
 .guide.v{width:1px;top:0;bottom:0}\
 .guide.h{height:1px;left:0;right:0}\
+.cand{position:absolute;z-index:5;border:2px dashed rgba(62,207,142,.9);border-radius:6px;cursor:pointer;background:rgba(62,207,142,.10);transition:background .12s}\
+.cand:hover{background:rgba(62,207,142,.28)}\
+.cand span{position:absolute;left:0;top:-17px;font-size:10.5px;color:#3ecf8e;white-space:nowrap;pointer-events:none;max-width:100%;overflow:hidden;text-overflow:ellipsis}\
 \
 #backBtn{position:absolute;top:16px;left:16px;z-index:6;background:rgba(20,22,30,.85);color:#fff;border:1px solid var(--line);border-radius:20px;padding:8px 16px;cursor:pointer;font-size:14px}\
 #backBtn:hover{background:var(--accent);border-color:var(--accent)}\
@@ -171,6 +187,7 @@ document.body.insertAdjacentHTML('beforeend',
 '<button class="icon" id="tShape" title="Ajouter une forme (cadre, pastille, masque)">▭ Forme</button>' +
 '<button class="icon" id="tPanel" title="Panneau : affiche une autre diapo à l\u2019intérieur de celle-ci">🗔 Panneau</button>' +
 '<button class="icon" id="tVideo" title="Ajouter une vidéo">🎬 Vidéo</button>' +
+'<button class="icon hidden" id="tObjects" title="Montrer les formes venues du .pptx : un clic en fait un bouton">⌖ Objets</button>' +
 '<span class="sep"></span>' +
 '<button class="icon" id="tUndo" title="Annuler (Ctrl+Z)">↶</button>' +
 '<button class="icon" id="tRedo" title="Rétablir (Ctrl+Y)">↷</button>' +
@@ -201,6 +218,7 @@ document.body.insertAdjacentHTML('beforeend',
 '<button id="lbClose" class="hidden">✕</button>' +
 '<div id="menu" class="hidden"></div>' +
 '<input type="file" id="filePick" class="hidden">' +
+'<button id="fsFloat" class="hidden" title="Plein écran (F)">⛶</button>' +
 '<div id="toast"></div>' +
 '<div id="hint">' + T.help + (META.locked ? '' : ' · E : édition') + '</div>');
 
@@ -209,7 +227,7 @@ var wrap = $('wrap'), slideEl = $('slide'), counter = $('counter'), thumbs = $('
     backBtn = $('backBtn'), hidBadge = $('hidBadge'), titleEl = $('title'), btnNotes = $('btnNotes');
 var cur = 0, editMode = false, drawMode = false, dirty = false,
     sel = null, drag = null, hist = [], thumbItems = [], clip = null,
-    undoStack = [], redoStack = [], panelState = {}, scalables = [];
+    undoStack = [], redoStack = [], panelState = {}, scalables = [], showObjects = false;
 titleEl.textContent = META.title;
 hidBadge.textContent = T.hidden;
 backBtn.textContent = T.back;
@@ -336,10 +354,39 @@ function refresh() { go(cur, { instant: true, noHist: true, keepSel: true }); }
 function goBack() { var p = hist.pop(); go(p == null ? firstVisible() : p, { noHist: true }); }
 
 function renderElements() {
-  wrap.querySelectorAll('.el,.guide').forEach(function (n) { n.remove(); });
+  wrap.querySelectorAll('.el,.guide,.cand').forEach(function (n) { n.remove(); });
   scalables.length = 0;
   els().forEach(function (el, i) { wrap.appendChild(buildEl(el, i, 0, wrap)); });
+  renderCandidates();
   scaleText();
+}
+
+/* Formes repérées dans le .pptx : elles ne font rien tant qu'on n'a pas
+   cliqué dessus — un clic crée une zone exactement à leur place. */
+function renderCandidates() {
+  if (!editMode || !showObjects) return;
+  (SLIDES[cur].objects || []).forEach(function (o) {
+    var d = document.createElement('div');
+    d.className = 'cand';
+    setRect(d, o);
+    d.title = 'Cliquer pour en faire un bouton';
+    if (o.label) {
+      var lab = document.createElement('span');
+      lab.textContent = o.label;
+      d.appendChild(lab);
+    }
+    d.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    d.addEventListener('click', function (e) {
+      e.stopPropagation();
+      pushUndo();
+      els().push({ type: 'zone', x: o.x, y: o.y, w: o.w, h: o.h, look: 'hover',
+                   action: 'goto', slide: Math.min(cur + 1, SLIDES.length - 1) });
+      select(els().length - 1);
+      buildThumbs();
+      toast('Bouton créé sur cet objet — choisis sa destination');
+    });
+    wrap.appendChild(d);
+  });
 }
 
 /* Panneaux : une fenêtre posée sur la diapo qui affiche une AUTRE diapo à
@@ -438,8 +485,7 @@ function buildEl(el, i, depth, box) {
 
   if (!editMode || depth > 0) {
     if (el.action && el.action !== 'none' && !(editMode && depth > 0)) {
-      d.classList.add('act');
-      d.title = actionTitle(el);
+      d.classList.add('act');   // pas d'infobulle : le lecteur n'a pas à lire « Aller à la diapo 6 »
       d.addEventListener('click', function (ev) { ev.stopPropagation(); doAction(el); });
     }
   } else {
@@ -816,6 +862,57 @@ function actionFields(el) {
   return h;
 }
 
+/* Réglages valables pour toute la présentation : ce que voit le lecteur
+   autour de la diapo. Tout décocher = expérience immersive, où l'on ne
+   navigue plus qu'avec les boutons posés sur les pages. */
+var VIEW_LABELS = {
+  arrows: 'Navigation libre (flèches, clic sur les côtés, swipe)',
+  counter: 'Compteur de diapos',
+  progress: 'Barre de progression',
+  thumbs: 'Bandeau de vignettes',
+  header: 'Barre du haut'
+};
+function viewFields() {
+  var v = META.view;
+  var h = '<hr><h3>Ce que voit le lecteur</h3>';
+  VIEW_KEYS.forEach(function (k) {
+    h += '<label class="ck"><input type="checkbox" id="v_' + k + '"' +
+      (v[k] ? ' checked' : '') + '><span>' + VIEW_LABELS[k] + '</span></label>';
+  });
+  var immersive = VIEW_KEYS.every(function (k) { return !v[k]; });
+  h += '<div class="pbtns"><button id="vImmersive">🎬 Mode immersif</button>' +
+    '<button id="vAll">Tout afficher</button></div>';
+  if (!v.arrows)
+    h += '<p class="muted" style="margin-top:10px">Navigation libre coupée : ' +
+      'le lecteur ne peut avancer <b>que</b> par les boutons que tu poses. ' +
+      'Vérifie que chaque page en a au moins un.' +
+      (immersive ? '<br>La touche <b>E</b> reste ton accès à l’édition.' : '') + '</p>';
+  return h;
+}
+function bindViewFields() {
+  VIEW_KEYS.forEach(function (k) {
+    var n = $('v_' + k);
+    if (n) n.addEventListener('change', function (e) {
+      META.view[k] = e.target.checked;
+      markDirty();
+      applyViewChrome();
+      renderProps();
+    });
+  });
+  var setAll = function (val) {
+    return function () {
+      VIEW_KEYS.forEach(function (k) { META.view[k] = val; });
+      markDirty();
+      applyViewChrome();
+      renderProps();
+      toast(val ? 'Tous les repères affichés' : 'Mode immersif : navigation par boutons uniquement');
+    };
+  };
+  var a = $('vImmersive'), b = $('vAll');
+  if (a) a.addEventListener('click', setAll(false));
+  if (b) b.addEventListener('click', setAll(true));
+}
+
 function renderProps() {
   if (!editMode) { props.classList.add('hidden'); return; }
   props.classList.remove('hidden');
@@ -839,9 +936,11 @@ function renderProps() {
       'de très bons boutons.<br><br>' +
       '<b>🗔 Panneau</b> : une fenêtre qui affiche une AUTRE diapo à l’intérieur ' +
       'de celle-ci. Idéal pour un écran de sélection : les boutons restent à ' +
-      'l’écran, seul le contenu du panneau change.</p>';
+      'l’écran, seul le contenu du panneau change.</p>' +
+      viewFields();
     props.innerHTML = h;
     bindSlideFields(s);
+    bindViewFields();
     return;
   }
 
@@ -1216,6 +1315,20 @@ function setDraw(kind) {
   });
   document.body.classList.toggle('drawing', !!drawMode);
 }
+/* montre ou masque tout ce qui entoure la diapo, selon META.view.
+   En édition, on garde évidemment tous les repères. */
+function applyViewChrome() {
+  var v = META.view, ed = editMode;
+  document.querySelector('header').classList.toggle('hidden', !ed && !v.header);
+  $('counter').classList.toggle('hidden', !ed && !v.counter);
+  prog.classList.toggle('hidden', !ed && !v.progress);
+  $('btnThumbs').classList.toggle('hidden', !ed && !v.thumbs);
+  if (!ed && !v.thumbs) thumbs.classList.add('hidden');
+  $('fsFloat').classList.toggle('hidden', ed || v.header);
+  document.body.classList.toggle('noarrows', !ed && !v.arrows);
+}
+function freeNav() { return editMode || META.view.arrows; }
+
 function setEdit(onOff) {
   if (META.locked) return;
   editMode = onOff;
@@ -1226,6 +1339,9 @@ function setEdit(onOff) {
   var be = $('btnEdit');
   if (be) be.classList.toggle('active', onOff);
   if (onOff) { thumbs.classList.remove('hidden'); $('btnThumbs').classList.add('active'); }
+  applyViewChrome();
+  if (onOff && SLIDES.some(function (s2) { return s2.objects && s2.objects.length; }))
+    $('tObjects').classList.remove('hidden');
   buildThumbs();
   refresh();
   renderProps();
@@ -1237,13 +1353,25 @@ if (btnEdit) btnEdit.addEventListener('click', function () { setEdit(!editMode);
 titleEl.addEventListener('dblclick', function () {
   if (!editMode) return;
   var t = prompt('Titre de la présentation :', META.title);
-  if (t && t.trim()) { META.title = t.trim(); document.title = META.title; markDirty(); }
+  if (t && t.trim()) { META.title = t.trim(); document.title = META.title;
+
+/* Réglages de lecture : ce qui s'affiche autour de la diapo pour le lecteur.
+   Tout à true = comportement historique ; tout à false = mode immersif, où
+   l'on ne navigue plus qu'avec les boutons posés sur les pages. */
+var VIEW_KEYS = ['arrows', 'counter', 'progress', 'thumbs', 'header'];
+if (!META.view) META.view = {};
+VIEW_KEYS.forEach(function (k) { if (META.view[k] === undefined) META.view[k] = true; }); markDirty(); }
 });
 
 $('tZone').addEventListener('click', function () { setDraw(drawMode === 'zone' ? false : 'zone'); });
 $('tText').addEventListener('click', function () { setDraw(drawMode === 'text' ? false : 'text'); });
 $('tShape').addEventListener('click', function () { setDraw(drawMode === 'shape' ? false : 'shape'); });
 $('tPanel').addEventListener('click', function () { setDraw(drawMode === 'panel' ? false : 'panel'); });
+$('tObjects').addEventListener('click', function () {
+  showObjects = !showObjects;
+  $('tObjects').classList.toggle('active', showObjects);
+  renderElements();
+});
 $('tImage').addEventListener('click', function (e) {
   e.stopPropagation();
   pickFile('image/*', addImageFile);
@@ -1301,6 +1429,7 @@ $('btnThumbs').addEventListener('click', function () {
 $('btnFS').addEventListener('click', function () {
   document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
 });
+$('fsFloat').addEventListener('click', function () { $('btnFS').click(); });
 $('prev').addEventListener('click', function () { if (!editMode) go(linPrev()); });
 $('next').addEventListener('click', function () { if (!editMode) go(linNext()); });
 backBtn.addEventListener('click', goBack);
@@ -1348,15 +1477,17 @@ document.addEventListener('keydown', function (e) {
     return;
   }
   if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') {
+    if (!freeNav()) return;
     e.preventDefault();
     if (editMode) go(Math.min(cur + 1, SLIDES.length - 1));
     else if (!SLIDES[cur].hidden) go(linNext());
   } else if (k === 'ArrowLeft' || k === 'PageUp') {
+    if (SLIDES[cur].hidden && !editMode) { goBack(); return; }
+    if (!freeNav()) return;
     if (editMode) go(Math.max(cur - 1, 0));
-    else if (SLIDES[cur].hidden) goBack();
     else go(linPrev());
-  } else if (k === 'Home') go(editMode ? 0 : firstVisible());
-  else if (k === 'End') go(editMode ? SLIDES.length - 1 : lastVisible());
+  } else if (k === 'Home') { if (freeNav()) go(editMode ? 0 : firstVisible()); }
+  else if (k === 'End') { if (freeNav()) go(editMode ? SLIDES.length - 1 : lastVisible()); }
   else if (low === 'f') $('btnFS').click();
   else if (low === 't') $('btnThumbs').click();
   else if (low === 'n' && !btnNotes.classList.contains('hidden')) btnNotes.click();
@@ -1371,21 +1502,34 @@ document.addEventListener('touchend', function (e) {
   tx = null;
   if (Math.abs(dx) < 50) return;
   if (SLIDES[cur].hidden) { if (dx > 0) goBack(); return; }
+  if (!freeNav()) return;
   go(dx < 0 ? linNext() : linPrev());
 });
 
+/* le cadre épouse le format réel de la page : c'est ce qui empêche
+   l'étirement quand le PDF n'est pas en 16/9 */
+function fitFrame() {
+  if (slideEl.naturalWidth && slideEl.naturalHeight)
+    wrap.style.aspectRatio = slideEl.naturalWidth + ' / ' + slideEl.naturalHeight;
+  scaleText();
+}
 window.addEventListener('resize', scaleText);
-slideEl.addEventListener('load', scaleText);
+slideEl.addEventListener('load', fitFrame);
 window.addEventListener('hashchange', function () {
   var h = parseInt(location.hash.slice(1), 10) - 1;
   if (!isNaN(h) && h !== cur) go(clamp(h, 0, SLIDES.length - 1), { noHist: true });
 });
 
 /* ============================ démarrage ============================ */
-setTimeout(function () {
-  var h = $('hint');
-  if (h) { h.style.opacity = 0; setTimeout(function () { h.remove(); }, 600); }
+var hintEl = $('hint');
+if (!META.view.arrows && !META.locked) hintEl.remove();
+else setTimeout(function () {
+  if (hintEl && hintEl.parentNode) {
+    hintEl.style.opacity = 0;
+    setTimeout(function () { hintEl.remove(); }, 600);
+  }
 }, 5000);
+applyViewChrome();
 buildThumbs();
 $('btnThumbs').classList.add('active');
 var start = parseInt(location.hash.slice(1), 10) - 1;

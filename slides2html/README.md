@@ -75,6 +75,42 @@ se remet à son état de départ quand on quitte la page et qu'on y revient.
 La diapo affichée dans un panneau garde **ses propres éléments** : sa fiche
 peut donc contenir ses propres boutons, une vidéo, etc.
 
+### Mode immersif (expérience de lecture)
+
+Par défaut la page se lit comme un diaporama : flèches, compteur, barre de
+progression, vignettes. Pour un vrai petit site où **on ne navigue qu'avec tes
+boutons**, décoche ce que tu veux dans le panneau de droite, section
+**« Ce que voit le lecteur »** (clique dans le vide pour ne rien avoir de
+sélectionné) — ou clique **🎬 Mode immersif** pour tout masquer d'un coup :
+
+| Réglage | Ce qu'il enlève |
+|---|---|
+| Navigation libre | les flèches latérales, les flèches du clavier et le swipe |
+| Compteur de diapos | le « 3 / 12 » en haut |
+| Barre de progression | le trait bleu en bas |
+| Bandeau de vignettes | la colonne de miniatures |
+| Barre du haut | toute l'entête (un bouton plein écran discret reste en haut à droite) |
+
+⚠️ Sans navigation libre, le lecteur ne peut avancer **que** par les boutons
+que tu poses : vérifie que chaque page en a au moins un. La touche `E` reste
+ton accès à l'édition, même quand tout est masqué.
+
+### Transformer les objets de ton .pptx en boutons
+
+Si tu déposes le `.pptx` en même temps que le PDF, l'outil relève la position
+de **chaque forme, texte et image** de tes diapos. Dans l'éditeur, le bouton
+**⌖ Objets** les fait apparaître en vert : **un clic sur l'un d'eux crée une
+zone cliquable exactement à sa place**, tu n'as plus qu'à choisir sa
+destination.
+
+C'est la façon la plus rapide de travailler : tu dessines tes boutons dans
+Google Slides, avec ta charte et tes polices, et tu les rends cliquables ici
+sans rien redessiner ni aligner.
+
+Deux limites : une forme dont la position vient du **modèle de diapo** (un
+placeholder de titre non déplacé) n'est pas détectée, et un **groupe** est
+proposé d'un bloc, pas élément par élément.
+
 ### Manipulations
 
 | | |

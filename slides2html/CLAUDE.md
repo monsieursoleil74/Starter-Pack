@@ -88,6 +88,24 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
 - `hidden` retire la diapo du fil (`linNext`/`linPrev`, compteur
   `visPos`/`visCount`) ; la pile `hist` alimente l'action `back` et le bouton
   ↩ Retour automatique.
+- **Format des pages** : `#wrap` porte un `aspect-ratio` posé en JS depuis
+  `naturalWidth/naturalHeight` de l'image (`fitFrame` sur l'événement `load`),
+  et `#slide` fait 100 % × 100 %. Ne JAMAIS repasser `#wrap` en `display:flex`
+  avec une image en `max-width/max-height` : c'est ce qui étirait les PDF non
+  16/9 (une page A4 s'affichait en 1.688 au lieu de 0.707).
+- `meta.view` = `{arrows, counter, progress, thumbs, header}`, tous à `true`
+  par défaut (fichiers anciens compris). `applyViewChrome()` les applique et
+  n'agit qu'en lecture — l'édition garde tous ses repères. `freeNav()` garde
+  clavier et swipe. Tout à `false` = mode immersif : on ne navigue plus que
+  par les boutons, d'où le `#fsFloat` (plein écran) et le rappel que `E`
+  reste l'accès à l'édition.
+- Pas d'infobulle `title` sur les éléments cliquables en lecture : le lecteur
+  n'a pas à voir « Aller à la diapo 6 ».
+- `slides[i].objects` : formes relevées dans le .pptx (position seule), TOUJOURS
+  des candidats — jamais rendues au lecteur. Le bouton `⌖ Objets` les affiche
+  en édition et un clic crée une zone à leur place. Extraction dans
+  `slideObjects()` : formes de premier niveau ayant leur propre `a:xfrm`
+  (placeholders hérités ignorés, groupe = un seul objet).
 - `meta.locked` : export « final » — le bouton ✏️ n'est pas rendu et
   `setEdit()` sort immédiatement.
 
@@ -111,7 +129,12 @@ scénarios :
    texte (rendu + taille), forme (ellipse), duplication, ordre d'empilement,
    Ctrl+Z / Ctrl+Y, flèches, enregistrement puis relecture (éléments
    conservés, image cliquable opérante, élément sans action non cliquable) ;
-3. panneaux : écran de sélection complet — diapos cachées servant de contenu,
+3. mode immersif + format : page A4 non étirée (avant/après ajout d'un
+   bouton), bascule immersive, relecture sans barre / compteur / progression /
+   vignettes / flèches, clavier neutralisé, bouton toujours opérant et sans
+   infobulle, `E` qui ramène l'édition ; objets du .pptx détectés et
+   transformés en zone d'un clic ;
+4. panneaux : écran de sélection complet — diapos cachées servant de contenu,
    panneau vide au départ, deux boutons qui le remplissent tour à tour sans
    changer de page, remise à zéro à l'aller-retour, fil de lecture intact.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
