@@ -133,6 +133,12 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   La section « Mouvement » du panneau est repliée par défaut (`advOpen`).
   Le panneau ne doit pas redevenir un mur de champs : tout nouveau réglage
   peu fréquent va dans le repli.
+- `slides[i].name` : nom donné à une page. `slideName(i)` (nom, sinon
+  « Diapo N ») et `slideOpt(i)` (+ « (cachée) ») sont les SEULS endroits où se
+  fabrique un libellé de page — listes déroulantes, vignettes, sommaire,
+  audit. Toute nouvelle liste doit passer par eux, sinon elle réaffiche des
+  numéros au milieu des noms. Le champ met à jour le titre du panneau à la
+  main : un `renderProps()` par caractère ferait perdre le focus.
 - **Gabarit** : `meta.master` = éléments présents sur toutes les pages, rendus
   APRÈS ceux de la page donc au-dessus. `allEls()` = page + master, et c'est
   cet index concaténé qui sert à la sélection et au rendu (`sel`, `drag.i`,

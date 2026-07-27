@@ -54,6 +54,17 @@ souvent un meilleur bouton qu'une pastille.
 
 Sur une diapo cachée, un bouton **↩ Retour** apparaît tout seul.
 
+### Nommer tes pages
+
+Sélectionne une page (clique dans le vide pour n'avoir aucun élément
+sélectionné) → champ **Nom de la page**. Le nom apparaît alors **partout** :
+sur les vignettes, dans toutes les listes de destination (« Aller à →
+*Fiche Pipo* » au lieu de « Diapo 6 »), dans les galeries, dans le sommaire et
+dans les messages de **✓ Vérifier**.
+
+À partir d'une vingtaine de pages, c'est ce qui fait la différence entre s'y
+retrouver et compter les numéros. Les pages sans nom gardent le leur.
+
 ### Un élément sur toutes les pages (logo, bouton d'accueil)
 
 Sélectionne un élément et coche **Sur toutes les pages**. Il apparaît partout,

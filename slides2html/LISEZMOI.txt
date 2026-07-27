@@ -188,6 +188,15 @@ Deux limites : une forme dont la position vient du modele de diapo n'est
 pas detectee, et un groupe est propose d'un bloc.
 
 
+NOMMER TES PAGES
+----------------
+Selectionne une page (clique dans le vide pour n'avoir aucun element
+selectionne) -> champ "Nom de la page". Le nom apparait ensuite PARTOUT :
+vignettes, listes de destination ("Aller a -> Fiche Pipo" au lieu de
+"Diapo 6"), galeries, sommaire, et messages de la verification.
+A partir d'une vingtaine de pages, c'est ce qui evite de se perdre.
+
+
 UN ELEMENT SUR TOUTES LES PAGES
 -------------------------------
 Selectionne un element et coche "Sur toutes les pages" : logo, bouton

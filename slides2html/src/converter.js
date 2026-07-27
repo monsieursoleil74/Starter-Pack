@@ -314,6 +314,7 @@ function mergeDeck(old, n, images, zones, notes, objects) {
     var o = oldSlides[i] || {};
     return {
       img: i,
+      name: o.name,
       notes: (notes && notes[i]) || o.notes || '',
       hidden: !!o.hidden,
       // les liens du nouveau PDF ne sont repris que là où rien n'existait
