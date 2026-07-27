@@ -114,8 +114,10 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
       <div>
         <b>Dépose le PDF ci-dessous</b>
         <p>Tes liens vers d'autres diapos et tes vidéos YouTube sont récupérés
-          automatiquement. Ajoute aussi le <kbd>.pptx</kbd> si tu veux garder
-          les notes du présentateur (facultatif).</p>
+          automatiquement. Ajoute aussi le <kbd>.pptx</kbd> pour les notes et
+          les objets, et — si tu mets à jour un pack déjà monté — ton
+          <kbd>.html</kbd> précédent : boutons, panneaux et réglages sont
+          repris sur les nouvelles pages.</p>
       </div>
     </div>
     <div class="step" style="margin-top:15px">
@@ -130,10 +132,10 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
   <div id="drop">
     <div class="big">Dépose ton PDF ici</div>
-    <div class="small">ou clique pour le choisir</div>
+    <div class="small">ou clique pour le choisir · .pptx et .html précédents acceptés</div>
     <div id="files"></div>
   </div>
-  <input type="file" id="pick" accept=".pdf,.pptx" multiple class="hidden">
+  <input type="file" id="pick" accept=".pdf,.pptx,.html" multiple class="hidden">
 
   <div class="card" id="opts">
     <div class="row">

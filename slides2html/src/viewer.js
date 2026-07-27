@@ -56,6 +56,7 @@ if (!META.view) META.view = {};
 VIEW_KEYS.forEach(function (k) { if (META.view[k] === undefined) META.view[k] = true; });
 if (META.transition === undefined) META.transition = 'fade';
 if (!META.nav) META.nav = [];   // sommaire : [{label, slide}]
+if (!META.master) META.master = [];   // éléments présents sur TOUTES les pages
 
 /* ============================ styles ============================ */
 var style = document.createElement('style');
@@ -170,6 +171,8 @@ body.editing .navzone,#stage.onhidden .navzone{display:none}\
 .act.look-button:active{transform:translateY(1px)}\
 body.editing .el{outline:1px dashed rgba(91,140,255,.55);cursor:grab}\
 body.editing .el.sel{outline:2px solid var(--warn)}\
+body.editing .el.master{outline:1px dashed rgba(62,207,142,.85)}\
+body.editing .el.master.sel{outline:2px solid var(--warn)}\
 body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);cursor:text;user-select:text}\
 .hdl{position:absolute;width:13px;height:13px;background:var(--warn);border:2px solid #111;border-radius:50%;z-index:6}\
 .hdl-se{right:-7px;bottom:-7px;cursor:nwse-resize}\
@@ -306,7 +309,16 @@ function r2(n) { return Math.round(n * 100) / 100; }
 function markDirty() { dirty = true; titleEl.textContent = META.title + ' •'; }
 function clearDirty() { dirty = false; titleEl.textContent = META.title; }
 function els() { return SLIDES[cur].elements; }
-function selEl() { return sel == null ? null : els()[sel]; }
+/* Les éléments communs (gabarit) sont rendus après ceux de la page, donc
+   au-dessus. L'indexation d'affichage — et donc la sélection — porte sur la
+   concaténation des deux listes. */
+function allEls() { return els().concat(META.master); }
+function ownerOf(i) {
+  var n = els().length;
+  return i < n ? { arr: els(), idx: i, master: false }
+               : { arr: META.master, idx: i - n, master: true };
+}
+function selEl() { return sel == null ? null : allEls()[sel]; }
 // seulement les éléments posés sur la diapo : ceux imbriqués dans un panneau
 // portent la même classe et décaleraient l'indexation pendant un déplacement
 function nodes() { return wrap.querySelectorAll(':scope > .el'); }
@@ -434,7 +446,7 @@ function renderElements() {
   galleryTimers.length = 0;
   wrap.querySelectorAll('.el,.guide,.cand').forEach(function (n) { n.remove(); });
   scalables.length = 0;
-  els().forEach(function (el, i) { wrap.appendChild(buildEl(el, i, 0, wrap)); });
+  allEls().forEach(function (el, i) { wrap.appendChild(buildEl(el, i, 0, wrap)); });
   renderCandidates();
   scaleText();
 }
@@ -489,7 +501,7 @@ function galleryStep(el, dir) {
   renderElements();
 }
 function panelsHere() {
-  return els().filter(function (e) { return e.type === 'panel'; });
+  return allEls().filter(function (e) { return e.type === 'panel'; });
 }
 
 function buildEl(el, i, depth, box) {
@@ -620,6 +632,7 @@ function buildEl(el, i, depth, box) {
       cov.className = 'vcover';
       d.appendChild(cov);
     }
+    if (depth === 0 && i >= els().length) d.classList.add('master');
     if (sel === i) {
       d.classList.add('sel');
       ['se', 'nw'].forEach(function (c) {
@@ -768,7 +781,7 @@ function showGuide(kind, pos) {
 function snapMove(o, i) {
   wrap.querySelectorAll('.guide').forEach(function (n) { n.remove(); });
   var tol = 0.7, xs = [0, 50, 100], ys = [0, 50, 100];
-  els().forEach(function (e2, j) {
+  allEls().forEach(function (e2, j) {
     if (j === i) return;
     xs.push(e2.x, e2.x + e2.w / 2, e2.x + e2.w);
     ys.push(e2.y, e2.y + e2.h / 2, e2.y + e2.h);
@@ -1137,7 +1150,9 @@ function renderProps() {
       '• <b>flèches</b> pour ajuster finement, <b>Ctrl+D</b> dupliquer, <b>Suppr</b> effacer<br>' +
       '• <b>Ctrl+Z</b> annuler · <b>Ctrl+V</b> coller une image du presse-papiers<br>' +
       '• <b>double-clic</b> sur un texte pour le réécrire<br>' +
-      '• une image peut aussi être <b>déposée</b> directement sur la diapo' +
+      '• une image peut aussi être <b>déposée</b> directement sur la diapo<br>' +
+      '• coche <b>Sur toutes les pages</b> sur un élément (logo, bouton d’accueil) ' +
+      'pour qu’il suive partout — tu ne le modifies qu’une fois' +
       '<br><br>' +
       'N’importe quel élément peut devenir cliquable : une image ou un texte font ' +
       'de très bons boutons.<br><br>' +
@@ -1153,7 +1168,10 @@ function renderProps() {
 
   var names = { zone: 'Zone cliquable', image: 'Image', text: 'Texte', shape: 'Forme',
                 video: 'Vidéo', panel: 'Panneau' };
-  h += '<hr><h3>' + names[el.type] + '</h3>';
+  var isMaster = ownerOf(sel).master;
+  h += '<hr><h3>' + names[el.type] + (isMaster ? ' — commun' : '') + '</h3>' +
+    '<label class="ck"><input type="checkbox" id="pMaster"' + (isMaster ? ' checked' : '') +
+    '><span>Sur toutes les pages — un seul exemplaire à modifier, il suit partout</span></label>';
 
   if (el.type === 'zone') {
     h += actionFields(el) +
@@ -1433,13 +1451,30 @@ function bindElementFields(el) {
   set('pAuto', 'change', function (e) { el.autoplay = e.target.checked; if (el.autoplay) el.muted = true; });
   set('pLoop', 'change', function (e) { el.loop = e.target.checked; });
 
+  on('pMaster', 'change', function (e) {
+    pushUndo();
+    var o = ownerOf(sel);
+    var it = o.arr.splice(o.idx, 1)[0];
+    if (e.target.checked) {
+      META.master.push(it);
+      sel = els().length + META.master.length - 1;
+      toast('Élément commun : il apparaît sur toutes les pages');
+    } else {
+      els().push(it);
+      sel = els().length - 1;
+      toast('Élément rendu propre à cette page');
+    }
+    buildThumbs();
+    renderElements();
+    renderProps();
+  });
   on('pReplace', 'click', function () {
     pickFile('image/*', function (f) {
       readAsMedia(f, function (id) { pushUndo(); el.media = id; renderElements(); });
     });
   });
-  on('pFront', 'click', function () { pushUndo(); moveSel(els().length - 1); });
-  on('pBack', 'click', function () { pushUndo(); moveSel(0); });
+  on('pFront', 'click', function () { pushUndo(); moveSel('front'); });
+  on('pBack', 'click', function () { pushUndo(); moveSel('back'); });
   on('pDup', 'click', duplicate);
   on('pDel', 'click', deleteSel);
 }
@@ -1451,25 +1486,33 @@ function previewOnce() {
   setTimeout(function () { previewing = false; }, 2600);
 }
 
-function moveSel(to) {
-  var arr = els(), it = arr.splice(sel, 1)[0];
-  arr.splice(to, 0, it);
-  sel = to;
+function moveSel(dir) {
+  var o = ownerOf(sel);
+  var it = o.arr.splice(o.idx, 1)[0];
+  var to = dir === 'front' ? o.arr.length : 0;
+  o.arr.splice(to, 0, it);
+  sel = o.master ? els().length + to : to;
   renderElements();
   renderProps();
 }
 function duplicate() {
   var el = selEl();
   if (!el) return;
+  var o = ownerOf(sel);
   var copy = JSON.parse(JSON.stringify(el));
   copy.x = r2(clamp(copy.x + 2.5, 0, 100 - copy.w));
   copy.y = r2(clamp(copy.y + 2.5, 0, 100 - copy.h));
-  addElement(copy, 'Dupliqué');
+  pushUndo();
+  o.arr.push(copy);
+  select(o.master ? els().length + o.arr.length - 1 : o.arr.length - 1);
+  buildThumbs();
+  toast('Dupliqué');
 }
 function deleteSel() {
   if (sel == null) return;
   pushUndo();
-  els().splice(sel, 1);
+  var o = ownerOf(sel);
+  o.arr.splice(o.idx, 1);
   sel = null;
   renderElements();
   renderProps();
@@ -1477,7 +1520,7 @@ function deleteSel() {
 }
 function gcMedia() {
   var used = {};
-  SLIDES.forEach(function (s) {
+  SLIDES.concat([{ elements: META.master }]).forEach(function (s) {
     s.elements.forEach(function (e) {
       if (e.media) used[e.media] = 1;
       if (e.video && e.video.media) used[e.video.media] = 1;

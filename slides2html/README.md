@@ -54,6 +54,15 @@ souvent un meilleur bouton qu'une pastille.
 
 Sur une diapo cachée, un bouton **↩ Retour** apparaît tout seul.
 
+### Un élément sur toutes les pages (logo, bouton d'accueil)
+
+Sélectionne un élément et coche **Sur toutes les pages**. Il apparaît partout,
+et surtout : **tu ne le modifies qu'une fois**. Change son texte ou sa position
+depuis n'importe quelle page, ça suit sur toutes les autres.
+
+En édition, ces éléments ont un contour vert pour les distinguer de ceux qui
+appartiennent à la page. Décoche la case pour en refaire un élément local.
+
 ### Recette : un écran de sélection (personnages, rigs, départements…)
 
 Le cas typique : une page de sélection où l'on clique sur un personnage et où
@@ -201,11 +210,28 @@ gérer à côté — la page se réécrit elle-même.
 `Suppr` supprimer la sélection · `Échap` annuler. Clic sur les bords, swipe
 tactile, et `#3` à la fin de l'URL pour ouvrir directement une diapo.
 
-## Refaire une conversion après avoir modifié les diapos
+## Mettre à jour un pack déjà monté
 
-Reconvertir repart d'une page vierge : les boutons et diapos cachées de la
-version précédente ne sont pas repris. Garde ton HTML édité de côté (ou
-renomme-le) avant de reconvertir.
+Tu as corrigé une coquille dans Slides, ajouté un personnage, remplacé une
+planche ? **Tu ne perds pas ton travail d'interactivité.**
+
+Réexporte le PDF, puis dépose dans le convertisseur **le nouveau PDF *et* ton
+`.html` précédent**. Les images sont refaites à neuf ; boutons, panneaux,
+galeries, diapos cachées, sommaire, éléments communs, transitions et réglages
+de lecture sont transplantés sur les nouvelles pages.
+
+La correspondance se fait **page par page, dans l'ordre** : la page 3 reprend
+ce qui était sur la page 3. Donc :
+
+- ajouter des pages **à la fin** ne dérange rien ;
+- insérer ou supprimer une page **au milieu** décale tout ce qui suit — il
+  faudra reprendre les pages décalées ;
+- si le nouveau deck est plus court, le travail des pages en trop est perdu, et
+  le journal te le dit.
+
+Les renvois devenus impossibles (un bouton qui pointait vers une page
+disparue) sont corrigés automatiquement, et le journal indique combien — pense
+à les vérifier.
 
 ## Pour bidouiller le code
 

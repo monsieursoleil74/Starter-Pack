@@ -143,6 +143,28 @@ Deux limites : une forme dont la position vient du modele de diapo n'est
 pas detectee, et un groupe est propose d'un bloc.
 
 
+UN ELEMENT SUR TOUTES LES PAGES
+-------------------------------
+Selectionne un element et coche "Sur toutes les pages" : logo, bouton
+d'accueil, retour au sommaire. Il apparait partout et tu ne le modifies
+qu'une fois -- change-le depuis n'importe quelle page, ca suit partout.
+En edition il a un contour vert pour le distinguer.
+
+
+METTRE A JOUR UN PACK DEJA MONTE
+--------------------------------
+Tu corriges une coquille dans Slides, tu ajoutes un personnage ? Tu ne
+perds pas ton travail : reexporte le PDF, puis depose dans le
+convertisseur LE NOUVEAU PDF **ET** TON .HTML PRECEDENT.
+Les images sont refaites, et boutons, panneaux, galeries, pages cachees,
+sommaire, elements communs et transitions sont repris.
+
+La correspondance se fait page par page dans l'ordre : la page 3 reprend
+ce qui etait sur la page 3. Ajouter des pages A LA FIN ne derange rien ;
+en inserer une au milieu decale tout ce qui suit. Les renvois vers une
+page disparue sont corriges, le journal te dit combien.
+
+
 RECETTE : UN ECRAN DE SELECTION
 -------------------------------
 Cliquer sur un personnage et voir sa fiche s'afficher en dessous, sans

@@ -118,6 +118,19 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   (aucun fantôme, contrairement à un déplacement). `el.radius` sur la zone
   permet d'épouser la forme du bouton sous-jacent, sinon les angles réagissent
   hors de lui.
+- **Gabarit** : `meta.master` = éléments présents sur toutes les pages, rendus
+  APRÈS ceux de la page donc au-dessus. `allEls()` = page + master, et c'est
+  cet index concaténé qui sert à la sélection et au rendu (`sel`, `drag.i`,
+  `nodes()` sont alignés dessus) ; `ownerOf(i)` dit dans quelle liste écrire.
+  Toute opération de mutation (supprimer, dupliquer, ordre) doit passer par
+  `ownerOf`, jamais par `els()` directement.
+- **Reprise d'un pack édité** : le convertisseur accepte un `.html` déjà monté
+  en 3ᵉ fichier. `readDeck()` relit ses balises JSON (le `<\/` du JSON est un
+  échappement valide, `JSON.parse` le gère), `mergeDeck()` transplante
+  `meta` + `elements`/`hidden`/`notes` page par page **par index**, et nettoie
+  les renvois hors bornes (`goto`/`panel`/`overlay`, `list` de galerie,
+  `meta.nav`) en comptant les corrections. Les liens du nouveau PDF ne sont
+  posés que sur les pages où l'ancien n'avait aucun élément.
 - `el.on` : un élément dont l'action `panel` pointe sur ce que le panneau
   affiche en ce moment est marqué actif — c'est ce qui donne le comportement
   « onglet sélectionné » d'un vrai site.
@@ -168,7 +181,11 @@ scénarios :
 4. galerie dans un panneau (défilement avant/arrière, compteur), ouverture
    d'une diapo en grand (Échap et clic à côté referment, page intacte),
    vidéo locale importée depuis l'action « lire en grand » ;
-5. panneaux : écran de sélection complet — diapos cachées servant de contenu,
+5. gabarit + mise à jour : élément commun présent une fois par page et
+   modifiable depuis n'importe laquelle, puis reconversion avec un nouveau PDF
+   qui reprend commun, transition, sommaire, page cachée et boutons de page,
+   tout en remplaçant réellement les images ;
+6. panneaux : écran de sélection complet — diapos cachées servant de contenu,
    panneau vide au départ, deux boutons qui le remplissent tour à tour sans
    changer de page, remise à zéro à l'aller-retour, fil de lecture intact.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la

@@ -114,8 +114,10 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
       <div>
         <b>Dépose le PDF ci-dessous</b>
         <p>Tes liens vers d'autres diapos et tes vidéos YouTube sont récupérés
-          automatiquement. Ajoute aussi le <kbd>.pptx</kbd> si tu veux garder
-          les notes du présentateur (facultatif).</p>
+          automatiquement. Ajoute aussi le <kbd>.pptx</kbd> pour les notes et
+          les objets, et — si tu mets à jour un pack déjà monté — ton
+          <kbd>.html</kbd> précédent : boutons, panneaux et réglages sont
+          repris sur les nouvelles pages.</p>
       </div>
     </div>
     <div class="step" style="margin-top:15px">
@@ -130,10 +132,10 @@ input[type=text]:focus { outline:none; border-color:var(--accent); }
 
   <div id="drop">
     <div class="big">Dépose ton PDF ici</div>
-    <div class="small">ou clique pour le choisir</div>
+    <div class="small">ou clique pour le choisir · .pptx et .html précédents acceptés</div>
     <div id="files"></div>
   </div>
-  <input type="file" id="pick" accept=".pdf,.pptx" multiple class="hidden">
+  <input type="file" id="pick" accept=".pdf,.pptx,.html" multiple class="hidden">
 
   <div class="card" id="opts">
     <div class="row">
@@ -275,6 +277,7 @@ if (!META.view) META.view = {};
 VIEW_KEYS.forEach(function (k) { if (META.view[k] === undefined) META.view[k] = true; });
 if (META.transition === undefined) META.transition = 'fade';
 if (!META.nav) META.nav = [];   // sommaire : [{label, slide}]
+if (!META.master) META.master = [];   // éléments présents sur TOUTES les pages
 
 /* ============================ styles ============================ */
 var style = document.createElement('style');
@@ -389,6 +392,8 @@ body.editing .navzone,#stage.onhidden .navzone{display:none}\
 .act.look-button:active{transform:translateY(1px)}\
 body.editing .el{outline:1px dashed rgba(91,140,255,.55);cursor:grab}\
 body.editing .el.sel{outline:2px solid var(--warn)}\
+body.editing .el.master{outline:1px dashed rgba(62,207,142,.85)}\
+body.editing .el.master.sel{outline:2px solid var(--warn)}\
 body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);cursor:text;user-select:text}\
 .hdl{position:absolute;width:13px;height:13px;background:var(--warn);border:2px solid #111;border-radius:50%;z-index:6}\
 .hdl-se{right:-7px;bottom:-7px;cursor:nwse-resize}\
@@ -525,7 +530,16 @@ function r2(n) { return Math.round(n * 100) / 100; }
 function markDirty() { dirty = true; titleEl.textContent = META.title + ' •'; }
 function clearDirty() { dirty = false; titleEl.textContent = META.title; }
 function els() { return SLIDES[cur].elements; }
-function selEl() { return sel == null ? null : els()[sel]; }
+/* Les éléments communs (gabarit) sont rendus après ceux de la page, donc
+   au-dessus. L'indexation d'affichage — et donc la sélection — porte sur la
+   concaténation des deux listes. */
+function allEls() { return els().concat(META.master); }
+function ownerOf(i) {
+  var n = els().length;
+  return i < n ? { arr: els(), idx: i, master: false }
+               : { arr: META.master, idx: i - n, master: true };
+}
+function selEl() { return sel == null ? null : allEls()[sel]; }
 // seulement les éléments posés sur la diapo : ceux imbriqués dans un panneau
 // portent la même classe et décaleraient l'indexation pendant un déplacement
 function nodes() { return wrap.querySelectorAll(':scope > .el'); }
@@ -653,7 +667,7 @@ function renderElements() {
   galleryTimers.length = 0;
   wrap.querySelectorAll('.el,.guide,.cand').forEach(function (n) { n.remove(); });
   scalables.length = 0;
-  els().forEach(function (el, i) { wrap.appendChild(buildEl(el, i, 0, wrap)); });
+  allEls().forEach(function (el, i) { wrap.appendChild(buildEl(el, i, 0, wrap)); });
   renderCandidates();
   scaleText();
 }
@@ -708,7 +722,7 @@ function galleryStep(el, dir) {
   renderElements();
 }
 function panelsHere() {
-  return els().filter(function (e) { return e.type === 'panel'; });
+  return allEls().filter(function (e) { return e.type === 'panel'; });
 }
 
 function buildEl(el, i, depth, box) {
@@ -839,6 +853,7 @@ function buildEl(el, i, depth, box) {
       cov.className = 'vcover';
       d.appendChild(cov);
     }
+    if (depth === 0 && i >= els().length) d.classList.add('master');
     if (sel === i) {
       d.classList.add('sel');
       ['se', 'nw'].forEach(function (c) {
@@ -987,7 +1002,7 @@ function showGuide(kind, pos) {
 function snapMove(o, i) {
   wrap.querySelectorAll('.guide').forEach(function (n) { n.remove(); });
   var tol = 0.7, xs = [0, 50, 100], ys = [0, 50, 100];
-  els().forEach(function (e2, j) {
+  allEls().forEach(function (e2, j) {
     if (j === i) return;
     xs.push(e2.x, e2.x + e2.w / 2, e2.x + e2.w);
     ys.push(e2.y, e2.y + e2.h / 2, e2.y + e2.h);
@@ -1356,7 +1371,9 @@ function renderProps() {
       '• <b>flèches</b> pour ajuster finement, <b>Ctrl+D</b> dupliquer, <b>Suppr</b> effacer<br>' +
       '• <b>Ctrl+Z</b> annuler · <b>Ctrl+V</b> coller une image du presse-papiers<br>' +
       '• <b>double-clic</b> sur un texte pour le réécrire<br>' +
-      '• une image peut aussi être <b>déposée</b> directement sur la diapo' +
+      '• une image peut aussi être <b>déposée</b> directement sur la diapo<br>' +
+      '• coche <b>Sur toutes les pages</b> sur un élément (logo, bouton d’accueil) ' +
+      'pour qu’il suive partout — tu ne le modifies qu’une fois' +
       '<br><br>' +
       'N’importe quel élément peut devenir cliquable : une image ou un texte font ' +
       'de très bons boutons.<br><br>' +
@@ -1372,7 +1389,10 @@ function renderProps() {
 
   var names = { zone: 'Zone cliquable', image: 'Image', text: 'Texte', shape: 'Forme',
                 video: 'Vidéo', panel: 'Panneau' };
-  h += '<hr><h3>' + names[el.type] + '</h3>';
+  var isMaster = ownerOf(sel).master;
+  h += '<hr><h3>' + names[el.type] + (isMaster ? ' — commun' : '') + '</h3>' +
+    '<label class="ck"><input type="checkbox" id="pMaster"' + (isMaster ? ' checked' : '') +
+    '><span>Sur toutes les pages — un seul exemplaire à modifier, il suit partout</span></label>';
 
   if (el.type === 'zone') {
     h += actionFields(el) +
@@ -1652,13 +1672,30 @@ function bindElementFields(el) {
   set('pAuto', 'change', function (e) { el.autoplay = e.target.checked; if (el.autoplay) el.muted = true; });
   set('pLoop', 'change', function (e) { el.loop = e.target.checked; });
 
+  on('pMaster', 'change', function (e) {
+    pushUndo();
+    var o = ownerOf(sel);
+    var it = o.arr.splice(o.idx, 1)[0];
+    if (e.target.checked) {
+      META.master.push(it);
+      sel = els().length + META.master.length - 1;
+      toast('Élément commun : il apparaît sur toutes les pages');
+    } else {
+      els().push(it);
+      sel = els().length - 1;
+      toast('Élément rendu propre à cette page');
+    }
+    buildThumbs();
+    renderElements();
+    renderProps();
+  });
   on('pReplace', 'click', function () {
     pickFile('image/*', function (f) {
       readAsMedia(f, function (id) { pushUndo(); el.media = id; renderElements(); });
     });
   });
-  on('pFront', 'click', function () { pushUndo(); moveSel(els().length - 1); });
-  on('pBack', 'click', function () { pushUndo(); moveSel(0); });
+  on('pFront', 'click', function () { pushUndo(); moveSel('front'); });
+  on('pBack', 'click', function () { pushUndo(); moveSel('back'); });
   on('pDup', 'click', duplicate);
   on('pDel', 'click', deleteSel);
 }
@@ -1670,25 +1707,33 @@ function previewOnce() {
   setTimeout(function () { previewing = false; }, 2600);
 }
 
-function moveSel(to) {
-  var arr = els(), it = arr.splice(sel, 1)[0];
-  arr.splice(to, 0, it);
-  sel = to;
+function moveSel(dir) {
+  var o = ownerOf(sel);
+  var it = o.arr.splice(o.idx, 1)[0];
+  var to = dir === 'front' ? o.arr.length : 0;
+  o.arr.splice(to, 0, it);
+  sel = o.master ? els().length + to : to;
   renderElements();
   renderProps();
 }
 function duplicate() {
   var el = selEl();
   if (!el) return;
+  var o = ownerOf(sel);
   var copy = JSON.parse(JSON.stringify(el));
   copy.x = r2(clamp(copy.x + 2.5, 0, 100 - copy.w));
   copy.y = r2(clamp(copy.y + 2.5, 0, 100 - copy.h));
-  addElement(copy, 'Dupliqué');
+  pushUndo();
+  o.arr.push(copy);
+  select(o.master ? els().length + o.arr.length - 1 : o.arr.length - 1);
+  buildThumbs();
+  toast('Dupliqué');
 }
 function deleteSel() {
   if (sel == null) return;
   pushUndo();
-  els().splice(sel, 1);
+  var o = ownerOf(sel);
+  o.arr.splice(o.idx, 1);
   sel = null;
   renderElements();
   renderProps();
@@ -1696,7 +1741,7 @@ function deleteSel() {
 }
 function gcMedia() {
   var used = {};
-  SLIDES.forEach(function (s) {
+  SLIDES.concat([{ elements: META.master }]).forEach(function (s) {
     s.elements.forEach(function (e) {
       if (e.media) used[e.media] = 1;
       if (e.video && e.video.media) used[e.video.media] = 1;
@@ -2131,7 +2176,7 @@ var $ = function (id) { return document.getElementById(id); };
 pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
   new Blob([$('pdf-worker').textContent], { type: 'text/javascript' }));
 
-var state = { pdf: null, pptx: null, width: 1600, quality: 0.85, busy: false, url: null };
+var state = { pdf: null, pptx: null, deck: null, width: 1600, quality: 0.85, busy: false, url: null };
 
 /* ---------------- utilitaires ---------------- */
 
@@ -2168,9 +2213,10 @@ function setFiles(list) {
     var n = f.name.toLowerCase();
     if (n.endsWith('.pdf')) state.pdf = f;
     else if (n.endsWith('.pptx')) state.pptx = f;
+    else if (n.endsWith('.html') || n.endsWith('.htm')) state.deck = f;
     else rejected++;
   });
-  if (rejected) log(rejected + ' fichier(s) ignoré(s) — dépose un .pdf (et éventuellement un .pptx).', 'err');
+  if (rejected) log(rejected + ' fichier(s) ignoré(s) — dépose un .pdf, et si tu veux un .pptx ou ton .html déjà édité.', 'err');
   if (state.pdf && !$('title').value.trim()) $('title').value = baseName(state.pdf.name);
   renderFiles();
   if (!state.pdf) {
@@ -2185,7 +2231,8 @@ function setFiles(list) {
 function renderFiles() {
   var box = $('files');
   box.innerHTML = '';
-  [['pdf', 'PDF', 'diapos'], ['pptx', 'PPTX', 'notes']].forEach(function (kind) {
+  [['pdf', 'PDF', 'diapos'], ['pptx', 'PPTX', 'notes + objets'],
+   ['deck', 'HTML', 'réglages repris']].forEach(function (kind) {
     var f = state[kind[0]];
     if (!f) return;
     var c = document.createElement('span');
@@ -2404,19 +2451,96 @@ function notesText(doc) {
   return best;
 }
 
+/* ---------------- reprise d'un pack déjà édité ---------------- */
+
+/* Le HTML produit ne contient que trois balises : on relit sa configuration
+   pour transplanter le travail d'interactivité sur les nouvelles pages.
+   ('<\/' dans le JSON est un échappement valide, JSON.parse le gère.) */
+function readDeck(txt) {
+  var grab = function (id) {
+    var m = txt.match(new RegExp('<script type="application/json" id="' + id + '">([\\s\\S]*?)<\\/script>'));
+    if (!m) return null;
+    try { return JSON.parse(m[1]); } catch (e) { return null; }
+  };
+  var cfg = grab('cfg'), assets = grab('assets');
+  if (!cfg || !cfg.slides) return null;
+  return { cfg: cfg, assets: assets || { images: [], media: {} } };
+}
+
+/* Transplante l'ancien travail sur les nouvelles pages, et nettoie les
+   renvois devenus impossibles (page supprimée depuis). */
+function mergeDeck(old, n, images, zones, notes, objects) {
+  var meta = old.cfg.meta || {};
+  var oldSlides = old.cfg.slides || [];
+  var perdues = Math.max(0, oldSlides.length - n);
+  var slides = images.map(function (_, i) {
+    var o = oldSlides[i] || {};
+    return {
+      img: i,
+      notes: (notes && notes[i]) || o.notes || '',
+      hidden: !!o.hidden,
+      // les liens du nouveau PDF ne sont repris que là où rien n'existait
+      elements: (o.elements && o.elements.length) ? o.elements : (zones[i] || []),
+      objects: (objects && objects[i] && objects[i].length) ? objects[i] : o.objects
+    };
+  });
+
+  var coupes = 0;
+  var okSlide = function (v) { return typeof v === 'number' && v >= 0 && v < n; };
+  var cleanEl = function (e) {
+    if (e.action === 'goto' || e.action === 'panel' || e.action === 'overlay') {
+      if (typeof e.slide === 'number' && e.slide !== -2 && !okSlide(e.slide)) {
+        e.slide = n - 1; coupes++;
+      }
+    }
+    if (e.list) {
+      var avant = e.list.length;
+      e.list = e.list.filter(okSlide);
+      coupes += avant - e.list.length;
+    }
+    if (e.type === 'panel' && typeof e.slide === 'number' && !okSlide(e.slide)) {
+      delete e.slide; coupes++;
+    }
+  };
+  slides.forEach(function (sl) { sl.elements.forEach(cleanEl); });
+  (meta.master || []).forEach(cleanEl);
+  if (meta.nav) {
+    var avantNav = meta.nav.length;
+    meta.nav = meta.nav.filter(function (it) { return okSlide(it.slide); });
+    coupes += avantNav - meta.nav.length;
+  }
+  return { meta: meta, slides: slides, perdues: perdues, coupes: coupes };
+}
+
 /* ---------------- fabrication du HTML ---------------- */
 
-function buildHtml(title, images, zones, notes, objects) {
-  var cfg = {
-    meta: { title: title, lang: 'fr', embed: true, locked: false, app: APP_VERSION },
-    slides: images.map(function (_, i) {
-      var s = { img: i, notes: notes[i] || '', hidden: false, elements: zones[i] || [] };
-      // formes repérées dans le .pptx : des candidats à transformer en boutons
-      if (objects && objects[i] && objects[i].length) s.objects = objects[i];
-      return s;
-    })
-  };
-  var assets = { images: images, media: {} };
+function buildHtml(title, images, zones, notes, objects, old) {
+  var cfg, media = {};
+  if (old) {
+    var m = mergeDeck(old, images.length, images, zones, notes, objects);
+    cfg = { meta: m.meta, slides: m.slides };
+    cfg.meta.title = title;
+    cfg.meta.locked = false;
+    cfg.meta.app = APP_VERSION;
+    media = (old.assets && old.assets.media) || {};
+    log('Réglages repris de ton HTML : boutons, panneaux, diapos cachées, sommaire.');
+    if (m.perdues)
+      log(m.perdues + ' page(s) en trop dans l’ancien pack : leur travail est perdu ' +
+          '(le nouveau PDF en compte ' + images.length + ').', 'err');
+    if (m.coupes)
+      log(m.coupes + ' renvoi(s) pointaient vers une page disparue — corrigés, à vérifier.', 'err');
+  } else {
+    cfg = {
+      meta: { title: title, lang: 'fr', embed: true, locked: false, app: APP_VERSION },
+      slides: images.map(function (_, i) {
+        var s = { img: i, notes: notes[i] || '', hidden: false, elements: zones[i] || [] };
+        // formes repérées dans le .pptx : des candidats à transformer en boutons
+        if (objects && objects[i] && objects[i].length) s.objects = objects[i];
+        return s;
+      })
+    };
+  }
+  var assets = { images: images, media: media };
   var j = function (o) { return JSON.stringify(o).replace(/<\//g, '<\\/'); };
   return '<!DOCTYPE html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
@@ -2488,8 +2612,13 @@ async function convert() {
       }
     }
 
+    var old = null;
+    if (state.deck) {
+      old = readDeck(await state.deck.text());
+      if (!old) log('Le .html déposé n’est pas un pack produit par cet outil — ignoré.', 'err');
+    }
     var title = $('title').value.trim() || baseName(state.pdf.name) || 'Présentation';
-    var html = buildHtml(title, images, zones, notes, objects);
+    var html = buildHtml(title, images, zones, notes, objects, old);
     progress(1);
 
     state.url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));

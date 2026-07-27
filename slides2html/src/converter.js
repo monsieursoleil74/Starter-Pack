@@ -13,7 +13,7 @@ var $ = function (id) { return document.getElementById(id); };
 pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
   new Blob([$('pdf-worker').textContent], { type: 'text/javascript' }));
 
-var state = { pdf: null, pptx: null, width: 1600, quality: 0.85, busy: false, url: null };
+var state = { pdf: null, pptx: null, deck: null, width: 1600, quality: 0.85, busy: false, url: null };
 
 /* ---------------- utilitaires ---------------- */
 
@@ -50,9 +50,10 @@ function setFiles(list) {
     var n = f.name.toLowerCase();
     if (n.endsWith('.pdf')) state.pdf = f;
     else if (n.endsWith('.pptx')) state.pptx = f;
+    else if (n.endsWith('.html') || n.endsWith('.htm')) state.deck = f;
     else rejected++;
   });
-  if (rejected) log(rejected + ' fichier(s) ignoré(s) — dépose un .pdf (et éventuellement un .pptx).', 'err');
+  if (rejected) log(rejected + ' fichier(s) ignoré(s) — dépose un .pdf, et si tu veux un .pptx ou ton .html déjà édité.', 'err');
   if (state.pdf && !$('title').value.trim()) $('title').value = baseName(state.pdf.name);
   renderFiles();
   if (!state.pdf) {
@@ -67,7 +68,8 @@ function setFiles(list) {
 function renderFiles() {
   var box = $('files');
   box.innerHTML = '';
-  [['pdf', 'PDF', 'diapos'], ['pptx', 'PPTX', 'notes']].forEach(function (kind) {
+  [['pdf', 'PDF', 'diapos'], ['pptx', 'PPTX', 'notes + objets'],
+   ['deck', 'HTML', 'réglages repris']].forEach(function (kind) {
     var f = state[kind[0]];
     if (!f) return;
     var c = document.createElement('span');
@@ -286,19 +288,96 @@ function notesText(doc) {
   return best;
 }
 
+/* ---------------- reprise d'un pack déjà édité ---------------- */
+
+/* Le HTML produit ne contient que trois balises : on relit sa configuration
+   pour transplanter le travail d'interactivité sur les nouvelles pages.
+   ('<\/' dans le JSON est un échappement valide, JSON.parse le gère.) */
+function readDeck(txt) {
+  var grab = function (id) {
+    var m = txt.match(new RegExp('<script type="application/json" id="' + id + '">([\\s\\S]*?)<\\/script>'));
+    if (!m) return null;
+    try { return JSON.parse(m[1]); } catch (e) { return null; }
+  };
+  var cfg = grab('cfg'), assets = grab('assets');
+  if (!cfg || !cfg.slides) return null;
+  return { cfg: cfg, assets: assets || { images: [], media: {} } };
+}
+
+/* Transplante l'ancien travail sur les nouvelles pages, et nettoie les
+   renvois devenus impossibles (page supprimée depuis). */
+function mergeDeck(old, n, images, zones, notes, objects) {
+  var meta = old.cfg.meta || {};
+  var oldSlides = old.cfg.slides || [];
+  var perdues = Math.max(0, oldSlides.length - n);
+  var slides = images.map(function (_, i) {
+    var o = oldSlides[i] || {};
+    return {
+      img: i,
+      notes: (notes && notes[i]) || o.notes || '',
+      hidden: !!o.hidden,
+      // les liens du nouveau PDF ne sont repris que là où rien n'existait
+      elements: (o.elements && o.elements.length) ? o.elements : (zones[i] || []),
+      objects: (objects && objects[i] && objects[i].length) ? objects[i] : o.objects
+    };
+  });
+
+  var coupes = 0;
+  var okSlide = function (v) { return typeof v === 'number' && v >= 0 && v < n; };
+  var cleanEl = function (e) {
+    if (e.action === 'goto' || e.action === 'panel' || e.action === 'overlay') {
+      if (typeof e.slide === 'number' && e.slide !== -2 && !okSlide(e.slide)) {
+        e.slide = n - 1; coupes++;
+      }
+    }
+    if (e.list) {
+      var avant = e.list.length;
+      e.list = e.list.filter(okSlide);
+      coupes += avant - e.list.length;
+    }
+    if (e.type === 'panel' && typeof e.slide === 'number' && !okSlide(e.slide)) {
+      delete e.slide; coupes++;
+    }
+  };
+  slides.forEach(function (sl) { sl.elements.forEach(cleanEl); });
+  (meta.master || []).forEach(cleanEl);
+  if (meta.nav) {
+    var avantNav = meta.nav.length;
+    meta.nav = meta.nav.filter(function (it) { return okSlide(it.slide); });
+    coupes += avantNav - meta.nav.length;
+  }
+  return { meta: meta, slides: slides, perdues: perdues, coupes: coupes };
+}
+
 /* ---------------- fabrication du HTML ---------------- */
 
-function buildHtml(title, images, zones, notes, objects) {
-  var cfg = {
-    meta: { title: title, lang: 'fr', embed: true, locked: false, app: APP_VERSION },
-    slides: images.map(function (_, i) {
-      var s = { img: i, notes: notes[i] || '', hidden: false, elements: zones[i] || [] };
-      // formes repérées dans le .pptx : des candidats à transformer en boutons
-      if (objects && objects[i] && objects[i].length) s.objects = objects[i];
-      return s;
-    })
-  };
-  var assets = { images: images, media: {} };
+function buildHtml(title, images, zones, notes, objects, old) {
+  var cfg, media = {};
+  if (old) {
+    var m = mergeDeck(old, images.length, images, zones, notes, objects);
+    cfg = { meta: m.meta, slides: m.slides };
+    cfg.meta.title = title;
+    cfg.meta.locked = false;
+    cfg.meta.app = APP_VERSION;
+    media = (old.assets && old.assets.media) || {};
+    log('Réglages repris de ton HTML : boutons, panneaux, diapos cachées, sommaire.');
+    if (m.perdues)
+      log(m.perdues + ' page(s) en trop dans l’ancien pack : leur travail est perdu ' +
+          '(le nouveau PDF en compte ' + images.length + ').', 'err');
+    if (m.coupes)
+      log(m.coupes + ' renvoi(s) pointaient vers une page disparue — corrigés, à vérifier.', 'err');
+  } else {
+    cfg = {
+      meta: { title: title, lang: 'fr', embed: true, locked: false, app: APP_VERSION },
+      slides: images.map(function (_, i) {
+        var s = { img: i, notes: notes[i] || '', hidden: false, elements: zones[i] || [] };
+        // formes repérées dans le .pptx : des candidats à transformer en boutons
+        if (objects && objects[i] && objects[i].length) s.objects = objects[i];
+        return s;
+      })
+    };
+  }
+  var assets = { images: images, media: media };
   var j = function (o) { return JSON.stringify(o).replace(/<\//g, '<\\/'); };
   return '<!DOCTYPE html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
@@ -370,8 +449,13 @@ async function convert() {
       }
     }
 
+    var old = null;
+    if (state.deck) {
+      old = readDeck(await state.deck.text());
+      if (!old) log('Le .html déposé n’est pas un pack produit par cet outil — ignoré.', 'err');
+    }
     var title = $('title').value.trim() || baseName(state.pdf.name) || 'Présentation';
-    var html = buildHtml(title, images, zones, notes, objects);
+    var html = buildHtml(title, images, zones, notes, objects, old);
     progress(1);
 
     state.url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
