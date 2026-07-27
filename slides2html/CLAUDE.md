@@ -158,11 +158,15 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   `el.auto` (secondes) enclenche un `setInterval` gardé dans `galleryTimers`,
   purgé au début de chaque `renderElements()` — sans quoi les minuteries
   s'empilent à chaque rendu.
-- Action `overlay` : `openSlideOverlay()` réutilise `#lightbox` avec la classe
-  `slideov`, l'`aspect-ratio` recalculé sur l'image, et les éléments de la
-  diapo cible rendus à `depth 1` (donc cliquables). `slide === -2` = l'image de
-  l'élément lui-même. `closeLightbox()` rappelle `renderElements()` pour que
-  les nœuds de l'overlay sortent de `scalables`.
+- Action `overlay` : `openSlideOverlay(seq, pos)` réutilise `#lightbox` avec la
+  classe `slideov`, l'`aspect-ratio` recalculé sur l'image, et les éléments de
+  la diapo rendus à `depth 1` (donc cliquables). La séquence vient de
+  `overlaySeq()` = `el.slide` puis `el.list` — même champ `list` que la galerie
+  des panneaux, donc le nettoyage de `mergeDeck` et l'audit la couvrent déjà.
+  `slide === -2` = l'image de l'élément lui-même. Quand la fenêtre est ouverte,
+  le gestionnaire clavier lui donne la priorité : les flèches feuillettent et
+  la page dessous ne bouge pas. `closeLightbox()` remet `ovState` à null et
+  rappelle `renderElements()` pour que les nœuds sortent de `scalables`.
 - Action `copy` : `copyText()` avec repli `execCommand` (l'API presse-papiers
   n'est pas garantie en `file://`).
 - `meta.locked` : export « final » — le bouton ✏️ n'est pas rendu et

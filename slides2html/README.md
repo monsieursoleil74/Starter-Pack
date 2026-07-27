@@ -102,6 +102,11 @@ côté referme, et il se retrouve exactement là où il était, page intacte.
 La cible est au choix une diapo (avec ses propres boutons, qui restent
 cliquables en grand) ou, sur un élément image, **l'image elle-même**.
 
+**Plusieurs diapos d'un coup** : sous *Ce qui s'ouvre*, ajoute-en autant que tu
+veux au défilement. Des flèches et un compteur apparaissent dans la fenêtre, et
+le lecteur **feuillette tes planches** sans jamais quitter la page — au clic ou
+aux flèches du clavier. `Échap` referme.
+
 ### Vidéo : fichier local aussi bien que YouTube
 
 Action **Lire une vidéo en grand** → bouton **📁 Choisir un fichier vidéo

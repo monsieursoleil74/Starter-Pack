@@ -535,7 +535,8 @@ var wrap = $('wrap'), slideEl = $('slide'), counter = $('counter'), thumbs = $('
 var cur = 0, editMode = false, drawMode = false, dirty = false,
     sel = null, drag = null, hist = [], thumbItems = [], clip = null,
     undoStack = [], redoStack = [], panelState = {}, scalables = [], showObjects = false,
-    previewing = false, galleryTimers = [], auditMode = false, advOpen = false;
+    previewing = false, galleryTimers = [], auditMode = false, advOpen = false,
+    ovState = null;
 titleEl.textContent = META.title;
 hidBadge.textContent = T.hidden;
 backBtn.textContent = T.back;
@@ -956,8 +957,9 @@ function doAction(el) {
     case 'video': openLightbox(el.video); break;
     case 'copy': copyText(el.copyText || ''); break;
     case 'overlay':
-      if (el.slide === -2 && el.media) openImageOverlay(MEDIA(el.media));
-      else if (typeof el.slide === 'number' && SLIDES[el.slide]) openSlideOverlay(el.slide);
+      if (el.slide === -2 && el.media) { openImageOverlay(MEDIA(el.media)); break; }
+      var seq = overlaySeq(el);
+      if (seq.length) openSlideOverlay(seq, 0);
       break;
     case 'panel': {
       // on reste sur la diapo : seul le contenu du panneau change.
@@ -1285,7 +1287,22 @@ function actionFields(el) {
     SLIDES.forEach(function (t, i) {
       h += opt(i, 'Diapo ' + (i + 1) + (t.hidden ? ' (cachée)' : ''), el.slide);
     });
-    h += '</select></label><p class="muted">Le lecteur reste sur la page : ' +
+    h += '</select></label>';
+    if (el.slide !== -2) {
+      h += '<p class="muted">Ajoute d’autres diapos pour les feuilleter dans la ' +
+        'fenêtre : des flèches et un compteur apparaissent.</p><div id="navList">';
+      (el.list || []).forEach(function (idx, i) {
+        h += '<div class="row2"><input type="text" value="Diapo ' + (idx + 1) +
+          '" disabled><button data-galdel="' + i + '">✕</button></div>';
+      });
+      h += '</div><label>Ajouter au défilement<select id="pGalAdd">' +
+        '<option value="">— choisir une diapo —</option>';
+      SLIDES.forEach(function (t, i) {
+        h += '<option value="' + i + '">Diapo ' + (i + 1) + (t.hidden ? ' (cachée)' : '') + '</option>';
+      });
+      h += '</select></label>';
+    }
+    h += '<p class="muted">Le lecteur reste sur la page : ' +
       '<b>Échap</b> ou un clic à côté referme.</p>';
   }
   if (el.action === 'url')
@@ -1850,7 +1867,7 @@ function auditDeck() {
     if (page < 0 && navigates(el.action)) masterExit = true;
     if (el.media && !ASSETS.media[el.media])
       add(1, page, idx, où + ' : média introuvable (image ou vidéo perdue)');
-    if (el.type === 'panel' && el.list) el.list.forEach(function (v) {
+    if (el.list) el.list.forEach(function (v) {
       if (okSlide(v)) reached[v] = 1;
       else add(1, page, idx, où + ' : la galerie renvoie à une page disparue');
     });
@@ -1981,9 +1998,21 @@ function syncThumbs() {
 }
 
 /* ============================ lecteur vidéo ============================ */
-/* Ouvrir une diapo par-dessus la page courante : on ne change pas de page,
-   Échap ou un clic à côté referme et on retrouve exactement où on était. */
-function openSlideOverlay(idx) {
+/* Ouvrir une ou plusieurs diapos par-dessus la page courante : on ne change
+   pas de page, on peut feuilleter, Échap ou un clic à côté referme et on
+   retrouve exactement où on était.
+   La séquence = « ce qui s'ouvre », puis les diapos ajoutées au défilement. */
+function overlaySeq(el) {
+  var seq = [];
+  if (typeof el.slide === 'number' && el.slide >= 0 && SLIDES[el.slide]) seq.push(el.slide);
+  (el.list || []).forEach(function (i) {
+    if (SLIDES[i] && seq.indexOf(i) < 0) seq.push(i);
+  });
+  return seq;
+}
+function openSlideOverlay(seq, pos) {
+  ovState = { seq: seq, pos: pos };
+  var idx = seq[pos];
   var lb = $('lb');
   lb.innerHTML = '';
   lb.classList.add('slideov');
@@ -2004,10 +2033,28 @@ function openSlideOverlay(idx) {
     if (sub.type === 'panel') return;
     box.appendChild(buildEl(sub, -1, 1, box));
   });
+  if (seq.length > 1) {
+    [['prev', '‹', -1], ['next', '›', 1]].forEach(function (a) {
+      var b = document.createElement('button');
+      b.className = 'gal-nav gal-' + a[0];
+      b.textContent = a[1];
+      b.addEventListener('click', function (ev) { ev.stopPropagation(); overlayStep(a[2]); });
+      box.appendChild(b);
+    });
+    var cnt = document.createElement('span');
+    cnt.className = 'gal-count';
+    cnt.textContent = (pos + 1) + ' / ' + seq.length;
+    box.appendChild(cnt);
+  }
   lb.appendChild(box);
   $('lightbox').classList.remove('hidden');
   $('lbClose').classList.remove('hidden');
   scaleText();
+}
+function overlayStep(dir) {
+  if (!ovState || ovState.seq.length < 2) return;
+  var n = ovState.seq.length;
+  openSlideOverlay(ovState.seq, (ovState.pos + dir + n) % n);
 }
 function openImageOverlay(src) {
   var lb = $('lb');
@@ -2049,6 +2096,7 @@ function openLightbox(v) {
   $('lbClose').classList.remove('hidden');
 }
 function closeLightbox() {
+  ovState = null;
   var lb = $('lb');
   lb.innerHTML = '';
   lb.classList.remove('slideov');
@@ -2265,8 +2313,13 @@ document.addEventListener('keydown', function (e) {
   }
   if (inField) return;
 
+  if (!$('lightbox').classList.contains('hidden')) {
+    if (k === 'Escape') { closeLightbox(); return; }
+    if (k === 'ArrowRight') { e.preventDefault(); overlayStep(1); return; }
+    if (k === 'ArrowLeft') { e.preventDefault(); overlayStep(-1); return; }
+    return;                       // la page dessous ne bouge pas
+  }
   if (k === 'Escape') {
-    if (!$('lightbox').classList.contains('hidden')) { closeLightbox(); return; }
     if (drawMode) { setDraw(false); return; }
     if (editMode && sel != null) { deselect(); return; }
     return;

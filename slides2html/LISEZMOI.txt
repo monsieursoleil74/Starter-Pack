@@ -82,7 +82,9 @@ Action "Ouvrir en grand par-dessus la page" : le lecteur clique sur une
 planche, elle s'ouvre en grand ; Echap ou un clic a cote referme et il
 retrouve sa page exactement comme il l'avait laissee.
 La cible est une diapo (qui garde ses boutons) ou, sur une image,
-l'image elle-meme.
+l'image elle-meme. Tu peux en ajouter PLUSIEURS au defilement : des
+fleches et un compteur apparaissent, et le lecteur feuillette tes
+planches sans quitter la page (clic ou fleches du clavier).
 
 VIDEO LOCALE
 ------------
