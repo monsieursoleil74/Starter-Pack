@@ -188,6 +188,23 @@ Deux limites : une forme dont la position vient du modele de diapo n'est
 pas detectee, et un groupe est propose d'un bloc.
 
 
+LES TROIS MODES
+---------------
+Edition   (touche E)      tu montes le pack
+Test      (bouton Test)   exactement ce que verra l'animateur, SANS
+                          produire de fichier ; Echap ramene a l'edition
+Animateur (bouton 🔒)      le fichier que tu diffuses : plus aucun
+                          comportement de diaporama -- pas de vignettes,
+                          pas de touche T ni N, pas de clic sur les
+                          bords, pas de fleches, pas de swipe, pas
+                          d'edition. Seuls tes boutons fonctionnent.
+
+L'export lance la verification avant d'ecrire le fichier : s'il reste une
+page sans issue, la liste s'affiche et tu peux corriger ou passer outre.
+Garde toujours ton fichier de travail a cote : la version animateur ne se
+modifie plus.
+
+
 NOMMER TES PAGES
 ----------------
 Selectionne une page (clique dans le vide pour n'avoir aucun element

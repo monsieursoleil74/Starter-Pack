@@ -175,8 +175,21 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   rappelle `renderElements()` pour que les nœuds sortent de `scalables`.
 - Action `copy` : `copyText()` avec repli `execCommand` (l'API presse-papiers
   n'est pas garantie en `file://`).
-- `meta.locked` : export « final » — le bouton ✏️ n'est pas rendu et
-  `setEdit()` sort immédiatement.
+- **Trois modes.** `readerLock()` = `meta.locked || testMode` commande TOUT le
+  comportement « version animateur » : ni vignettes ni notes (et `T`/`N`
+  inertes), ni zones de clic sur les bords, ni clavier, ni swipe — `freeNav()`
+  et `applyViewChrome()` en dépendent. `meta.locked` ne fait donc plus
+  seulement disparaître le crayon : il retire le diaporama. `testMode` simule
+  la même chose depuis l'éditeur sans produire de fichier (bouton `#tTest`,
+  `Échap` pour sortir).
+- **Ne jamais appeler `confirm()` avant un téléchargement** : la boîte de
+  dialogue fait perdre l'activation utilisateur et Chrome ignore alors
+  l'attribut `download` — le fichier arrivait nommé « download ». L'export
+  animateur passe par la vérification (`auditMode === 'export'`), qui sert
+  d'avertissement et porte le bouton « exporter quand même ».
+- `auditDeck(forExport)` : à l'export, la règle « aucune sortie sur cette
+  page » s'applique toujours, puisque la version animateur n'a jamais de
+  navigation libre.
 
 ## Conventions
 - Interface et messages en français, tutoiement.

@@ -54,6 +54,21 @@ souvent un meilleur bouton qu'une pastille.
 
 Sur une diapo cachée, un bouton **↩ Retour** apparaît tout seul.
 
+### Les trois modes
+
+| Mode | Comment | Ce que c'est |
+|---|---|---|
+| **✏️ Édition** | touche `E` | Tu montes le pack : outils, panneau de réglages, vignettes. |
+| **👁 Test** | bouton *Test* | Exactement ce que verra l'animateur, **sans produire de fichier**. `Échap` te ramène à l'édition. C'est là que tu essaies tes boutons. |
+| **🔒 Animateur** | bouton *Animateur* | Le fichier que tu diffuses. **Plus aucun comportement de diaporama** : pas de vignettes, pas de touche `T` ni `N`, pas de clic sur les bords, pas de flèches au clavier, pas de swipe, pas d'accès à l'édition. Seuls tes boutons, ton sommaire et tes panneaux fonctionnent. |
+
+L'export lance la **vérification** avant d'écrire le fichier : s'il reste une
+page sans issue ou un renvoi cassé, la liste s'affiche et tu peux corriger — ou
+exporter quand même en connaissance de cause.
+
+Garde toujours ton fichier de travail à côté : la version animateur ne se
+modifie plus.
+
 ### Nommer tes pages
 
 Sélectionne une page (clique dans le vide pour n'avoir aucun élément

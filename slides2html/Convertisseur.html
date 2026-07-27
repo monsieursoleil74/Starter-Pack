@@ -458,6 +458,8 @@ body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);curs
 #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(20,22,30,.92);padding:8px 16px;border-radius:20px;font-size:12.5px;color:var(--muted);pointer-events:none;transition:opacity .5s;white-space:nowrap;z-index:20}\
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel3);color:var(--fg);padding:9px 18px;border-radius:20px;font-size:13px;z-index:30;pointer-events:none;opacity:0;transition:opacity .25s}\
 #toast.on{opacity:1}\
+#testbar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:26;background:rgba(91,140,255,.92);color:#fff;padding:7px 16px;border-radius:20px;font-size:13px;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.45)}\
+#testbar:hover{filter:brightness(1.1)}\
 #lightbox{position:fixed;inset:0;background:rgba(5,6,10,.9);z-index:50;display:flex;align-items:center;justify-content:center}\
 #lb{width:min(92vw,1200px);aspect-ratio:16/9;background:#000;border-radius:10px;box-shadow:0 10px 60px rgba(0,0,0,.7)}\
 #lb video,#lb iframe{width:100%;height:100%;border:0;border-radius:10px}\
@@ -489,12 +491,13 @@ document.body.insertAdjacentHTML('beforeend',
 '<button class="icon tool hidden" id="tObjects" title="Formes venues du .pptx : un clic en fait un bouton">⌖</button>' +
 '<span class="sep"></span>' +
 '<button class="icon tool" id="tPreview" title="Rejouer les apparitions de cette page">▶</button>' +
+'<button class="icon" id="tTest" title="Voir la page comme l’animateur, sans rien enregistrer">👁 Test</button>' +
 '<button class="icon tool" id="tUndo" title="Annuler (Ctrl+Z)">↶</button>' +
 '<button class="icon tool" id="tRedo" title="Rétablir (Ctrl+Y)">↷</button>' +
 '<span class="sep"></span>' +
 '<button class="icon" id="tAudit" title="Vérifier avant diffusion">✓ Vérifier</button>' +
 '<button class="icon" id="tSave" title="Télécharger ce fichier mis à jour (Ctrl+S)">💾</button>' +
-'<button class="icon tool" id="tLock" title="Copie verrouillée, sans mode édition">🔒</button>' +
+'<button class="icon" id="tLock" title="Exporter la version animateur : plus aucun comportement de diaporama">🔒 Animateur</button>' +
 '</span>' +
 (META.locked ? '' : '<button class="icon" id="btnEdit" title="Mode édition (E)">✏️</button>') +
 '<button class="icon hidden" id="btnNotes" title="N">🗒 ' + T.notes + '</button>' +
@@ -528,6 +531,7 @@ document.body.insertAdjacentHTML('beforeend',
 '</div>' +
 '<input type="file" id="filePick" class="hidden">' +
 '<button id="fsFloat" class="hidden" title="Plein écran (F)">⛶</button>' +
+'<div id="testbar" class="hidden">👁 Aperçu animateur — <b>Échap</b> pour revenir à l’édition</div>' +
 '<div id="toast"></div>' +
 '<div id="hint">' + T.help + (META.locked ? '' : ' · E : édition') + '</div>');
 
@@ -538,7 +542,12 @@ var cur = 0, editMode = false, drawMode = false, dirty = false,
     sel = null, drag = null, hist = [], thumbItems = [], clip = null,
     undoStack = [], redoStack = [], panelState = {}, scalables = [], showObjects = false,
     previewing = false, galleryTimers = [], auditMode = false, advOpen = false,
-    ovState = null;
+    ovState = null, testMode = false;
+
+/* Version animateur : plus aucun comportement de diaporama — ni vignettes,
+   ni notes, ni clic sur les bords, ni clavier. Seuls les boutons posés
+   fonctionnent. Le mode Aperçu simule exactement ça sans enregistrer. */
+function readerLock() { return !!META.locked || testMode; }
 titleEl.textContent = META.title;
 hidBadge.textContent = T.hidden;
 backBtn.textContent = T.back;
@@ -1445,7 +1454,7 @@ function bindViewFields() {
 function renderProps() {
   if (!editMode) { props.classList.add('hidden'); return; }
   props.classList.remove('hidden');
-  if (auditMode) { renderAudit(); return; }
+  if (auditMode) { renderAudit(auditMode === 'export'); return; }
   var s = SLIDES[cur], el = selEl();
   var h = '<h3>' + esc(slideName(cur)) + ' — ' + (cur + 1) + ' / ' + SLIDES.length + '</h3>' +
     '<label>Nom de la page<input type="text" id="pSlideName" value="' + escA(s.name || '') +
@@ -1860,7 +1869,7 @@ function gcMedia() {
 function navigates(a) {
   return a === 'goto' || a === 'next' || a === 'prev' || a === 'back';
 }
-function auditDeck() {
+function auditDeck(forExport) {
   var n = SLIDES.length, probs = [];
   var okSlide = function (v) { return typeof v === 'number' && v >= 0 && v < n; };
   var reached = {}, panelFed = {}, masterExit = false;
@@ -1925,20 +1934,22 @@ function auditDeck() {
     });
   });
   // sans navigation libre, chaque page visible doit offrir une sortie
-  if (!META.view.arrows && !(META.nav || []).length && !masterExit) {
+  // la version animateur n'a jamais de navigation libre : à l'export on
+  // vérifie donc toujours que chaque page offre une sortie
+  if ((forExport || !META.view.arrows) && !(META.nav || []).length && !masterExit) {
     SLIDES.forEach(function (sl, i) {
       if (sl.hidden) return;
       var sortie = sl.elements.some(function (el) { return navigates(el.action); });
       if (!sortie)
-        add(1, i, null, slideName(i) + ' : mode immersif et aucun bouton pour en sortir — ' +
+        add(1, i, null, slideName(i) + ' : aucun bouton pour en sortir — ' +
             'le lecteur est bloqué');
     });
   }
   return probs;
 }
 
-function renderAudit() {
-  var probs = auditDeck();
+function renderAudit(forExport) {
+  var probs = auditDeck(forExport);
   var graves = probs.filter(function (p) { return p.grave; }).length;
   var h = '<h3>Vérification</h3>';
   if (!probs.length)
@@ -1953,6 +1964,8 @@ function renderAudit() {
     });
     h += '</div>';
   }
+  if (forExport)
+    h += '<button class="wide" id="aExport">🔒 Exporter quand même</button>';
   h += '<button class="wide" id="aClose">Fermer la vérification</button>';
   props.innerHTML = h;
   props.querySelectorAll('[data-aud]').forEach(function (n2) {
@@ -1966,6 +1979,13 @@ function renderAudit() {
       renderElements();
       renderProps();
     });
+  });
+  var ex = $('aExport');
+  if (ex) ex.addEventListener('click', function () {
+    auditMode = false;
+    $('tAudit').classList.remove('active');
+    renderProps();
+    exportReader();
   });
   $('aClose').addEventListener('click', function () {
     auditMode = false;
@@ -2214,17 +2234,30 @@ function applyViewChrome() {
   document.querySelector('header').classList.toggle('hidden', !ed && !v.header);
   $('counter').classList.toggle('hidden', !ed && !v.counter);
   prog.classList.toggle('hidden', !ed && !v.progress);
-  $('btnThumbs').classList.toggle('hidden', !ed && !v.thumbs);
-  if (!ed && !v.thumbs) thumbs.classList.add('hidden');
+  var verrou = !ed && readerLock();
+  $('btnThumbs').classList.toggle('hidden', verrou || (!ed && !v.thumbs));
+  if (verrou || (!ed && !v.thumbs)) thumbs.classList.add('hidden');
+  if (verrou) { notesEl.classList.add('hidden'); btnNotes.classList.add('hidden'); }
   $('fsFloat').classList.toggle('hidden', ed || v.header);
-  document.body.classList.toggle('noarrows', !ed && !v.arrows);
+  document.body.classList.toggle('noarrows', !ed && (!v.arrows || readerLock()));
   document.body.classList.toggle('full', !!v.full);
   renderNav();
 }
-function freeNav() { return editMode || META.view.arrows; }
+function freeNav() { return editMode || (META.view.arrows && !readerLock()); }
+
+/* Aperçu : on quitte l'édition et on se comporte comme la version animateur,
+   sans produire de fichier. Échap ou le bandeau ramène à l'édition. */
+function setTest(onOff) {
+  if (META.locked) return;
+  testMode = onOff;
+  $('testbar').classList.toggle('hidden', !onOff);
+  $('tTest').classList.toggle('active', onOff);
+  setEdit(!onOff);
+}
 
 function setEdit(onOff) {
   if (META.locked) return;
+  if (onOff) { testMode = false; $('testbar').classList.add('hidden'); }
   editMode = onOff;
   sel = null;
   setDraw(false);
@@ -2275,6 +2308,8 @@ $('tVideo').addEventListener('click', function (e) {
   ]);
 });
 $('tPreview').addEventListener('click', previewOnce);
+$('tTest').addEventListener('click', function () { setTest(true); });
+$('testbar').addEventListener('click', function () { setTest(false); });
 $('tAudit').addEventListener('click', function () {
   auditMode = !auditMode;
   $('tAudit').classList.toggle('active', auditMode);
@@ -2283,10 +2318,21 @@ $('tAudit').addEventListener('click', function () {
 $('tUndo').addEventListener('click', undo);
 $('tRedo').addEventListener('click', redo);
 $('tSave').addEventListener('click', save);
+/* Pas de confirm() ici : la boîte de dialogue fait perdre l'autorisation du
+   navigateur, et le fichier arrivait nommé « download ». La vérification joue
+   ce rôle, avec un bouton pour passer outre. */
+function exportReader() {
+  download(safeName(META.title) + ' - animateur.html', serialize(true));
+  toast('Version animateur téléchargée — garde ton fichier de travail à côté');
+}
 $('tLock').addEventListener('click', function () {
-  if (!confirm('Exporter une copie VERROUILLÉE (sans mode édition), prête à diffuser ?\n' +
-    'Garde bien ta version normale : c’est elle qui reste modifiable.')) return;
-  download(safeName(META.title) + ' — final.html', serialize(true));
+  if (auditDeck(true).length) {
+    auditMode = 'export';
+    $('tAudit').classList.add('active');
+    renderProps();
+    return;
+  }
+  exportReader();
 });
 
 /* coller une image depuis le presse-papiers */
@@ -2324,8 +2370,8 @@ $('btnFS').addEventListener('click', function () {
   document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
 });
 $('fsFloat').addEventListener('click', function () { $('btnFS').click(); });
-$('prev').addEventListener('click', function () { if (!editMode) go(linPrev()); });
-$('next').addEventListener('click', function () { if (!editMode) go(linNext()); });
+$('prev').addEventListener('click', function () { if (!editMode && freeNav()) go(linPrev()); });
+$('next').addEventListener('click', function () { if (!editMode && freeNav()) go(linNext()); });
 backBtn.addEventListener('click', goBack);
 
 document.addEventListener('keydown', function (e) {
@@ -2355,6 +2401,7 @@ document.addEventListener('keydown', function (e) {
     return;                       // la page dessous ne bouge pas
   }
   if (k === 'Escape') {
+    if (testMode) { setTest(false); return; }
     if (drawMode) { setDraw(false); return; }
     if (editMode && sel != null) { deselect(); return; }
     return;
@@ -2388,8 +2435,8 @@ document.addEventListener('keydown', function (e) {
   } else if (k === 'Home') { if (freeNav()) go(editMode ? 0 : firstVisible()); }
   else if (k === 'End') { if (freeNav()) go(editMode ? SLIDES.length - 1 : lastVisible()); }
   else if (low === 'f') $('btnFS').click();
-  else if (low === 't') $('btnThumbs').click();
-  else if (low === 'n' && !btnNotes.classList.contains('hidden')) btnNotes.click();
+  else if (low === 't' && !readerLock()) $('btnThumbs').click();
+  else if (low === 'n' && !readerLock() && !btnNotes.classList.contains('hidden')) btnNotes.click();
   else if (low === 'e') setEdit(!editMode);
 });
 
