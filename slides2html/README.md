@@ -47,6 +47,17 @@ son format), même si l'image a été convertie en qualité *Légère* : elle es
 agrandie au besoin. Pour un pack lu en plein écran sur de grands moniteurs,
 convertis en *Standard* ou *Haute* pour rester net.
 
+### Brouillon de secours
+
+Tu fermes l'onglet sans avoir enregistré ? Le navigateur a planté ? À la
+réouverture du fichier, une barre propose de **reprendre ton travail non
+enregistré**, avec sa date. Tes réglages sont recopiés en continu dans le
+stockage local du navigateur (sur **ta** machine — rien ne circule), et
+`💾 Enregistrer` reste la vraie sauvegarde : le brouillon s'efface dès que
+tout est dans le fichier. Les images ou vidéos très lourdes ajoutées juste
+avant la fermeture peuvent ne pas tenir dans ce filet — le reste revient
+toujours.
+
 Les images des pages sont encodées en **WebP** (même qualité, fichier
 nettement plus léger — souvent 30 à 60 % de gain) ; les images que tu ajoutes
 par-dessus sont allégées de la même façon quand ça vaut le coup. Tout est

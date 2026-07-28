@@ -322,3 +322,7 @@ A SAVOIR
   leger), par ton navigateur, en local : rien ne sort de ta machine.
   Les anciens packs en JPEG se lisent comme avant ; une reconversion
   les fait passer en WebP en gardant tous les reglages.
+- Brouillon de secours : si tu fermes l'onglet sans enregistrer (ou si
+  le navigateur plante), la reouverture du fichier propose de reprendre
+  ton travail, avec sa date. Le brouillon vit dans le stockage local du
+  navigateur, sur ta machine, et s'efface des que tu enregistres.

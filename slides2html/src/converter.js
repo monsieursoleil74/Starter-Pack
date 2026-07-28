@@ -5,7 +5,7 @@
 (function () {
 'use strict';
 
-var APP_VERSION = '4.5.0';
+var APP_VERSION = '4.6.0';
 var $ = function (id) { return document.getElementById(id); };
 
 /* pdf.js a besoin d'un worker : on le sert depuis un blob, aucun fichier
@@ -452,6 +452,11 @@ function buildHtml(title, images, zones, notes, objects, old, ars) {
       })
     };
   }
+  // identité + date : le brouillon de secours de l'éditeur s'y compare —
+  // une reconversion est plus récente que tout brouillon antérieur
+  cfg.meta.saved = Date.now();
+  if (!cfg.meta.id)
+    cfg.meta.id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
   var assets = { images: images, media: media };
   if (WEBP) assets.imgMime = 'image/webp';
   var j = function (o) { return JSON.stringify(o).replace(/<\//g, '<\\/'); };

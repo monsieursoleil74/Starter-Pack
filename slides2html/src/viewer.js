@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.5.0';
+var APP_VERSION = '4.6.0';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {
@@ -62,7 +62,7 @@ VIEW_KEYS.forEach(function (k) { if (META.view[k] === undefined) META.view[k] = 
 // « plein cadre » : par défaut non, pour ne pas changer l'allure des packs
 // déjà montés ; les nouvelles conversions l'activent (voir le convertisseur).
 if (META.view.full === undefined) META.view.full = false;
-if (META.transition === undefined) META.transition = 'fade';
+if (META.transition === undefined) META.transition = 'none';   // net, comme un site
 if (!META.nav) META.nav = [];   // sommaire : [{label, slide}]
 if (!META.master) META.master = [];   // éléments présents sur TOUTES les pages
 
@@ -297,6 +297,12 @@ body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);curs
 #testbar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:26;background:rgba(91,140,255,.92);color:#fff;padding:7px 16px;border-radius:20px;font-size:13px;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.45)}\
 #testbar:hover{filter:brightness(1.1)}\
 #pickbar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:26;background:rgba(62,207,142,.94);color:#0b2417;padding:7px 16px;border-radius:20px;font-size:13px;box-shadow:0 6px 22px rgba(0,0,0,.45)}\
+#draftbar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:27;display:flex;gap:9px;align-items:center;background:#2b2413;border:1px solid rgba(255,193,87,.6);color:#ffe2b0;padding:8px 10px 8px 16px;border-radius:14px;font-size:13px;box-shadow:0 8px 30px rgba(0,0,0,.55)}\
+#draftbar button{border:none;border-radius:9px;padding:6px 13px;cursor:pointer;font-size:12.5px;font-weight:600}\
+#draftYes{background:#ffc157;color:#241a05}\
+#draftYes:hover{filter:brightness(1.08)}\
+#draftNo{background:none;color:#b8a276}\
+#draftNo:hover{color:#ffe2b0}\
 body.picking #thumbs .th{outline:2px dashed #3ecf8e;outline-offset:-2px;cursor:copy}\
 body.picking #thumbs .th:hover{outline-style:solid;transform:scale(1.03)}\
 #lightbox{position:fixed;inset:0;background:rgba(5,6,10,.9);z-index:50;display:flex;align-items:center;justify-content:center}\
@@ -373,6 +379,8 @@ document.body.insertAdjacentHTML('beforeend',
 '<button id="fsFloat" class="hidden" title="Plein écran (F)">⛶</button>' +
 '<div id="testbar" class="hidden">👁 Aperçu animateur — <b>Échap</b> pour revenir à l’édition</div>' +
 '<div id="pickbar" class="hidden">🎯 Clique sur une vignette pour choisir la cible — <b>Échap</b> pour annuler</div>' +
+'<div id="draftbar" class="hidden">🛟 Travail non enregistré du <b id="draftWhen"></b> retrouvé' +
+'<button id="draftYes">Reprendre</button><button id="draftNo">Ignorer</button></div>' +
 '<div id="toast"></div>' +
 '<div id="hint">' + T.help + (META.locked ? '' : ' · E : édition') + '</div>');
 
@@ -403,7 +411,7 @@ function esc(s) {
 function escA(s) { return esc(s).replace(/"/g, '&quot;'); }
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 function r2(n) { return Math.round(n * 100) / 100; }
-function markDirty() { dirty = true; titleEl.textContent = META.title + ' •'; }
+function markDirty() { dirty = true; titleEl.textContent = META.title + ' •'; scheduleDraft(); }
 function clearDirty() { dirty = false; titleEl.textContent = META.title; }
 /* Nom donné à une page, sinon son numéro. Sert partout : vignettes, listes
    déroulantes, vérification — c'est ce qui évite de se perdre à 40 pages. */
@@ -2421,6 +2429,11 @@ function serialize(locked) {
   var cfg = JSON.parse(JSON.stringify(CFG));
   cfg.meta.locked = !!locked;
   cfg.meta.app = APP_VERSION;
+  // date d'enregistrement + identité du pack : c'est ce qui permet au
+  // brouillon de secours de savoir s'il est plus récent que le fichier
+  cfg.meta.saved = Date.now();
+  if (!cfg.meta.id)
+    cfg.meta.id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
   var j = function (o) { return JSON.stringify(o).replace(/<\//g, '<\\/'); };
   return '<!DOCTYPE html>\n<html lang="' + META.lang + '">\n<head>\n<meta charset="utf-8">\n' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
@@ -2443,11 +2456,80 @@ function download(name, txt) {
 function save() {
   download(safeName(META.title) + '.html', serialize(false));
   clearDirty();
+  draftClear();      // tout est dans le fichier : le brouillon n'a plus de raison d'être
   toast('Fichier téléchargé — remplace l’ancien par celui-ci');
 }
 window.addEventListener('beforeunload', function (e) {
   if (dirty) { e.preventDefault(); e.returnValue = ''; }
 });
+// dernier filet : l'onglet se ferme quand même ? le brouillon part au complet
+window.addEventListener('pagehide', function () { if (dirty) draftWrite(); });
+
+/* ============================ brouillon de secours ============================
+   À chaque modification, les réglages (pas les images des pages : elles sont
+   déjà dans ton fichier) sont recopiés dans le stockage local du navigateur.
+   Si l'onglet se ferme sans enregistrer, la réouverture du même fichier
+   propose de reprendre. Tout reste sur la machine, comme le reste de l'outil. */
+var DECK_ID = META.id ||
+  (META.title + '|' + SLIDES.length + '|' + String(ASSETS.images[0] || '').slice(0, 32));
+var DRAFT_KEY = 'slides2html.brouillon.' + DECK_ID;
+var draftTimer = null;
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
+function scheduleDraft() {
+  if (META.locked) return;
+  if (draftTimer) clearTimeout(draftTimer);
+  draftTimer = setTimeout(draftWrite, 1200);
+}
+function draftWrite() {
+  if (META.locked) return;
+  var d = { t: Date.now(), n: SLIDES.length, cur: cur, cfg: JSON.parse(JSON.stringify(CFG)) };
+  // les médias ajoutés (images collées, vidéos) suivent s'ils tiennent dans
+  // le stockage local ; sinon le brouillon garde au moins tous les réglages
+  var msize = 0;
+  Object.keys(ASSETS.media).forEach(function (id) { msize += (ASSETS.media[id].data || '').length; });
+  if (msize < 3.5e6) {
+    d.media = ASSETS.media;
+    if (lsSet(DRAFT_KEY, JSON.stringify(d))) return;
+  }
+  delete d.media;
+  d.partiel = true;                       // réglages sauvés, médias trop lourds
+  lsSet(DRAFT_KEY, JSON.stringify(d));
+}
+function draftClear() {
+  if (draftTimer) clearTimeout(draftTimer);
+  draftTimer = null;
+  lsDel(DRAFT_KEY);
+}
+function draftRestore(d) {
+  if (d.media) Object.keys(d.media).forEach(function (id) { ASSETS.media[id] = d.media[id]; });
+  // on remplace le CONTENU en gardant les mêmes objets : tout le code tient
+  // META et SLIDES par référence
+  SLIDES.length = 0;
+  d.cfg.slides.forEach(function (s) { SLIDES.push(s); });
+  Object.keys(META).forEach(function (k) { delete META[k]; });
+  Object.keys(d.cfg.meta).forEach(function (k) { META[k] = d.cfg.meta[k]; });
+  // brouillon partiel : les éléments dont le média n'a pas pu être gardé
+  var perdus = 0;
+  var garde = function (el) {
+    if ((el.media && !ASSETS.media[el.media]) ||
+        (el.video && el.video.media && !ASSETS.media[el.video.media])) { perdus++; return false; }
+    return true;
+  };
+  SLIDES.forEach(function (s) { s.elements = (s.elements || []).filter(garde); });
+  META.master = (META.master || []).filter(garde);
+  sel = null;
+  panelState = {};
+  _deckRatio = null;
+  applyViewChrome();
+  buildThumbs();
+  markDirty();                            // ce travail n'est toujours pas enregistré
+  go(clamp(d.cur || 0, 0, SLIDES.length - 1), { instant: true, noHist: true });
+  toast(perdus
+    ? 'Brouillon repris, sauf ' + perdus + ' élément(s) au média trop lourd — pense à 💾'
+    : 'Brouillon repris — pense à 💾 enregistrer');
+}
 
 /* ============================ mode édition ============================ */
 function setDraw(kind) {
@@ -2776,4 +2858,29 @@ buildThumbs();
 $('btnThumbs').classList.add('active');
 var start = parseInt(location.hash.slice(1), 10) - 1;
 go(isNaN(start) ? firstVisible() : clamp(start, 0, SLIDES.length - 1), { instant: true, noHist: true });
+
+/* brouillon de secours : proposer de reprendre un travail non enregistré */
+(function () {
+  if (META.locked) return;
+  var raw = lsGet(DRAFT_KEY);
+  if (!raw) return;
+  var d;
+  try { d = JSON.parse(raw); } catch (e) { lsDel(DRAFT_KEY); return; }
+  if (!d || !d.cfg || !d.cfg.slides || !d.cfg.meta) { lsDel(DRAFT_KEY); return; }
+  if (d.n !== SLIDES.length) { lsDel(DRAFT_KEY); return; }        // autre version du pack
+  if (META.saved && d.t <= META.saved) { lsDel(DRAFT_KEY); return; }  // déjà dans le fichier
+  var quand = new Date(d.t);
+  $('draftWhen').textContent = quand.toLocaleDateString('fr-FR') + ' à ' +
+    quand.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  $('draftbar').classList.remove('hidden');
+  $('draftYes').addEventListener('click', function () {
+    $('draftbar').classList.add('hidden');
+    draftRestore(d);
+  });
+  $('draftNo').addEventListener('click', function () {
+    $('draftbar').classList.add('hidden');
+    lsDel(DRAFT_KEY);       // sinon la prochaine retouche l'écraserait en silence
+    toast('Brouillon oublié — le fichier fait foi');
+  });
+})();
 })();

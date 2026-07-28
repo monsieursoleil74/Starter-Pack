@@ -131,6 +131,19 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   panneau l'option `s.cover` (« recadrer au format du pack » → cadre au format
   du pack + `object-fit:cover`). Les zones issues des liens PDF d'une page
   recadrée ne sont pas remappées — cas marginal, assumé.
+- **Brouillon de secours** : à chaque `markDirty()` (débonce 1,2 s) + au
+  `pagehide`, `draftWrite()` copie `CFG` (et les médias si < 3,5 Mo, sinon
+  brouillon `partiel`) dans `localStorage` sous `slides2html.brouillon.<id>`.
+  `DECK_ID` = `meta.id` (posé par le convertisseur et par `serialize()`),
+  repli déterministe titre+nb+début d'image pour les vieux packs. À
+  l'ouverture : reprise proposée seulement si le brouillon est plus récent
+  que `meta.saved` ET même nombre de pages (une reconversion re-tamponne
+  `saved`, ce qui invalide les brouillons antérieurs). `draftRestore()`
+  remplace le CONTENU de META/SLIDES sans changer les objets (tout le code
+  les tient par référence) et retire les éléments dont le média manque.
+  💾 (`save()`) purge le brouillon ; « Ignorer » aussi, sinon la retouche
+  suivante l'écraserait en silence. `localStorage` sur `file://` est partagé
+  entre tous les fichiers locaux : ne jamais stocker sans préfixe + id.
 - **Images en WebP** : le convertisseur encode les pages en WebP quand le
   navigateur sait l'écrire (test `WEBP` sur un canvas, repli JPEG sinon) et le
   note dans `ASSETS.imgMime` ; `IMG()` lit ce mime, défaut `image/jpeg` pour
@@ -328,7 +341,10 @@ scénarios :
     élément enfoui ;
 12. WebP : pages encodées et affichées en WebP, pack plus léger que le même en
     JPEG, un vieux pack JPEG se lit toujours, une reconversion le fait passer
-    en WebP en gardant ses réglages, une image déposée est allégée.
+    en WebP en gardant ses réglages, une image déposée est allégée ;
+13. brouillon de secours : fermer sans 💾 puis rouvrir → reprise proposée avec
+    la date, le travail revient marqué non enregistré, 💾 purge le brouillon
+    (pas de fausse alerte ensuite), « Ignorer » l'oublie pour de bon.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
 balise `#cfg` du document garde la config d'ORIGINE, l'état vivant est dans
 la fermeture JS — vérifier via le DOM, ou après un enregistrement.
