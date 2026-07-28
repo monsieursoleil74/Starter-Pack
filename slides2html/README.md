@@ -108,14 +108,24 @@ dans les messages de **✓ Vérifier**.
 À partir d'une vingtaine de pages, c'est ce qui fait la différence entre s'y
 retrouver et compter les numéros. Les pages sans nom gardent le leur.
 
-### Un élément sur toutes les pages (logo, bouton d'accueil)
+### Un élément partagé par plusieurs pages (logo, bouton d'accueil)
 
-Sélectionne un élément et coche **Sur toutes les pages**. Il apparaît partout,
-et surtout : **tu ne le modifies qu'une fois**. Change son texte ou sa position
+Sélectionne un élément et coche **Le même sur plusieurs pages**. Il n'existe
+alors **qu'en un seul exemplaire** : change son texte, son style ou sa position
 depuis n'importe quelle page, ça suit sur toutes les autres.
 
-En édition, ces éléments ont un contour vert pour les distinguer de ceux qui
-appartiennent à la page. Décoche la case pour en refaire un élément local.
+Juste en dessous, **Sur quelles pages** :
+
+- **Toutes les pages** — le comportement par défaut (logo, bouton d'accueil) ;
+- **Les pages que je choisis** — une liste de cases à cocher, une par page,
+  avec ses noms. Trois raccourcis : *Tout cocher*, *Tout décocher*, *Cette page
+  seule*. Pratique pour un bouton qui ne concerne qu'un chapitre : le retour au
+  sommaire d'une partie, un « Suivant » sur les pages d'une même série…
+
+En édition, ces éléments ont un contour vert. Sur une page qu'ils ne
+concernent pas, ils restent visibles **en transparence** — tu vois qu'ils
+existent et tu peux les rouvrir pour recocher la page ; en lecture ils sont
+totalement absents. Décoche la case du haut pour en refaire un élément local.
 
 ### Recette : un écran de sélection (personnages, rigs, départements…)
 

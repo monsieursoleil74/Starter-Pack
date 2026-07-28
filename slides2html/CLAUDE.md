@@ -167,6 +167,15 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   `nodes()` sont alignés dessus) ; `ownerOf(i)` dit dans quelle liste écrire.
   Toute opération de mutation (supprimer, dupliquer, ordre) doit passer par
   `ownerOf`, jamais par `els()` directement.
+  `el.pages` (liste d'index) restreint un élément commun à certaines pages ;
+  absent = partout, ce qui garde les packs déjà faits inchangés. **Il n'est
+  jamais retiré de `allEls()`** — cela décalerait toute l'indexation ci-dessus.
+  `renderElements()` lui pose la classe `.offpage` : `visibility:hidden` en
+  lecture (donc ni vu, ni cliquable, mais la mise en page reste mesurable par
+  `scaleText`), fantôme grisé en édition pour qu'il reste sélectionnable — sans
+  quoi un élément décoché partout deviendrait inatteignable. L'audit compte les
+  sorties d'un élément commun page par page (`masterExit`), et `mergeDeck()`
+  filtre les index devenus hors bornes (liste vide → `pages` supprimé).
 - **Reprise d'un pack édité** : le convertisseur accepte un `.html` déjà monté
   en 3ᵉ fichier. `readDeck()` relit ses balises JSON (le `<\/` du JSON est un
   échappement valide, `JSON.parse` le gère), `mergeDeck()` transplante
@@ -251,7 +260,10 @@ scénarios :
 7. boutons : la forme reste plus étroite que le cadre, chaque style rend ce
    qu'il annonce, texte sombre sur pastille claire, le cadre laisse passer la
    souris à côté du bouton, un texte à qui on donne une action devient un
-   bouton typographique, et le double-clic le réécrit toujours.
+   bouton typographique, et le double-clic le réécrit toujours ;
+8. élément commun : toutes les pages par défaut, liste de cases quand on
+   choisit, page décochée = fantôme en édition et rien du tout en lecture
+   (pas même un clic), choix conservé à l'enregistrement et à la relecture.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
 balise `#cfg` du document garde la config d'ORIGINE, l'état vivant est dans
 la fermeture JS — vérifier via le DOM, ou après un enregistrement.

@@ -227,12 +227,22 @@ vignettes, listes de destination ("Aller a -> Fiche Pipo" au lieu de
 A partir d'une vingtaine de pages, c'est ce qui evite de se perdre.
 
 
-UN ELEMENT SUR TOUTES LES PAGES
--------------------------------
-Selectionne un element et coche "Sur toutes les pages" : logo, bouton
-d'accueil, retour au sommaire. Il apparait partout et tu ne le modifies
-qu'une fois -- change-le depuis n'importe quelle page, ca suit partout.
-En edition il a un contour vert pour le distinguer.
+UN ELEMENT PARTAGE PAR PLUSIEURS PAGES
+--------------------------------------
+Selectionne un element et coche "Le meme sur plusieurs pages" : logo,
+bouton d'accueil, retour au sommaire. Il n'existe qu'en un exemplaire --
+change-le depuis n'importe quelle page, ca suit partout.
+
+Juste en dessous, "Sur quelles pages" :
+  Toutes les pages         - le defaut
+  Les pages que je choisis - une case a cocher par page, avec leurs
+                             noms. Raccourcis : tout cocher, tout
+                             decocher, cette page seule.
+Pratique pour un bouton qui ne concerne qu'un chapitre.
+
+En edition il a un contour vert. Sur une page qui ne le concerne pas, il
+reste visible EN TRANSPARENCE (tu peux le rouvrir pour recocher la page) ;
+en lecture il est totalement absent.
 
 
 METTRE A JOUR UN PACK DEJA MONTE

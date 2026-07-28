@@ -229,7 +229,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.1.0';
+var APP_VERSION = '4.2.0';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {
@@ -421,6 +421,10 @@ body.editing .el{outline:1px dashed rgba(91,140,255,.55);cursor:grab}\
 body.editing .el.sel{outline:2px solid var(--warn)}\
 body.editing .el.master{outline:1px dashed rgba(62,207,142,.85)}\
 body.editing .el.master.sel{outline:2px solid var(--warn)}\
+/* élément commun absent de cette page : invisible en lecture, fantôme en édition */\
+.el.offpage{visibility:hidden}\
+body.editing .el.offpage{visibility:visible;filter:grayscale(1) opacity(.22)}\
+body.editing .el.offpage.sel{filter:grayscale(1) opacity(.5)}\
 body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);cursor:text;user-select:text}\
 .hdl{position:absolute;width:13px;height:13px;background:var(--warn);border:2px solid #111;border-radius:50%;z-index:6}\
 .hdl-se{right:-7px;bottom:-7px;cursor:nwse-resize}\
@@ -449,6 +453,12 @@ body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);curs
 #props .muted{color:var(--muted);line-height:1.6}\
 #props .grid2{display:flex;gap:8px}\
 #props .grid2>*{flex:1;min-width:0}\
+/* choix des pages d'un élément commun */\
+.pagepick{max-height:184px;overflow-y:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin-top:6px}\
+.pagepick label.ck{margin:3px 0;font-size:12.5px;align-items:center}\
+.pagebtns{display:flex;gap:5px;margin-top:7px}\
+.pagebtns button{flex:1 1 auto;background:var(--panel2);color:var(--muted);border:none;border-radius:7px;padding:6px 5px;cursor:pointer;font-size:11px;white-space:nowrap}\
+.pagebtns button:hover{background:var(--panel3);color:var(--fg)}\
 .pbtns{display:flex;gap:6px;margin-top:11px}\
 .pbtns button{flex:1;background:var(--panel2);color:var(--fg);border:none;border-radius:7px;padding:7px;cursor:pointer;font-size:13px}\
 .pbtns button:hover{background:var(--panel3)}\
@@ -598,6 +608,10 @@ function els() { return SLIDES[cur].elements; }
    au-dessus. L'indexation d'affichage — et donc la sélection — porte sur la
    concaténation des deux listes. */
 function allEls() { return els().concat(META.master); }
+/* Un élément commun peut n'être posé que sur certaines pages (`el.pages`).
+   Ailleurs il reste dans le DOM, masqué : le retirer décalerait l'indexation
+   des éléments, dont dépendent la sélection et le déplacement. */
+function onPage(el, i) { return !el.pages || el.pages.indexOf(i) >= 0; }
 function ownerOf(i) {
   var n = els().length;
   return i < n ? { arr: els(), idx: i, master: false }
@@ -731,7 +745,12 @@ function renderElements() {
   galleryTimers.length = 0;
   wrap.querySelectorAll('.el,.guide,.cand').forEach(function (n) { n.remove(); });
   scalables.length = 0;
-  allEls().forEach(function (el, i) { wrap.appendChild(buildEl(el, i, 0, wrap)); });
+  var nPage = els().length;
+  allEls().forEach(function (el, i) {
+    var node = buildEl(el, i, 0, wrap);
+    if (i >= nPage && !onPage(el, cur)) node.classList.add('offpage');
+    wrap.appendChild(node);
+  });
   renderCandidates();
   scaleText();
   placeFloatbar();
@@ -1356,6 +1375,34 @@ function opt(v, label, curv) {
   return '<option value="' + escA(v) + '"' + (String(curv) === String(v) ? ' selected' : '') +
     '>' + esc(label) + '</option>';
 }
+/* Sur quelles pages un élément commun apparaît. Sans liste, il est partout —
+   c'est le comportement d'origine, et celui des packs déjà faits. */
+function pagesFields(el) {
+  var some = !!el.pages;
+  var h = '<label>Sur quelles pages<select id="pMScope">' +
+    opt('all', 'Toutes les pages', some ? 'some' : 'all') +
+    opt('some', 'Les pages que je choisis', some ? 'some' : 'all') +
+    '</select></label>';
+  if (!some) return h;
+  h += '<div class="pagepick">';
+  SLIDES.forEach(function (s, i) {
+    h += '<label class="ck"><input type="checkbox" data-mp="' + i + '"' +
+      (el.pages.indexOf(i) >= 0 ? ' checked' : '') + '><span>' +
+      (i + 1) + '. ' + esc(slideOpt(i)) + '</span></label>';
+  });
+  h += '</div><div class="pagebtns"><button id="pMAll">Tout cocher</button>' +
+    '<button id="pMNone">Tout décocher</button>' +
+    '<button id="pMHere">Cette page seule</button></div>' +
+    '<p class="muted" id="pMHint">' + pagesHint(el) + '</p>';
+  return h;
+}
+function pagesHint(el) {
+  if (!el.pages || !el.pages.length) return 'Aucune page cochée : cet élément n’apparaîtra nulle part.';
+  var ici = el.pages.indexOf(cur) >= 0;
+  return el.pages.length + ' page(s) cochée(s)' +
+    (ici ? '.' : ' — pas celle-ci, il s’affiche donc en transparence ici.');
+}
+
 /* Apparence d'un élément cliquable. Le principe : la forme colle au texte,
    comme un bouton de site, plutôt qu'un rectangle plaqué par-dessus. */
 function btnFields(el) {
@@ -1614,7 +1661,9 @@ function renderProps() {
   var isMaster = ownerOf(sel).master;
   h += '<hr><h3>' + names[el.type] + (isMaster ? ' — commun' : '') + '</h3>' +
     '<label class="ck"><input type="checkbox" id="pMaster"' + (isMaster ? ' checked' : '') +
-    '><span>Sur toutes les pages — un seul exemplaire à modifier, il suit partout</span></label>';
+    '><span>Le même sur plusieurs pages — un seul exemplaire à modifier, ' +
+    'il suit partout</span></label>';
+  if (isMaster) h += pagesFields(el);
 
   if (el.type === 'zone') {
     h += actionFields(el) +
@@ -1929,8 +1978,9 @@ function bindElementFields(el) {
     if (e.target.checked) {
       META.master.push(it);
       sel = els().length + META.master.length - 1;
-      toast('Élément commun : il apparaît sur toutes les pages');
+      toast('Élément commun — choisis les pages juste en dessous');
     } else {
+      delete it.pages;
       els().push(it);
       sel = els().length - 1;
       toast('Élément rendu propre à cette page');
@@ -1939,6 +1989,34 @@ function bindElementFields(el) {
     renderElements();
     renderProps();
   });
+  /* Pages d'un élément commun. On ne redessine pas le panneau à chaque case
+     cochée : la liste peut être longue, elle perdrait sa position. */
+  set('pMScope', 'change', function (e) {
+    if (e.target.value === 'all') delete el.pages;
+    else el.pages = SLIDES.map(function (_, i) { return i; });
+  }, true);
+  var setPages = function (list) {
+    pushUndo();
+    el.pages = list;
+    markDirty();
+    renderElements();
+    var hint = $('pMHint');
+    if (hint) hint.textContent = pagesHint(el);
+  };
+  props.querySelectorAll('[data-mp]').forEach(function (n) {
+    n.addEventListener('change', function (e) {
+      var i = +e.currentTarget.dataset.mp;
+      var l = (el.pages || []).slice();
+      var k = l.indexOf(i);
+      if (e.currentTarget.checked) { if (k < 0) l.push(i); }
+      else if (k >= 0) l.splice(k, 1);
+      l.sort(function (a, b) { return a - b; });
+      setPages(l);
+    });
+  });
+  on('pMAll', 'click', function () { setPages(SLIDES.map(function (_, i) { return i; })); renderProps(); });
+  on('pMNone', 'click', function () { setPages([]); renderProps(); });
+  on('pMHere', 'click', function () { setPages([cur]); renderProps(); });
   on('pReplace', 'click', function () {
     pickFile('image/*', function (f) {
       readAsMedia(f, function (id) { pushUndo(); el.media = id; renderElements(); });
@@ -2006,7 +2084,7 @@ function navigates(a) {
 function auditDeck(forExport) {
   var n = SLIDES.length, probs = [];
   var okSlide = function (v) { return typeof v === 'number' && v >= 0 && v < n; };
-  var reached = {}, panelFed = {}, masterExit = false;
+  var reached = {}, panelFed = {}, masterExit = {};   // pages où un élément commun fait sortir
   var add = function (grave, page, idx, txt) {
     probs.push({ grave: grave, page: page, idx: idx, txt: txt });
   };
@@ -2035,7 +2113,15 @@ function auditDeck(forExport) {
           add(1, page, idx, où + ' : bouton vidéo sans vidéo choisie');
         break;
     }
-    if (page < 0 && navigates(el.action)) masterExit = true;
+    if (page < 0) {
+      // un élément commun ne vaut sortie que là où il est effectivement posé
+      if (navigates(el.action)) {
+        if (!el.pages) masterExit.all = 1;
+        else el.pages.forEach(function (v) { masterExit[v] = 1; });
+      }
+      if (el.pages && !el.pages.length)
+        add(0, null, null, 'Un élément commun n’est coché sur aucune page : il n’apparaîtra nulle part');
+    }
     if (el.media && !ASSETS.media[el.media])
       add(1, page, idx, où + ' : média introuvable (image ou vidéo perdue)');
     if (el.list) el.list.forEach(function (v) {
@@ -2070,9 +2156,9 @@ function auditDeck(forExport) {
   // sans navigation libre, chaque page visible doit offrir une sortie
   // la version animateur n'a jamais de navigation libre : à l'export on
   // vérifie donc toujours que chaque page offre une sortie
-  if ((forExport || !META.view.arrows) && !(META.nav || []).length && !masterExit) {
+  if ((forExport || !META.view.arrows) && !(META.nav || []).length && !masterExit.all) {
     SLIDES.forEach(function (sl, i) {
-      if (sl.hidden) return;
+      if (sl.hidden || masterExit[i]) return;
       var sortie = sl.elements.some(function (el) { return navigates(el.action); });
       if (!sortie)
         add(1, i, null, slideName(i) + ' : aucun bouton pour en sortir — ' +
@@ -2623,7 +2709,7 @@ go(isNaN(start) ? firstVisible() : clamp(start, 0, SLIDES.length - 1), { instant
 (function () {
 'use strict';
 
-var APP_VERSION = '4.1.0';
+var APP_VERSION = '4.2.0';
 var $ = function (id) { return document.getElementById(id); };
 
 /* pdf.js a besoin d'un worker : on le sert depuis un blob, aucun fichier
@@ -2956,6 +3042,14 @@ function mergeDeck(old, n, images, zones, notes, objects) {
     }
     if (e.type === 'panel' && typeof e.slide === 'number' && !okSlide(e.slide)) {
       delete e.slide; coupes++;
+    }
+    // pages d'un élément commun : sans page valide il disparaîtrait partout,
+    // on le remet donc sur toutes
+    if (e.pages) {
+      var avantP = e.pages.length;
+      e.pages = e.pages.filter(okSlide);
+      coupes += avantP - e.pages.length;
+      if (!e.pages.length) delete e.pages;
     }
   };
   slides.forEach(function (sl) { sl.elements.forEach(cleanEl); });

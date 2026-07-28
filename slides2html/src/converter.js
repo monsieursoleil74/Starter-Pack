@@ -5,7 +5,7 @@
 (function () {
 'use strict';
 
-var APP_VERSION = '4.1.0';
+var APP_VERSION = '4.2.0';
 var $ = function (id) { return document.getElementById(id); };
 
 /* pdf.js a besoin d'un worker : on le sert depuis un blob, aucun fichier
@@ -338,6 +338,14 @@ function mergeDeck(old, n, images, zones, notes, objects) {
     }
     if (e.type === 'panel' && typeof e.slide === 'number' && !okSlide(e.slide)) {
       delete e.slide; coupes++;
+    }
+    // pages d'un élément commun : sans page valide il disparaîtrait partout,
+    // on le remet donc sur toutes
+    if (e.pages) {
+      var avantP = e.pages.length;
+      e.pages = e.pages.filter(okSlide);
+      coupes += avantP - e.pages.length;
+      if (!e.pages.length) delete e.pages;
     }
   };
   slides.forEach(function (sl) { sl.elements.forEach(cleanEl); });
