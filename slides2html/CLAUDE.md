@@ -179,6 +179,19 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
 - **Interface** : barre du haut en icônes seules (classe `.tool`), gestes
   fréquents (dupliquer / empiler / supprimer) dans `#floatbar`, une barre
   flottante posée au-dessus de la sélection et masquée pendant un glissement.
+- **Tableau blanc** : `#menu` sert à la fois de menu ancré (`openMenu`) et de
+  menu au point cliqué (`openMenuAt`) — clic droit sur un élément (actions,
+  dont `toggleCommon()`) ou sur le vide / double-clic sur le vide (création
+  via `quickAdd`, tailles par défaut `QUICK_SIZES`, l'élément est centré sur
+  le point cliqué). Les pointerdown ignorent `e.button === 2` pour ne pas
+  démarrer un glissement au clic droit. Mode visée : `pickTarget` +
+  `startPick`/`endPick` — le 🎯 du panneau arme le mode, le clic sur une
+  vignette pose `el.slide` au lieu de naviguer, Échap/sélection annulent
+  (`select`/`deselect` appellent `endPick`). Glisser une vignette sur la page
+  (dataTransfer `text/x-diapo`) crée un bouton `goto` vers cette diapo — le
+  gestionnaire de drop doit tester ce type AVANT `files`. La liste
+  `#ellist` (« Sur cette page ») sélectionne par index `allEls()` — même un
+  élément recouvert par un autre.
   La section « Mouvement » du panneau est repliée par défaut (`advOpen`).
   Le panneau ne doit pas redevenir un mur de champs : tout nouveau réglage
   peu fréquent va dans le repli.
@@ -299,7 +312,12 @@ scénarios :
    étiquettes d'action en édition, invisibles en lecture ;
 10. plein cadre : une image plus petite que l'écran (qualité Légère sur grand
     moniteur) est agrandie au plus grand rectangle à son format, en lecture
-    comme en édition, et se réduit toujours dans une petite fenêtre.
+    comme en édition, et se réduit toujours dans une petite fenêtre ;
+11. tableau blanc : double-clic et clic droit sur le vide créent à l'endroit
+    cliqué, clic droit sur un élément ouvre ses actions, 🎯 vise une vignette
+    sans naviguer (Échap annule), une vignette glissée sur la page devient un
+    bouton vers cette diapo, la liste « Sur cette page » sélectionne un
+    élément enfoui.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
 balise `#cfg` du document garde la config d'ORIGINE, l'état vivant est dans
 la fermeture JS — vérifier via le DOM, ou après un enregistrement.

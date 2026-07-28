@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.3.1';
+var APP_VERSION = '4.4.0';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {
@@ -247,6 +247,13 @@ body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);curs
 #props .muted{color:var(--muted);line-height:1.6}\
 #props .grid2{display:flex;gap:8px}\
 #props .grid2>*{flex:1;min-width:0}\
+/* liste des éléments de la page */\
+#ellist{display:flex;flex-direction:column;gap:2px;margin-top:4px}\
+#ellist button{display:flex;gap:8px;align-items:center;background:none;border:none;color:var(--fg);padding:7px 9px;border-radius:7px;cursor:pointer;font-size:12.5px;text-align:left;width:100%}\
+#ellist button:hover{background:var(--panel2)}\
+#ellist button span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\
+#ellist button i{color:#3ecf8e;font-size:10.5px;font-style:normal}\
+#ellist button.off{opacity:.45}\
 /* choix des pages d'un élément commun */\
 .pagepick{max-height:184px;overflow-y:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin-top:6px}\
 .pagepick label.ck{margin:3px 0;font-size:12.5px;align-items:center}\
@@ -284,6 +291,9 @@ body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);curs
 #toast.on{opacity:1}\
 #testbar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:26;background:rgba(91,140,255,.92);color:#fff;padding:7px 16px;border-radius:20px;font-size:13px;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.45)}\
 #testbar:hover{filter:brightness(1.1)}\
+#pickbar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:26;background:rgba(62,207,142,.94);color:#0b2417;padding:7px 16px;border-radius:20px;font-size:13px;box-shadow:0 6px 22px rgba(0,0,0,.45)}\
+body.picking #thumbs .th{outline:2px dashed #3ecf8e;outline-offset:-2px;cursor:copy}\
+body.picking #thumbs .th:hover{outline-style:solid;transform:scale(1.03)}\
 #lightbox{position:fixed;inset:0;background:rgba(5,6,10,.9);z-index:50;display:flex;align-items:center;justify-content:center}\
 #lb{width:min(92vw,1200px);aspect-ratio:16/9;background:#000;border-radius:10px;box-shadow:0 10px 60px rgba(0,0,0,.7)}\
 #lb video,#lb iframe{width:100%;height:100%;border:0;border-radius:10px}\
@@ -291,6 +301,7 @@ body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);curs
 #menu{position:fixed;z-index:40;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:2px;box-shadow:0 8px 30px rgba(0,0,0,.5);min-width:250px}\
 #menu button{background:none;border:none;color:var(--fg);padding:8px 12px;text-align:left;border-radius:6px;cursor:pointer;font-size:13px}\
 #menu button:hover{background:var(--panel)}\
+#menu hr{border:none;border-top:1px solid var(--line);margin:4px 6px}\
 #floatbar{position:fixed;z-index:22;display:flex;gap:2px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:4px;box-shadow:0 6px 22px rgba(0,0,0,.5)}\
 #floatbar button{background:none;border:none;color:var(--fg);width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:14px;line-height:1}\
 #floatbar button:hover{background:var(--panel)}\
@@ -356,6 +367,7 @@ document.body.insertAdjacentHTML('beforeend',
 '<input type="file" id="filePick" class="hidden">' +
 '<button id="fsFloat" class="hidden" title="Plein écran (F)">⛶</button>' +
 '<div id="testbar" class="hidden">👁 Aperçu animateur — <b>Échap</b> pour revenir à l’édition</div>' +
+'<div id="pickbar" class="hidden">🎯 Clique sur une vignette pour choisir la cible — <b>Échap</b> pour annuler</div>' +
 '<div id="toast"></div>' +
 '<div id="hint">' + T.help + (META.locked ? '' : ' · E : édition') + '</div>');
 
@@ -897,6 +909,22 @@ function doAction(el) {
   }
 }
 
+/* La liste « Sur cette page » : une ligne par élément, pour attraper ce qui
+   est enfoui sous d'autres éléments. */
+function elIcon(t) {
+  return { zone: '⬚', image: '🖼', text: 'T', shape: '▭', video: '🎬', panel: '🗔' }[t] || '•';
+}
+function elDesc(el) {
+  var act = el.action && el.action !== 'none' ? ' — ' + actionLabel(el) : '';
+  if (el.type === 'zone') return actionLabel(el);
+  if (el.type === 'text') return ((el.text || '').replace(/\s+/g, ' ').slice(0, 26) || 'Texte') + act;
+  if (el.type === 'panel') return panelKey(el);
+  if (el.type === 'image') return 'Image' + act;
+  if (el.type === 'video') return el.url ? 'YouTube' : 'Vidéo';
+  if (el.type === 'shape') return 'Forme' + act;
+  return el.type;
+}
+
 /* Étiquette d'édition d'une zone : ce que fait le bouton, en un coup d'œil. */
 function actionLabel(el) {
   switch (el.action) {
@@ -924,6 +952,7 @@ var lastTap = { i: -1, t: 0 };
 function attachEdit(d, i, el) {
   d.addEventListener('pointerdown', function (e) {
     if (!editMode || drawMode || d.getAttribute('contenteditable') === 'true') return;
+    if (e.button === 2) return;        // clic droit : c'est le menu qui s'en occupe
     e.preventDefault();
     e.stopPropagation();
     if (el.type === 'text' && lastTap.i === i && Date.now() - lastTap.t < 450) {
@@ -970,8 +999,8 @@ function editText(d, el) {
   });
 }
 
-function select(i) { sel = i; renderElements(); renderProps(); }
-function deselect() { sel = null; renderElements(); renderProps(); }
+function select(i) { if (pickTarget) endPick(); sel = i; renderElements(); renderProps(); }
+function deselect() { if (pickTarget) endPick(); sel = null; renderElements(); renderProps(); }
 
 /* Petite barre au-dessus de l'élément sélectionné : les gestes les plus
    fréquents sous la main, sans traverser l'écran jusqu'au panneau. */
@@ -1027,7 +1056,7 @@ function snapMove(o, i) {
 }
 
 wrap.addEventListener('pointerdown', function (e) {
-  if (!editMode) return;
+  if (!editMode || e.button === 2) return;
   if (drawMode) {
     e.preventDefault();
     var p = relPct(e);
@@ -1180,21 +1209,104 @@ function addVideoFile(file) {
 }
 
 var menu = $('menu');
-function openMenu(anchor, items) {
+function fillMenu(items) {
   menu.innerHTML = '';
   items.forEach(function (it) {
+    if (it === '-') { menu.appendChild(document.createElement('hr')); return; }
     var b = document.createElement('button');
     b.textContent = it[0];
     b.onclick = function () { menu.classList.add('hidden'); it[1](); };
     menu.appendChild(b);
   });
+}
+function openMenu(anchor, items) {
+  fillMenu(items);
   var r = anchor.getBoundingClientRect();
   menu.classList.remove('hidden');
   menu.style.top = (r.bottom + 6) + 'px';
   menu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8)) + 'px';
 }
+/* menu à l'endroit cliqué : clic droit et double-clic sur le vide */
+function openMenuAt(x, y, items) {
+  fillMenu(items);
+  menu.classList.remove('hidden');
+  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - menu.offsetWidth - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(y, window.innerHeight - menu.offsetHeight - 8)) + 'px';
+}
 document.addEventListener('click', function (e) {
   if (!menu.classList.contains('hidden') && !menu.contains(e.target)) menu.classList.add('hidden');
+});
+
+/* ------------------- viser une diapo en cliquant sa vignette -------------------
+   Plus direct qu'une liste déroulante de quarante pages : le bouton 🎯 arme le
+   mode, la vignette cliquée devient la cible. */
+var pickTarget = null;
+function startPick(el) {
+  pickTarget = el;
+  document.body.classList.add('picking');
+  $('pickbar').classList.remove('hidden');
+}
+function endPick() {
+  pickTarget = null;
+  document.body.classList.remove('picking');
+  $('pickbar').classList.add('hidden');
+}
+
+/* ------------------- créer directement à un endroit de la page ------------------- */
+var QUICK_SIZES = { zone: [20, 9], text: [30, 8], shape: [16, 12], panel: [46, 56] };
+function quickAdd(type, px, py) {
+  var s = QUICK_SIZES[type] || [20, 10];
+  var el = newElement(type, clamp(px - s[0] / 2, 0, 100 - s[0]),
+                      clamp(py - s[1] / 2, 0, 100 - s[1]));
+  el.w = s[0]; el.h = s[1];
+  addElement(el);
+}
+function creationItems(p) {
+  var items = [
+    ['➕  Bouton ici', function () { quickAdd('zone', p.x, p.y); }],
+    ['T  Texte ici', function () { quickAdd('text', p.x, p.y); }],
+    ['▭  Forme ici', function () { quickAdd('shape', p.x, p.y); }],
+    ['🗔  Panneau ici', function () { quickAdd('panel', p.x, p.y); }]
+  ];
+  if (clip) items.push('-', ['📋  Coller ici', function () {
+    var c = JSON.parse(JSON.stringify(clip));
+    c.x = r2(clamp(p.x - c.w / 2, 0, 100 - c.w));
+    c.y = r2(clamp(p.y - c.h / 2, 0, 100 - c.h));
+    addElement(c, 'Collé');
+  }]);
+  return items;
+}
+
+/* ------------------- clic droit : le menu au bout de la souris ------------------- */
+wrap.addEventListener('contextmenu', function (e) {
+  if (!editMode) return;
+  e.preventDefault();
+  var node = e.target.closest ? e.target.closest('.el') : null;
+  if (node && node.parentNode === wrap) {
+    var i = Array.prototype.indexOf.call(nodes(), node);
+    if (i < 0) return;
+    select(i);
+    var isM = ownerOf(i).master;
+    openMenuAt(e.clientX, e.clientY, [
+      ['⧉  Dupliquer', duplicate],
+      ['📄  Copier', function () { clip = JSON.parse(JSON.stringify(selEl())); toast('Copié — clic droit ailleurs pour coller'); }],
+      ['⬆  Mettre devant', function () { pushUndo(); moveSel('front'); }],
+      ['⬇  Mettre derrière', function () { pushUndo(); moveSel('back'); }],
+      '-',
+      [(isM ? '✓ ' : '') + '🌍  Le même sur plusieurs pages', toggleCommon],
+      '-',
+      ['🗑  Supprimer', deleteSel]
+    ]);
+  } else if (e.target === slideEl || e.target === wrap) {
+    openMenuAt(e.clientX, e.clientY, creationItems(relPct(e)));
+  }
+});
+
+/* double-clic sur le vide : la palette de création, comme sur un tableau blanc */
+wrap.addEventListener('dblclick', function (e) {
+  if (!editMode || drawMode) return;
+  if (e.target !== slideEl && e.target !== wrap) return;
+  openMenuAt(e.clientX, e.clientY, creationItems(relPct(e)));
 });
 
 /* ============================ panneau propriétés ============================ */
@@ -1321,6 +1433,9 @@ function actionFields(el) {
     h += '<p class="muted">Le lecteur reste sur la page : ' +
       '<b>Échap</b> ou un clic à côté referme.</p>';
   }
+  // viser la cible directement, sans dérouler une liste de quarante pages
+  if (el.action === 'goto' || el.action === 'panel' || el.action === 'overlay')
+    h += '<button class="wide" id="pPick">🎯 Ou clique sur une vignette pour choisir</button>';
   if (el.action === 'url')
     h += '<label>URL<input type="text" id="pUrl" value="' + escA(el.url || '') + '" placeholder="https://…"></label>';
   if (el.action === 'copy')
@@ -1464,27 +1579,39 @@ function renderProps() {
       '</select></label>';
 
   if (!el) {
+    // la liste des éléments de la page : retrouver et attraper ce qui est
+    // enfoui sous d'autres éléments, sans chasse au pixel
+    var tous = allEls();
+    if (tous.length) {
+      h += '<hr><h3>Sur cette page</h3><div id="ellist">';
+      tous.forEach(function (o, i) {
+        var com = i >= els().length;
+        h += '<button data-eli="' + i + '"' + (com && !onPage(o, cur) ? ' class="off"' : '') + '>' +
+          elIcon(o.type) + '<span>' + esc(elDesc(o)) + '</span>' +
+          (com ? '<i>commun</i>' : '') + '</button>';
+      });
+      h += '</div>';
+    }
     h += '<hr><p class="muted">' +
-      'Ajoute un élément avec la barre du haut, ou clique sur un élément de la diapo pour le modifier.' +
-      '<br><br>' +
+      '<b>Double-clic</b> ou <b>clic droit</b> sur la page : créer un élément à cet endroit. ' +
+      'Clic droit sur un élément : dupliquer, empiler, supprimer.<br><br>' +
       '• <b>glisser</b> pour déplacer — ça s’aimante tout seul (<b>Alt</b> pour l’en empêcher)<br>' +
       '• <b>poignées orange</b> pour redimensionner<br>' +
       '• <b>flèches</b> pour ajuster finement, <b>Ctrl+D</b> dupliquer, <b>Suppr</b> effacer<br>' +
       '• <b>Ctrl+Z</b> annuler · <b>Ctrl+V</b> coller une image du presse-papiers<br>' +
       '• <b>double-clic</b> sur un texte pour le réécrire<br>' +
-      '• une image peut aussi être <b>déposée</b> directement sur la diapo<br>' +
-      '• coche <b>Sur toutes les pages</b> sur un élément (logo, bouton d’accueil) ' +
-      'pour qu’il suive partout — tu ne le modifies qu’une fois' +
+      '• glisse une <b>vignette</b> sur la page : un bouton vers cette diapo<br>' +
+      '• une image peut aussi être <b>déposée</b> directement sur la diapo' +
       '<br><br>' +
       'N’importe quel élément peut devenir cliquable : une image ou un texte font ' +
-      'de très bons boutons.<br><br>' +
-      '<b>🗔 Panneau</b> : une fenêtre qui affiche une AUTRE diapo à l’intérieur ' +
-      'de celle-ci. Idéal pour un écran de sélection : les boutons restent à ' +
-      'l’écran, seul le contenu du panneau change.</p>' +
+      'de très bons boutons.</p>' +
       viewFields();
     props.innerHTML = h;
     bindSlideFields(s);
     bindViewFields();
+    props.querySelectorAll('[data-eli]').forEach(function (n) {
+      n.addEventListener('click', function (e2) { select(+e2.currentTarget.dataset.eli); });
+    });
     return;
   }
 
@@ -1734,6 +1861,7 @@ function bindElementFields(el) {
     el.slide = isNaN(v) ? 0 : v;                    // -1 = vider le panneau
   });
   set('pPanel', 'change', function (e) { el.panelName = e.target.value; });
+  on('pPick', 'click', function () { startPick(el); });
   set('pDefault', 'change', function (e) {
     var v = parseInt(e.target.value, 10);
     if (isNaN(v) || v < 0) delete el.slide; else el.slide = v;
@@ -1819,24 +1947,7 @@ function bindElementFields(el) {
   set('pLoop', 'change', function (e) { el.loop = e.target.checked; });
 
   on('advTgl', 'click', function () { advOpen = !advOpen; renderProps(); });
-  on('pMaster', 'change', function (e) {
-    pushUndo();
-    var o = ownerOf(sel);
-    var it = o.arr.splice(o.idx, 1)[0];
-    if (e.target.checked) {
-      META.master.push(it);
-      sel = els().length + META.master.length - 1;
-      toast('Élément commun — choisis les pages juste en dessous');
-    } else {
-      delete it.pages;
-      els().push(it);
-      sel = els().length - 1;
-      toast('Élément rendu propre à cette page');
-    }
-    buildThumbs();
-    renderElements();
-    renderProps();
-  });
+  on('pMaster', 'change', function () { toggleCommon(); });
   /* Pages d'un élément commun. On ne redessine pas le panneau à chaque case
      cochée : la liste peut être longue, elle perdrait sa position. */
   set('pMScope', 'change', function (e) {
@@ -1871,6 +1982,27 @@ function bindElementFields(el) {
     });
   });
 
+}
+
+/* bascule « le même sur plusieurs pages » — depuis la case ou le clic droit */
+function toggleCommon() {
+  if (sel == null) return;
+  pushUndo();
+  var o = ownerOf(sel);
+  var it = o.arr.splice(o.idx, 1)[0];
+  if (!o.master) {
+    META.master.push(it);
+    sel = els().length + META.master.length - 1;
+    toast('Élément commun — choisis les pages juste en dessous');
+  } else {
+    delete it.pages;
+    els().push(it);
+    sel = els().length - 1;
+    toast('Élément rendu propre à cette page');
+  }
+  buildThumbs();
+  renderElements();
+  renderProps();
 }
 
 /* rejoue les apparitions sans quitter l'édition */
@@ -2106,8 +2238,27 @@ function buildThumbs() {
         refresh();
       });
       d.appendChild(b);
+      // glisser la vignette sur la page = créer un bouton vers cette diapo
+      d.draggable = true;
+      d.addEventListener('dragstart', function (ev) {
+        ev.dataTransfer.setData('text/x-diapo', String(i));
+        ev.dataTransfer.effectAllowed = 'copy';
+      });
     }
-    d.addEventListener('click', function () { go(i); });
+    d.addEventListener('click', function () {
+      // mode 🎯 : la vignette cliquée devient la cible du bouton
+      if (editMode && pickTarget) {
+        pushUndo();
+        pickTarget.slide = i;
+        endPick();
+        markDirty();
+        renderElements();
+        renderProps();
+        toast('Cible : ' + slideName(i));
+        return;
+      }
+      go(i);
+    });
     thumbs.appendChild(d);
     thumbItems.push({ el: d, i: i });
   });
@@ -2416,7 +2567,19 @@ document.addEventListener('paste', function (e) {
   wrap.addEventListener(ev, function (e) {
     if (!editMode) return;
     e.preventDefault();
-    if (ev === 'drop' && e.dataTransfer && e.dataTransfer.files.length) {
+    if (ev === 'drop' && e.dataTransfer) {
+      // une vignette déposée sur la page : un bouton vers cette diapo, tout fait
+      var sd = e.dataTransfer.getData('text/x-diapo');
+      if (sd !== '') {
+        var si = parseInt(sd, 10);
+        var p = relPct(e);
+        addElement({ type: 'zone', look: 'button', label: slideName(si),
+                     action: 'goto', slide: si, color: '#5b8cff',
+                     x: r2(clamp(p.x - 10, 0, 80)), y: r2(clamp(p.y - 4, 0, 91)), w: 20, h: 8 },
+                   'Bouton vers « ' + slideName(si) + ' » — déplace-le et change son style');
+        return;
+      }
+      if (!e.dataTransfer.files.length) return;
       var f = e.dataTransfer.files[0];
       if (f.type.indexOf('image/') === 0) addImageFile(f);
       else if (f.type.indexOf('video/') === 0) addVideoFile(f);
@@ -2469,6 +2632,7 @@ document.addEventListener('keydown', function (e) {
     return;                       // la page dessous ne bouge pas
   }
   if (k === 'Escape') {
+    if (pickTarget) { endPick(); toast('Choix annulé'); return; }
     if (testMode) { setTest(false); return; }
     if (drawMode) { setDraw(false); return; }
     if (editMode && sel != null) { deselect(); return; }

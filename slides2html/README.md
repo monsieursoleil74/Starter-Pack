@@ -62,6 +62,21 @@ la diapo et tu les places à la souris. La diapo d'origine n'est jamais modifié
 | **🎬 Vidéo** | Fichier local (embarqué, lecture hors ligne) ou lien YouTube. |
 | **👁 sur une vignette** | Cache la diapo : elle sort du fil de lecture (flèches, swipe, compteur) et n'est plus accessible **que** par un bouton qui pointe dessus. C'est ce qui casse le côté linéaire. |
 
+### Éditer comme sur un tableau blanc
+
+- **Double-clic** (ou **clic droit**) sur un endroit vide de la page : une
+  petite palette crée un bouton, un texte, une forme ou un panneau **à cet
+  endroit**.
+- **Clic droit sur un élément** : dupliquer, copier, mettre devant/derrière,
+  le partager sur plusieurs pages, supprimer.
+- **Glisse une vignette sur la page** : un bouton vers cette diapo est créé,
+  libellé déjà rempli.
+- Sur un bouton, **🎯 « clique sur une vignette pour choisir »** règle la
+  diapo cible en la visant directement — plus rapide qu'une liste déroulante
+  à quarante pages. `Échap` annule.
+- Le panneau de droite liste **« Sur cette page »** tous les éléments posés :
+  un clic sélectionne, même un élément enfoui sous un autre.
+
 **N'importe quel élément peut devenir cliquable** — pas seulement les zones.
 Le menu *Au clic* est disponible sur une image, un texte ou une forme : aller à
 une diapo précise, suivante / précédente, **retour** (revient d'où venait le

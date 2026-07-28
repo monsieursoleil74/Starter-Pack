@@ -67,6 +67,17 @@ etiquette qui dit ce qu'elles font ("-> Fiche Rig", "lien", "video"...) :
 tu retrouves d'un coup d'oeil ce que tu as deja pose. Tout disparait en
 lecture.
 
+EDITER COMME SUR UN TABLEAU BLANC
+- Double-clic (ou clic droit) sur le vide : creer un bouton, un texte,
+  une forme ou un panneau A CET ENDROIT.
+- Clic droit sur un element : dupliquer, copier, devant/derriere,
+  partager sur plusieurs pages, supprimer.
+- Glisse une vignette sur la page : un bouton vers cette diapo.
+- Sur un bouton, "Clique sur une vignette pour choisir" (cible) regle
+  la diapo visee directement. Echap annule.
+- Le panneau de droite liste "Sur cette page" tous les elements poses :
+  un clic selectionne, meme un element enfoui sous un autre.
+
 N'IMPORTE QUEL element peut devenir cliquable, pas seulement les zones :
 le menu "Au clic" existe aussi sur une image, un texte ou une forme.
 Une image fait souvent un meilleur bouton qu'une pastille.
