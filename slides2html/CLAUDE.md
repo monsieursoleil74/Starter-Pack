@@ -116,6 +116,13 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   rester d'accord, sinon l'interface ment. Par élément : `anim` (+ `delay`)
   joue une apparition en lecture (et en aperçu via `previewing`, bouton ▶),
   `hover` ajoute un effet de survol. Tout est en CSS, aucune bibliothèque.
+- **La page remplit l'écran** : `#stage` est `container-type:size` et `#wrap`
+  se dimensionne en `cqw`/`cqh` avec `--ar` (posé par `setFrameRatio()`) — le
+  plus grand rectangle au format de la page, **y compris en agrandissant une
+  image plus petite que l'écran**. Sans cette règle (`width:auto` + maxes), le
+  cadre s'arrêtait à la taille en pixels de l'image : pack converti en
+  « Légère » (1280) minuscule sur un écran 1920. Le repli `@supports` garde
+  l'ancien comportement sur un navigateur sans unités de conteneur.
 - **Format des pages** : le convertisseur mémorise `s.ar` (largeur/hauteur de
   chaque page, 4 décimales) ; `setFrameRatio()` l'applique au cadre AVANT que
   l'image n'arrive — sans quoi la page saute pendant une navigation. Vieux
@@ -289,7 +296,10 @@ scénarios :
    les seules pages hors format ; transition « aucune » par défaut ; lignes de
    texte du PDF en candidats ambre à la boîte exacte (libellé repris) ; zone
    ronde depuis une ellipse du pptx comme à la main ; zones teintées +
-   étiquettes d'action en édition, invisibles en lecture.
+   étiquettes d'action en édition, invisibles en lecture ;
+10. plein cadre : une image plus petite que l'écran (qualité Légère sur grand
+    moniteur) est agrandie au plus grand rectangle à son format, en lecture
+    comme en édition, et se réduit toujours dans une petite fenêtre.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
 balise `#cfg` du document garde la config d'ORIGINE, l'état vivant est dans
 la fermeture JS — vérifier via le DOM, ou après un enregistrement.

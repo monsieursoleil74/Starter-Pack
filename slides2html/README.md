@@ -42,6 +42,11 @@ présentateur** — le PDF ne les contient pas.
   Le mieux reste de garder la même taille de page dans Slides
   (*Fichier → Mise en page*).
 
+La page occupe **toujours tout l'écran** (le plus grand rectangle possible à
+son format), même si l'image a été convertie en qualité *Légère* : elle est
+agrandie au besoin. Pour un pack lu en plein écran sur de grands moniteurs,
+convertis en *Standard* ou *Haute* pour rester net.
+
 ## Le mode édition (touche `E` dans le HTML produit)
 
 C'est un petit outil de mise en page : tu ajoutes des éléments **par-dessus**

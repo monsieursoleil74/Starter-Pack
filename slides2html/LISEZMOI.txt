@@ -304,3 +304,6 @@ A SAVOIR
 - Raccourcis : fleches naviguer, F plein ecran, N notes, T vignettes,
   E edition, Echap annuler.
 - Qualite "Haute" = images plus nettes mais fichier plus lourd.
+  La page remplit toujours l'ecran, quelle que soit la qualite choisie ;
+  mais une image "Legere" (1280 px) agrandie sur un grand ecran sera un
+  peu douce. Pour un pack lu en plein ecran, reste en Standard ou Haute.

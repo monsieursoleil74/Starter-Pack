@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.3.0';
+var APP_VERSION = '4.3.1';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {
@@ -82,7 +82,7 @@ button.icon:disabled{opacity:.35;cursor:default;background:var(--panel2)}\
 #tools .tool{padding:7px 10px;font-size:15px;line-height:1}\
 .sep{width:1px;height:22px;background:var(--line);margin:0 3px}\
 #main{flex:1;display:flex;min-height:0}\
-#stage{flex:1;display:flex;align-items:center;justify-content:center;position:relative;padding:18px;min-width:0}\
+#stage{flex:1;display:flex;align-items:center;justify-content:center;position:relative;padding:18px;min-width:0;container-type:size}\
 body.full:not(.editing) #stage{padding:0}\
 body.full:not(.editing) #slide{border-radius:0;box-shadow:none}\
 body.full:not(.editing) #wrap{border-radius:0}\
@@ -90,6 +90,12 @@ body.full:not(.editing) #wrap{border-radius:0}\
    les dimensions réelles de l'image) : ni étirement, ni décalage des éléments,\
    quel que soit le format du PDF — 16/9, A4 portrait ou autre */\
 #wrap{position:relative;max-width:100%;max-height:100%;width:auto;height:auto;aspect-ratio:16/9;transition:opacity .18s ease}\
+/* La page occupe TOUT l'espace disponible, a son format — quitte a agrandir\
+   une image plus petite que l'ecran. Sans cette regle, le cadre s'arrete a la\
+   taille en pixels de l'image : diapo minuscule sur un grand ecran. */\
+@supports (width:1cqh){\
+#wrap{width:min(100cqw, calc(100cqh * var(--ar, 1.7778)));height:min(100cqh, calc(100cqw / var(--ar, 1.7778)))}\
+}\
 body:not(.editing) #wrap{overflow:hidden;border-radius:var(--radius)}\
 #wrap.fading{opacity:0}\
 #slide{width:100%;height:100%;object-fit:contain;border-radius:var(--radius);box-shadow:0 8px 40px rgba(0,0,0,.55);user-select:none;display:block}\
@@ -2540,7 +2546,10 @@ function offFormat(s) {
 function setFrameRatio() {
   var s = SLIDES[cur];
   var ar = (s.cover && deckRatio()) || s.ar;
-  if (ar) wrap.style.aspectRatio = String(ar);
+  if (ar) {
+    wrap.style.aspectRatio = String(ar);
+    wrap.style.setProperty('--ar', String(ar));   // sert au dimensionnement plein cadre
+  }
   slideEl.style.objectFit = (s.cover && offFormat(s)) ? 'cover' : 'contain';
 }
 function fitFrame() {
