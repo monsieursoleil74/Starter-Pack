@@ -111,9 +111,29 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   (placeholders hérités ignorés, groupe = un seul objet).
 - **Mouvement** : `meta.transition` (none|fade|slide|zoom|up) pilote la
   transition entre pages — `go()` pose `data-tr` + `.tr-out`/`.tr-in` sur
-  `#wrap`, avec `.back` selon le sens. Par élément : `anim` (+ `delay`) joue
-  une apparition en lecture (et en aperçu via `previewing`, bouton ▶), `hover`
-  ajoute un effet de survol. Tout est en CSS, aucune bibliothèque.
+  `#wrap`, avec `.back` selon le sens. **Défaut : `none`** (net, comme un
+  site) — le repli dans `go()` ET l'option sélectionnée du panneau doivent
+  rester d'accord, sinon l'interface ment. Par élément : `anim` (+ `delay`)
+  joue une apparition en lecture (et en aperçu via `previewing`, bouton ▶),
+  `hover` ajoute un effet de survol. Tout est en CSS, aucune bibliothèque.
+- **Format des pages** : le convertisseur mémorise `s.ar` (largeur/hauteur de
+  chaque page, 4 décimales) ; `setFrameRatio()` l'applique au cadre AVANT que
+  l'image n'arrive — sans quoi la page saute pendant une navigation. Vieux
+  packs : `fitFrame()` apprend `ar` de l'image au chargement. `deckRatio()` =
+  format majoritaire ; une page d'un autre format (`offFormat`) reçoit dans le
+  panneau l'option `s.cover` (« recadrer au format du pack » → cadre au format
+  du pack + `object-fit:cover`). Les zones issues des liens PDF d'une page
+  recadrée ne sont pas remappées — cas marginal, assumé.
+- **Candidats** : `s.objects` mélange les formes du .pptx (vert) et les
+  lignes de texte du PDF (`kind:'ligne'`, ambre), reconstruites par
+  `pageTexts()` via `getTextContent()` — boîtes au glyphe près, fusion par
+  ligne de base, padding 22 %. Un candidat porte `label` (repris dans
+  `el.label` à la création) et `ellipse` (prstGeom du pptx). Une zone peut
+  être ronde : `el.ellipse` → `border-radius:50%`, le `backdrop-filter` du
+  survol épouse le rond.
+- **Édition lisible** : les zones `look:'hover'` sont teintées de bleu en
+  édition et chaque zone porte une étiquette `.ztag` (`actionLabel()`) qui
+  résume son action. Rien de tout ça n'existe en lecture.
 - Une zone `look:'hover'` est **vraiment invisible** : pas de bordure ni de
   fond. Le halo bleu d'origine a été retiré — il peignait un rectangle par
   dessus le bouton dessiné dans Slides. Le retour visuel passe par `hover`
@@ -263,7 +283,13 @@ scénarios :
    bouton typographique, et le double-clic le réécrit toujours ;
 8. élément commun : toutes les pages par défaut, liste de cases quand on
    choisit, page décochée = fantôme en édition et rien du tout en lecture
-   (pas même un clic), choix conservé à l'enregistrement et à la relecture.
+   (pas même un clic), choix conservé à l'enregistrement et à la relecture ;
+9. PDF aux formats mélangés : `ar` mémorisé par page, cadre appliqué avant
+   l'image, alerte à la conversion, option « recadrer au format du pack » sur
+   les seules pages hors format ; transition « aucune » par défaut ; lignes de
+   texte du PDF en candidats ambre à la boîte exacte (libellé repris) ; zone
+   ronde depuis une ellipse du pptx comme à la main ; zones teintées +
+   étiquettes d'action en édition, invisibles en lecture.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
 balise `#cfg` du document garde la config d'ORIGINE, l'état vivant est dans
 la fermeture JS — vérifier via le DOM, ou après un enregistrement.

@@ -5,7 +5,7 @@
 (function () {
 'use strict';
 
-var APP_VERSION = '4.2.0';
+var APP_VERSION = '4.3.0';
 var $ = function (id) { return document.getElementById(id); };
 
 /* pdf.js a besoin d'un worker : on le sert depuis un blob, aucun fichier
@@ -126,6 +126,49 @@ async function pageZones(pdf, page, vp) {
   return dedupe(out);
 }
 
+/* ---------------- texte du PDF -> candidats boutons ----------------
+   pdf.js sait où sont les glyphes : on reconstruit des lignes de texte avec
+   leur boîte EXACTE. C'est ce qui permet de faire d'un texte le bouton
+   lui-même, au lieu de la grande boîte de texte qui l'entoure. */
+async function pageTexts(page, vp) {
+  var tc;
+  try { tc = await page.getTextContent(); } catch (e) { return []; }
+  var lines = [];
+  tc.items.forEach(function (it) {
+    if (!it.str || !it.str.trim()) return;
+    var t = pdfjsLib.Util.transform(vp.transform, it.transform);
+    var fh = Math.hypot(t[2], t[3]);                  // hauteur de police à l'écran
+    var w = (it.width || 0) * vp.scale;
+    if (fh < 7 || w < 6) return;                      // trop petit pour un bouton
+    var x = t[4], base = t[5];
+    // même ligne de base et collé au morceau précédent : même ligne visuelle
+    for (var i = 0; i < lines.length; i++) {
+      var L = lines[i];
+      if (Math.abs(L.base - base) < fh * 0.4 &&
+          x - (L.x + L.w) < fh * 1.2 && x + w > L.x - fh * 1.2) {
+        var x2 = Math.max(L.x + L.w, x + w);
+        L.x = Math.min(L.x, x); L.w = x2 - L.x;
+        L.top = Math.min(L.top, base - fh * 0.84);
+        L.h = Math.max(L.h, fh * 1.06);
+        L.txt += it.str;
+        return;
+      }
+    }
+    lines.push({ x: x, top: base - fh * 0.84, w: w, h: fh * 1.06, base: base, txt: it.str });
+  });
+  var out = [];
+  lines.forEach(function (L) {
+    var txt = L.txt.replace(/\s+/g, ' ').trim();
+    if (txt.length < 2 || txt.length > 80) return;    // ni miette, ni paragraphe
+    var pad = L.h * 0.22;                             // l'air autour du texte
+    var o = { x: r2((L.x - pad) / vp.width * 100), y: r2((L.top - pad) / vp.height * 100),
+              w: r2((L.w + pad * 2) / vp.width * 100), h: r2((L.h + pad * 2) / vp.height * 100),
+              kind: 'ligne', label: txt.slice(0, 60) };
+    if (o.w > 1 && o.h > 0.8 && o.w < 98) out.push(o);
+  });
+  return out.slice(0, 60);
+}
+
 /* Slides pose souvent un lien par morceau de texte : on fusionne les doublons
    qui visent la même cible et se recouvrent. */
 function key(z) { return z.action + '|' + (z.url || (z.video && z.video.url) || z.slide); }
@@ -230,13 +273,17 @@ function slideObjects(doc, sw, sh) {
     if (!(w > 0.8 && h > 0.8)) return;                  // miettes
     if (w > 97 && h > 97) return;                       // fond de page
     var text = localEls(node, 't').map(function (t) { return t.textContent; }).join(' ').trim();
-    out.push({
+    var geom = localEls(node, 'prstGeom')[0];
+    var o = {
       x: r2(+off.getAttribute('x') / sw * 100),
       y: r2(+off.getAttribute('y') / sh * 100),
       w: r2(w), h: r2(h),
       kind: kind === 'pic' ? 'image' : (text ? 'text' : 'shape'),
       label: text.slice(0, 60)
-    });
+    };
+    // une forme ronde dans Slides doit donner une zone ronde, pas un rectangle
+    if (geom && geom.getAttribute('prst') === 'ellipse') o.ellipse = true;
+    out.push(o);
   });
   return out;
 }
@@ -306,7 +353,7 @@ function readDeck(txt) {
 
 /* Transplante l'ancien travail sur les nouvelles pages, et nettoie les
    renvois devenus impossibles (page supprimée depuis). */
-function mergeDeck(old, n, images, zones, notes, objects) {
+function mergeDeck(old, n, images, zones, notes, objects, ars) {
   var meta = old.cfg.meta || {};
   var oldSlides = old.cfg.slides || [];
   var perdues = Math.max(0, oldSlides.length - n);
@@ -315,6 +362,8 @@ function mergeDeck(old, n, images, zones, notes, objects) {
     return {
       img: i,
       name: o.name,
+      ar: ars ? ars[i] : o.ar,
+      cover: o.cover,
       notes: (notes && notes[i]) || o.notes || '',
       hidden: !!o.hidden,
       // les liens du nouveau PDF ne sont repris que là où rien n'existait
@@ -360,10 +409,10 @@ function mergeDeck(old, n, images, zones, notes, objects) {
 
 /* ---------------- fabrication du HTML ---------------- */
 
-function buildHtml(title, images, zones, notes, objects, old) {
+function buildHtml(title, images, zones, notes, objects, old, ars) {
   var cfg, media = {};
   if (old) {
-    var m = mergeDeck(old, images.length, images, zones, notes, objects);
+    var m = mergeDeck(old, images.length, images, zones, notes, objects, ars);
     cfg = { meta: m.meta, slides: m.slides };
     cfg.meta.title = title;
     cfg.meta.locked = false;
@@ -381,10 +430,14 @@ function buildHtml(title, images, zones, notes, objects, old) {
       // progression, ni vignettes, ni entête. Le clavier reste actif pour ne
       // bloquer personne tant qu'aucun bouton n'a été posé.
       meta: { title: title, lang: 'fr', embed: true, locked: false, app: APP_VERSION,
+              // pas de fondu par défaut : on passe d'une page à l'autre net,
+              // comme sur un site — la transition se choisit dans l'éditeur
+              transition: 'none',
               view: { arrows: true, counter: false, progress: false,
                       thumbs: false, header: false, full: true } },
       slides: images.map(function (_, i) {
-        var s = { img: i, notes: notes[i] || '', hidden: false, elements: zones[i] || [] };
+        var s = { img: i, ar: ars ? ars[i] : undefined,
+                  notes: notes[i] || '', hidden: false, elements: zones[i] || [] };
         // formes repérées dans le .pptx : des candidats à transformer en boutons
         if (objects && objects[i] && objects[i].length) s.objects = objects[i];
         return s;
@@ -425,7 +478,7 @@ async function convert() {
     var n = pdf.numPages;
     log(n + ' diapo(s) à rendre…');
 
-    var images = [], zones = [], nz = 0;
+    var images = [], zones = [], ars = [], texts = [], nz = 0, nt = 0;
     for (var i = 1; i <= n; i++) {
       var page = await pdf.getPage(i);
       var scale = state.width / page.getViewport({ scale: 1 }).width;
@@ -434,14 +487,25 @@ async function convert() {
       canvas.height = Math.round(vp.height);
       await page.render({ canvasContext: ctx, viewport: vp }).promise;
       images.push(canvas.toDataURL('image/jpeg', state.quality).split(',')[1]);
+      ars.push(Math.round(vp.width / vp.height * 1e4) / 1e4);   // format réel de la page
       var z = await pageZones(pdf, page, vp);
       nz += z.length;
       zones.push(z);
+      var tl = await pageTexts(page, vp);
+      nt += tl.length;
+      texts.push(tl);
       progress(i / n * 0.92);
       if (i === 1 || i % 5 === 0 || i === n) log('Diapo ' + i + ' / ' + n);
       await tick();
     }
     if (nz) log(nz + ' lien(s) du PDF converti(s) en zones cliquables');
+    if (nt) log(nt + ' texte(s) repéré(s) — « ⌖ Objets » dans l’éditeur les transforme en boutons, au pixel près');
+    // des pages de formats différents : ça se voit à la lecture, on prévient
+    var arCounts = {};
+    ars.forEach(function (a) { arCounts[a] = (arCounts[a] || 0) + 1; });
+    if (Object.keys(arCounts).length > 1)
+      log('⚠ Les pages du PDF n’ont pas toutes le même format — certaines paraîtront ' +
+          'plus petites. L’éditeur propose « recadrer au format du pack » sur ces pages.', 'err');
 
     var notes = [], objects = [];
     if (state.pptx) {
@@ -463,13 +527,18 @@ async function convert() {
       }
     }
 
+    // candidats d'une page = formes du .pptx + lignes de texte du PDF
+    var candidats = images.map(function (_, i2) {
+      return ((objects[i2] || [])).concat(texts[i2] || []);
+    });
+
     var old = null;
     if (state.deck) {
       old = readDeck(await state.deck.text());
       if (!old) log('Le .html déposé n’est pas un pack produit par cet outil — ignoré.', 'err');
     }
     var title = $('title').value.trim() || baseName(state.pdf.name) || 'Présentation';
-    var html = buildHtml(title, images, zones, notes, objects, old);
+    var html = buildHtml(title, images, zones, notes, candidats, old, ars);
     progress(1);
 
     state.url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));

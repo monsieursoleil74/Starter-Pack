@@ -30,6 +30,17 @@ présentateur** — le PDF ne les contient pas.
 - Les **liens URL** → zones qui ouvrent le lien.
 - Les **liens YouTube** (la forme sous laquelle Slides exporte une vidéo
   insérée) → zones qui lancent la vidéo en plein écran.
+- Chaque **ligne de texte**, avec sa boîte **exacte** (lue au glyphe près dans
+  le PDF) : dans l'éditeur, le bouton **⌖ Objets** les affiche en ambre, un
+  clic en fait un bouton qui épouse le texte lui-même — pas la grande boîte de
+  texte qui l'entoure. Avec le `.pptx`, les formes et images s'ajoutent en
+  vert, et une forme **ronde** donne une zone **ronde**.
+- Le **format de chaque page**. Des pages de formats différents dans le même
+  PDF ? L'outil te prévient, et l'éditeur propose sur ces pages **« la
+  recadrer au format du pack »** pour qu'elles s'affichent à la même taille
+  que les autres (sinon elles sont montrées entières, donc plus petites).
+  Le mieux reste de garder la même taille de page dans Slides
+  (*Fichier → Mise en page*).
 
 ## Le mode édition (touche `E` dans le HTML produit)
 
@@ -53,6 +64,11 @@ visiteur), ouvrir un lien, ou lire une vidéo en plein écran. Une image fait
 souvent un meilleur bouton qu'une pastille.
 
 Sur une diapo cachée, un bouton **↩ Retour** apparaît tout seul.
+
+En édition, les zones invisibles sont **teintées de bleu** et portent une
+**étiquette** qui dit ce qu'elles font (`→ Fiche Rig`, `🔗 lien`, `▶ vidéo`…) :
+tu retrouves d'un coup d'œil ce que tu as déjà posé. Tout ça disparaît en
+lecture, évidemment.
 
 ### Les boutons : c'est le texte qui fait la forme
 
@@ -184,14 +200,14 @@ Ces réglages transforment un enchaînement de pages en une vraie expérience.
 
 | Où | Réglage | Effet |
 |---|---|---|
-| Panneau de droite, rien de sélectionné | **Transition entre les pages** | Fondu, glissement, zoom ou vers le haut, au lieu de la coupe franche. Le glissement suit le sens de lecture. |
+| Panneau de droite, rien de sélectionné | **Transition entre les pages** | **Aucune par défaut** — net, comme un site. Au choix : fondu, glissement, zoom ou vers le haut. Le glissement suit le sens de lecture. |
 | Sur un élément, section **Mouvement** | **Apparition** | L'élément entre en scène : fondu, monte, descend, vient de la gauche/droite, zoom. |
 | idem | **Retard** | De 0 à 1,5 s. En échelonnant les retards, tes boutons arrivent l'un après l'autre. |
 | idem | **Au survol** | *Éclaircit* / *Assombrit* agissent sur ce qu'il y a **dessous** — c'est le bouton que tu as dessiné dans Slides qui réagit, rien n'est peint par-dessus. *Se soulève*, *grossit*, *s'illumine* conviennent aux éléments qui ont un visuel propre (image, texte, bouton plein). |
 
-Pour une zone **invisible**, règle l'**arrondi des coins** afin d'épouser la
-forme du bouton dessiné en dessous : sinon les angles de la zone réagissent en
-dehors de lui.
+Pour une zone **invisible**, règle l'**arrondi des coins** — ou passe
+**Forme de la zone** sur **Ronde / ovale** pour un bouton rond — afin d'épouser
+la forme du bouton dessiné en dessous : sinon la zone réagit en dehors de lui.
 
 Le bouton **▶** de la barre d'outils rejoue les apparitions de la page sans
 quitter l'édition.

@@ -229,7 +229,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.2.0';
+var APP_VERSION = '4.3.0';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {
@@ -418,6 +418,11 @@ body.editing .navzone,#stage.onhidden .navzone{display:none}\
 .act .bs-bloc:hover{filter:brightness(1.1)}\
 .act .btn-in:active{transform:translateY(.03em) scale(.985)}\
 body.editing .el{outline:1px dashed rgba(91,140,255,.55);cursor:grab}\
+/* en édition les zones invisibles se voient : un voile bleu + une étiquette,\
+   pour retrouver d'un coup d'œil ce qui a déjà été posé */\
+body.editing .el-zone.look-hover{background:rgba(91,140,255,.14);outline-style:solid;outline-color:rgba(91,140,255,.8)}\
+.ztag{position:absolute;left:0;bottom:calc(100% + 3px);font-size:10.5px;line-height:1;background:rgba(17,21,31,.92);color:#9fb6ff;padding:4px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;z-index:6;max-width:200px;overflow:hidden;text-overflow:ellipsis}\
+.el.sel .ztag{color:#ffd07a}\
 body.editing .el.sel{outline:2px solid var(--warn)}\
 body.editing .el.master{outline:1px dashed rgba(62,207,142,.85)}\
 body.editing .el.master.sel{outline:2px solid var(--warn)}\
@@ -436,6 +441,10 @@ body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);curs
 .cand{position:absolute;z-index:5;border:2px dashed rgba(62,207,142,.9);border-radius:6px;cursor:pointer;background:rgba(62,207,142,.10);transition:background .12s}\
 .cand:hover{background:rgba(62,207,142,.28)}\
 .cand span{position:absolute;left:0;top:-17px;font-size:10.5px;color:#3ecf8e;white-space:nowrap;pointer-events:none;max-width:100%;overflow:hidden;text-overflow:ellipsis}\
+/* lignes de texte lues dans le PDF : en ambre, pour les distinguer des formes */\
+.cand.txt{border-color:rgba(255,193,87,.85);background:rgba(255,193,87,.07)}\
+.cand.txt:hover{background:rgba(255,193,87,.22)}\
+.cand.txt span{color:#ffc157}\
 \
 #backBtn{position:absolute;top:16px;left:16px;z-index:6;background:rgba(20,22,30,.85);color:#fff;border:1px solid var(--line);border-radius:20px;padding:8px 16px;cursor:pointer;font-size:14px}\
 #backBtn:hover{background:var(--accent);border-color:var(--accent)}\
@@ -701,10 +710,12 @@ function go(i, opts) {
   var back = i < cur;
   cur = i;
   var apply = function () {
+    setFrameRatio();               // tout de suite : pas de saut quand l'image arrive
     slideEl.src = IMG(SLIDES[cur].img);
     renderElements();
   };
-  var tr = META.transition || 'fade';
+  // pas de fondu par défaut : net, comme un site
+  var tr = META.transition || 'none';
   if (opts.instant || tr === 'none') { wrap.classList.remove('tr-out', 'tr-in'); apply(); }
   else {
     wrap.dataset.tr = tr;
@@ -762,8 +773,9 @@ function renderCandidates() {
   if (!editMode || !showObjects) return;
   (SLIDES[cur].objects || []).forEach(function (o) {
     var d = document.createElement('div');
-    d.className = 'cand';
+    d.className = 'cand' + (o.kind === 'ligne' ? ' txt' : '');
     setRect(d, o);
+    if (o.ellipse) d.style.borderRadius = '50%';
     d.title = 'Cliquer pour en faire un bouton';
     if (o.label) {
       var lab = document.createElement('span');
@@ -774,9 +786,13 @@ function renderCandidates() {
     d.addEventListener('click', function (e) {
       e.stopPropagation();
       pushUndo();
-      els().push({ type: 'zone', x: o.x, y: o.y, w: o.w, h: o.h, look: 'hover',
-                   hover: 'light',
-                   action: 'goto', slide: Math.min(cur + 1, SLIDES.length - 1) });
+      var z = { type: 'zone', x: o.x, y: o.y, w: o.w, h: o.h, look: 'hover',
+                hover: 'light',
+                action: 'goto', slide: Math.min(cur + 1, SLIDES.length - 1) };
+      if (o.ellipse) z.ellipse = true;            // forme ronde de Slides
+      if (o.kind === 'ligne') z.radius = 8;       // ligne de texte : arrondi léger
+      if (o.label) z.label = o.label;             // resservira si on en fait un bouton plein
+      els().push(z);
       select(els().length - 1);
       buildThumbs();
       toast('Bouton créé sur cet objet — choisis sa destination');
@@ -908,6 +924,8 @@ function buildEl(el, i, depth, box) {
     // l'arrondi épouse la forme du bouton dessiné en dessous : sans quoi les
     // coins d'une zone rectangulaire réagissent au survol hors du bouton
     if (el.radius != null && (el.look || 'hover') !== 'button') d.style.borderRadius = el.radius + 'px';
+    // zone ronde : le survol épouse le rond, il ne déborde plus en carré
+    if (el.ellipse && (el.look || 'hover') !== 'button') d.style.borderRadius = '50%';
     if ((el.look || 'hover') === 'button') {
       makeBtn(d, el, (el.icon ? el.icon + ' ' : '') + (el.label || ''));
       scalables.push({ node: d, el: el, box: box, kind: 'button' });
@@ -989,6 +1007,12 @@ function buildEl(el, i, depth, box) {
       d.appendChild(cov);
     }
     if (depth === 0 && i >= els().length) d.classList.add('master');
+    if (el.type === 'zone') {
+      var tg = document.createElement('span');
+      tg.className = 'ztag';
+      tg.textContent = actionLabel(el);
+      d.appendChild(tg);
+    }
     if (sel === i) {
       d.classList.add('sel');
       ['se', 'nw'].forEach(function (c) {
@@ -1085,6 +1109,24 @@ function doAction(el) {
       renderElements();
       break;
     }
+  }
+}
+
+/* Étiquette d'édition d'une zone : ce que fait le bouton, en un coup d'œil. */
+function actionLabel(el) {
+  switch (el.action) {
+    case 'goto': return '→ ' + (typeof el.slide === 'number' ? slideName(el.slide) : '?');
+    case 'overlay': return '⧉ ' + (el.slide === -2 ? 'plusieurs diapos'
+      : (typeof el.slide === 'number' ? slideName(el.slide) : '?')) + ' en grand';
+    case 'panel': return '🗔 ' + (typeof el.slide === 'number' ? slideName(el.slide) : '?') +
+      ' → ' + (el.panelName || 'Panneau');
+    case 'next': return '→ suivante';
+    case 'prev': return '← précédente';
+    case 'back': return '↩ retour';
+    case 'url': return '🔗 ' + (el.url || 'lien vide');
+    case 'video': return '▶ vidéo';
+    case 'copy': return '📋 copier';
+    default: return 'zone sans action';
   }
 }
 
@@ -1542,7 +1584,7 @@ function viewFields() {
     '<b>Diaporama</b> : compteur, progression et vignettes. ' +
     '<b>Kiosque</b> : plus aucune navigation libre.</p>';
   h += '<label>Transition entre les pages<select id="vTrans">' +
-    opt('none', 'Aucune (coupe franche)', META.transition) +
+    opt('none', 'Aucune (net, comme un site)', META.transition || 'none') +
     opt('fade', 'Fondu', META.transition) +
     opt('slide', 'Glissement', META.transition) +
     opt('zoom', 'Zoom', META.transition) +
@@ -1630,6 +1672,11 @@ function renderProps() {
     '" placeholder="' + escA('Diapo ' + (cur + 1)) + '"></label>' +
     '<label class="ck"><input type="checkbox" id="pHid"' + (s.hidden ? ' checked' : '') +
     '><span>Diapo cachée — hors navigation, accessible uniquement via un bouton</span></label>';
+  if (offFormat(s))
+    h += '<label>Cette page n’est pas au format du pack<select id="pFitPage">' +
+      opt('entire', 'La montrer entière (elle paraît plus petite)', s.cover ? 'cover' : 'entire') +
+      opt('cover', 'La recadrer au format du pack (rogne les bords)', s.cover ? 'cover' : 'entire') +
+      '</select></label>';
 
   if (!el) {
     h += '<hr><p class="muted">' +
@@ -1675,12 +1722,17 @@ function renderProps() {
     if ((el.look || 'hover') === 'button') {
       h += btnFields(el);
     } else {
-      h += '<label>Arrondi des coins <span class="muted">' + (el.radius == null ? 6 : el.radius) +
-        ' px</span><input type="range" id="pRadius" min="0" max="90" value="' +
-        (el.radius == null ? 6 : el.radius) + '"></label>';
+      h += '<label>Forme de la zone<select id="pZShape">' +
+        opt('rect', 'Rectangle (coins réglables)', el.ellipse ? 'ellipse' : 'rect') +
+        opt('ellipse', 'Ronde / ovale', el.ellipse ? 'ellipse' : 'rect') +
+        '</select></label>';
+      if (!el.ellipse)
+        h += '<label>Arrondi des coins <span class="muted">' + (el.radius == null ? 6 : el.radius) +
+          ' px</span><input type="range" id="pRadius" min="0" max="90" value="' +
+          (el.radius == null ? 6 : el.radius) + '"></label>';
       if ((el.look || 'hover') === 'hover')
-        h += '<p class="muted">Règle-le pour épouser la forme du bouton que tu as ' +
-          'dessiné dans Slides : sinon les coins de la zone réagissent en dehors de lui.</p>';
+        h += '<p class="muted">Fais-lui épouser la forme du bouton que tu as ' +
+          'dessiné dans Slides : sinon la zone réagit en dehors de lui.</p>';
     }
   } else if (el.type === 'text') {
     h += '<label>Texte<textarea id="pText">' + esc(el.text || '') + '</textarea></label>' +
@@ -1825,6 +1877,14 @@ function bindSlideFields(s) {
     });
     nm.addEventListener('blur', function () { started = false; renderProps(); });
   }
+  var ff = $('pFitPage');
+  if (ff) ff.addEventListener('change', function (e) {
+    pushUndo();
+    if (e.target.value === 'cover') s.cover = true; else delete s.cover;
+    markDirty();
+    setFrameRatio();
+    scaleText();
+  });
   var c = $('pHid');
   if (c) c.addEventListener('change', function (e) {
     pushUndo();
@@ -1942,6 +2002,9 @@ function bindElementFields(el) {
   });
   set('pVUrl', 'change', function (e) { el.video = { url: ytEmbed(e.target.value.trim()) }; }, true);
   set('pLook', 'change', function (e) { el.look = e.target.value; }, true);
+  set('pZShape', 'change', function (e) {
+    if (e.target.value === 'ellipse') el.ellipse = true; else delete el.ellipse;
+  }, true);
   set('pBtn', 'change', function (e) {
     el.btn = e.target.value;
     delete el.radius;                 // chaque style a son arrondi naturel
@@ -2674,9 +2737,39 @@ document.addEventListener('touchend', function (e) {
 
 /* le cadre épouse le format réel de la page : c'est ce qui empêche
    l'étirement quand le PDF n'est pas en 16/9 */
+/* Format du pack : celui de la majorité des pages. Sert de référence pour
+   signaler une page d'un autre format, et pour la recadrer si demandé. */
+var _deckRatio = null;
+function deckRatio() {
+  if (_deckRatio) return _deckRatio;
+  var counts = {}, best = null, bestN = 0;
+  SLIDES.forEach(function (s) {
+    if (!s.ar) return;
+    counts[s.ar] = (counts[s.ar] || 0) + 1;
+    if (counts[s.ar] > bestN) { bestN = counts[s.ar]; best = s.ar; }
+  });
+  _deckRatio = best;
+  return best;
+}
+function offFormat(s) {
+  var d = deckRatio();
+  return !!(s.ar && d && Math.abs(s.ar - d) > 0.02);
+}
+/* Le cadre prend le format de la page — mémorisé à la conversion (s.ar), donc
+   appliqué AVANT que l'image n'arrive : la page ne saute pas pendant une
+   transition. « cover » recadre la page au format du pack. */
+function setFrameRatio() {
+  var s = SLIDES[cur];
+  var ar = (s.cover && deckRatio()) || s.ar;
+  if (ar) wrap.style.aspectRatio = String(ar);
+  slideEl.style.objectFit = (s.cover && offFormat(s)) ? 'cover' : 'contain';
+}
 function fitFrame() {
-  if (slideEl.naturalWidth && slideEl.naturalHeight)
-    wrap.style.aspectRatio = slideEl.naturalWidth + ' / ' + slideEl.naturalHeight;
+  var s = SLIDES[cur];
+  // vieux pack sans format mémorisé : on l'apprend de l'image elle-même
+  if (!s.ar && slideEl.naturalWidth && slideEl.naturalHeight)
+    s.ar = Math.round(slideEl.naturalWidth / slideEl.naturalHeight * 1e4) / 1e4;
+  setFrameRatio();
   scaleText();
 }
 window.addEventListener('resize', function () { scaleText(); placeFloatbar(); });
@@ -2709,7 +2802,7 @@ go(isNaN(start) ? firstVisible() : clamp(start, 0, SLIDES.length - 1), { instant
 (function () {
 'use strict';
 
-var APP_VERSION = '4.2.0';
+var APP_VERSION = '4.3.0';
 var $ = function (id) { return document.getElementById(id); };
 
 /* pdf.js a besoin d'un worker : on le sert depuis un blob, aucun fichier
@@ -2830,6 +2923,49 @@ async function pageZones(pdf, page, vp) {
   return dedupe(out);
 }
 
+/* ---------------- texte du PDF -> candidats boutons ----------------
+   pdf.js sait où sont les glyphes : on reconstruit des lignes de texte avec
+   leur boîte EXACTE. C'est ce qui permet de faire d'un texte le bouton
+   lui-même, au lieu de la grande boîte de texte qui l'entoure. */
+async function pageTexts(page, vp) {
+  var tc;
+  try { tc = await page.getTextContent(); } catch (e) { return []; }
+  var lines = [];
+  tc.items.forEach(function (it) {
+    if (!it.str || !it.str.trim()) return;
+    var t = pdfjsLib.Util.transform(vp.transform, it.transform);
+    var fh = Math.hypot(t[2], t[3]);                  // hauteur de police à l'écran
+    var w = (it.width || 0) * vp.scale;
+    if (fh < 7 || w < 6) return;                      // trop petit pour un bouton
+    var x = t[4], base = t[5];
+    // même ligne de base et collé au morceau précédent : même ligne visuelle
+    for (var i = 0; i < lines.length; i++) {
+      var L = lines[i];
+      if (Math.abs(L.base - base) < fh * 0.4 &&
+          x - (L.x + L.w) < fh * 1.2 && x + w > L.x - fh * 1.2) {
+        var x2 = Math.max(L.x + L.w, x + w);
+        L.x = Math.min(L.x, x); L.w = x2 - L.x;
+        L.top = Math.min(L.top, base - fh * 0.84);
+        L.h = Math.max(L.h, fh * 1.06);
+        L.txt += it.str;
+        return;
+      }
+    }
+    lines.push({ x: x, top: base - fh * 0.84, w: w, h: fh * 1.06, base: base, txt: it.str });
+  });
+  var out = [];
+  lines.forEach(function (L) {
+    var txt = L.txt.replace(/\s+/g, ' ').trim();
+    if (txt.length < 2 || txt.length > 80) return;    // ni miette, ni paragraphe
+    var pad = L.h * 0.22;                             // l'air autour du texte
+    var o = { x: r2((L.x - pad) / vp.width * 100), y: r2((L.top - pad) / vp.height * 100),
+              w: r2((L.w + pad * 2) / vp.width * 100), h: r2((L.h + pad * 2) / vp.height * 100),
+              kind: 'ligne', label: txt.slice(0, 60) };
+    if (o.w > 1 && o.h > 0.8 && o.w < 98) out.push(o);
+  });
+  return out.slice(0, 60);
+}
+
 /* Slides pose souvent un lien par morceau de texte : on fusionne les doublons
    qui visent la même cible et se recouvrent. */
 function key(z) { return z.action + '|' + (z.url || (z.video && z.video.url) || z.slide); }
@@ -2934,13 +3070,17 @@ function slideObjects(doc, sw, sh) {
     if (!(w > 0.8 && h > 0.8)) return;                  // miettes
     if (w > 97 && h > 97) return;                       // fond de page
     var text = localEls(node, 't').map(function (t) { return t.textContent; }).join(' ').trim();
-    out.push({
+    var geom = localEls(node, 'prstGeom')[0];
+    var o = {
       x: r2(+off.getAttribute('x') / sw * 100),
       y: r2(+off.getAttribute('y') / sh * 100),
       w: r2(w), h: r2(h),
       kind: kind === 'pic' ? 'image' : (text ? 'text' : 'shape'),
       label: text.slice(0, 60)
-    });
+    };
+    // une forme ronde dans Slides doit donner une zone ronde, pas un rectangle
+    if (geom && geom.getAttribute('prst') === 'ellipse') o.ellipse = true;
+    out.push(o);
   });
   return out;
 }
@@ -3010,7 +3150,7 @@ function readDeck(txt) {
 
 /* Transplante l'ancien travail sur les nouvelles pages, et nettoie les
    renvois devenus impossibles (page supprimée depuis). */
-function mergeDeck(old, n, images, zones, notes, objects) {
+function mergeDeck(old, n, images, zones, notes, objects, ars) {
   var meta = old.cfg.meta || {};
   var oldSlides = old.cfg.slides || [];
   var perdues = Math.max(0, oldSlides.length - n);
@@ -3019,6 +3159,8 @@ function mergeDeck(old, n, images, zones, notes, objects) {
     return {
       img: i,
       name: o.name,
+      ar: ars ? ars[i] : o.ar,
+      cover: o.cover,
       notes: (notes && notes[i]) || o.notes || '',
       hidden: !!o.hidden,
       // les liens du nouveau PDF ne sont repris que là où rien n'existait
@@ -3064,10 +3206,10 @@ function mergeDeck(old, n, images, zones, notes, objects) {
 
 /* ---------------- fabrication du HTML ---------------- */
 
-function buildHtml(title, images, zones, notes, objects, old) {
+function buildHtml(title, images, zones, notes, objects, old, ars) {
   var cfg, media = {};
   if (old) {
-    var m = mergeDeck(old, images.length, images, zones, notes, objects);
+    var m = mergeDeck(old, images.length, images, zones, notes, objects, ars);
     cfg = { meta: m.meta, slides: m.slides };
     cfg.meta.title = title;
     cfg.meta.locked = false;
@@ -3085,10 +3227,14 @@ function buildHtml(title, images, zones, notes, objects, old) {
       // progression, ni vignettes, ni entête. Le clavier reste actif pour ne
       // bloquer personne tant qu'aucun bouton n'a été posé.
       meta: { title: title, lang: 'fr', embed: true, locked: false, app: APP_VERSION,
+              // pas de fondu par défaut : on passe d'une page à l'autre net,
+              // comme sur un site — la transition se choisit dans l'éditeur
+              transition: 'none',
               view: { arrows: true, counter: false, progress: false,
                       thumbs: false, header: false, full: true } },
       slides: images.map(function (_, i) {
-        var s = { img: i, notes: notes[i] || '', hidden: false, elements: zones[i] || [] };
+        var s = { img: i, ar: ars ? ars[i] : undefined,
+                  notes: notes[i] || '', hidden: false, elements: zones[i] || [] };
         // formes repérées dans le .pptx : des candidats à transformer en boutons
         if (objects && objects[i] && objects[i].length) s.objects = objects[i];
         return s;
@@ -3129,7 +3275,7 @@ async function convert() {
     var n = pdf.numPages;
     log(n + ' diapo(s) à rendre…');
 
-    var images = [], zones = [], nz = 0;
+    var images = [], zones = [], ars = [], texts = [], nz = 0, nt = 0;
     for (var i = 1; i <= n; i++) {
       var page = await pdf.getPage(i);
       var scale = state.width / page.getViewport({ scale: 1 }).width;
@@ -3138,14 +3284,25 @@ async function convert() {
       canvas.height = Math.round(vp.height);
       await page.render({ canvasContext: ctx, viewport: vp }).promise;
       images.push(canvas.toDataURL('image/jpeg', state.quality).split(',')[1]);
+      ars.push(Math.round(vp.width / vp.height * 1e4) / 1e4);   // format réel de la page
       var z = await pageZones(pdf, page, vp);
       nz += z.length;
       zones.push(z);
+      var tl = await pageTexts(page, vp);
+      nt += tl.length;
+      texts.push(tl);
       progress(i / n * 0.92);
       if (i === 1 || i % 5 === 0 || i === n) log('Diapo ' + i + ' / ' + n);
       await tick();
     }
     if (nz) log(nz + ' lien(s) du PDF converti(s) en zones cliquables');
+    if (nt) log(nt + ' texte(s) repéré(s) — « ⌖ Objets » dans l’éditeur les transforme en boutons, au pixel près');
+    // des pages de formats différents : ça se voit à la lecture, on prévient
+    var arCounts = {};
+    ars.forEach(function (a) { arCounts[a] = (arCounts[a] || 0) + 1; });
+    if (Object.keys(arCounts).length > 1)
+      log('⚠ Les pages du PDF n’ont pas toutes le même format — certaines paraîtront ' +
+          'plus petites. L’éditeur propose « recadrer au format du pack » sur ces pages.', 'err');
 
     var notes = [], objects = [];
     if (state.pptx) {
@@ -3167,13 +3324,18 @@ async function convert() {
       }
     }
 
+    // candidats d'une page = formes du .pptx + lignes de texte du PDF
+    var candidats = images.map(function (_, i2) {
+      return ((objects[i2] || [])).concat(texts[i2] || []);
+    });
+
     var old = null;
     if (state.deck) {
       old = readDeck(await state.deck.text());
       if (!old) log('Le .html déposé n’est pas un pack produit par cet outil — ignoré.', 'err');
     }
     var title = $('title').value.trim() || baseName(state.pdf.name) || 'Présentation';
-    var html = buildHtml(title, images, zones, notes, objects, old);
+    var html = buildHtml(title, images, zones, notes, candidats, old, ars);
     progress(1);
 
     state.url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));

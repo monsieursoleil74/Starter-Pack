@@ -62,6 +62,11 @@ diapo (elle n'est jamais modifiee) et tu les places a la souris.
              n'est plus accessible QUE via un bouton qui pointe dessus.
              Un bouton "Retour" y apparait automatiquement.
 
+En edition, les zones invisibles sont teintees de bleu et portent une
+etiquette qui dit ce qu'elles font ("-> Fiche Rig", "lien", "video"...) :
+tu retrouves d'un coup d'oeil ce que tu as deja pose. Tout disparait en
+lecture.
+
 N'IMPORTE QUEL element peut devenir cliquable, pas seulement les zones :
 le menu "Au clic" existe aussi sur une image, un texte ou une forme.
 Une image fait souvent un meilleur bouton qu'une pastille.
@@ -108,7 +113,8 @@ La video est embarquee et se lit hors ligne, sans passer par YouTube.
 DONNER VIE A LA PAGE
 --------------------
 - Transition entre les pages (panneau de droite, rien de selectionne) :
-  fondu, glissement, zoom, vers le haut -- au lieu de la coupe franche.
+  AUCUNE par defaut (net, comme un site) ; au choix fondu, glissement,
+  zoom, vers le haut.
 - Sur un element, section "Mouvement" : Apparition (fondu, monte, vient
   de la gauche...), Retard de 0 a 1,5 s pour les faire arriver l'un
   apres l'autre, et effet Au survol (se souleve, grossit, s'illumine).
@@ -188,17 +194,27 @@ boutons que tu poses. Verifie que chaque page en a au moins un.
 La touche E reste ton acces a l'edition, meme tout masque.
 
 
-LES OBJETS DE TON PPTX DEVIENNENT TES BOUTONS
----------------------------------------------
-Si tu deposes le .pptx en meme temps que le PDF, l'outil releve la
-position de chaque forme, texte et image de tes diapos. Dans l'editeur,
-le bouton "Objets" les fait apparaitre en vert : un clic sur l'un d'eux
-cree une zone cliquable exactement a sa place.
+TES TEXTES ET TES FORMES DEVIENNENT TES BOUTONS
+-----------------------------------------------
+Dans l'editeur, le bouton "Objets" fait apparaitre ce que l'outil a
+repere sur tes diapos ; un clic sur l'un d'eux cree une zone cliquable
+exactement a sa place :
+
+- en AMBRE : les lignes de TEXTE, lues directement dans le PDF, avec
+  leur boite exacte -- c'est le texte lui-meme qui devient le bouton,
+  pas la grande boite de texte autour. Le libelle est garde : si tu
+  passes la zone en "bouton avec un texte", il est deja rempli.
+- en VERT : les formes et images du .pptx (si tu l'as depose avec le
+  PDF). Une forme RONDE dans Slides donne une zone RONDE : le survol
+  epouse le rond, il ne deborde plus en carre.
 
 C'est le plus rapide : tu dessines tes boutons dans Google Slides, avec
 ta charte, et tu les rends cliquables ici sans rien redessiner.
-Deux limites : une forme dont la position vient du modele de diapo n'est
-pas detectee, et un groupe est propose d'un bloc.
+Deux limites cote pptx : une forme dont la position vient du modele de
+diapo n'est pas detectee, et un groupe est propose d'un bloc.
+
+Une zone dessinee a la main peut aussi devenir ronde : "Forme de la
+zone" -> "Ronde / ovale" dans le panneau.
 
 
 LES TROIS MODES

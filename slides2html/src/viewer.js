@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.2.0';
+var APP_VERSION = '4.3.0';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {
@@ -197,6 +197,11 @@ body.editing .navzone,#stage.onhidden .navzone{display:none}\
 .act .bs-bloc:hover{filter:brightness(1.1)}\
 .act .btn-in:active{transform:translateY(.03em) scale(.985)}\
 body.editing .el{outline:1px dashed rgba(91,140,255,.55);cursor:grab}\
+/* en édition les zones invisibles se voient : un voile bleu + une étiquette,\
+   pour retrouver d'un coup d'œil ce qui a déjà été posé */\
+body.editing .el-zone.look-hover{background:rgba(91,140,255,.14);outline-style:solid;outline-color:rgba(91,140,255,.8)}\
+.ztag{position:absolute;left:0;bottom:calc(100% + 3px);font-size:10.5px;line-height:1;background:rgba(17,21,31,.92);color:#9fb6ff;padding:4px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;z-index:6;max-width:200px;overflow:hidden;text-overflow:ellipsis}\
+.el.sel .ztag{color:#ffd07a}\
 body.editing .el.sel{outline:2px solid var(--warn)}\
 body.editing .el.master{outline:1px dashed rgba(62,207,142,.85)}\
 body.editing .el.master.sel{outline:2px solid var(--warn)}\
@@ -215,6 +220,10 @@ body.editing .el-text[contenteditable=true]{outline:2px solid var(--accent);curs
 .cand{position:absolute;z-index:5;border:2px dashed rgba(62,207,142,.9);border-radius:6px;cursor:pointer;background:rgba(62,207,142,.10);transition:background .12s}\
 .cand:hover{background:rgba(62,207,142,.28)}\
 .cand span{position:absolute;left:0;top:-17px;font-size:10.5px;color:#3ecf8e;white-space:nowrap;pointer-events:none;max-width:100%;overflow:hidden;text-overflow:ellipsis}\
+/* lignes de texte lues dans le PDF : en ambre, pour les distinguer des formes */\
+.cand.txt{border-color:rgba(255,193,87,.85);background:rgba(255,193,87,.07)}\
+.cand.txt:hover{background:rgba(255,193,87,.22)}\
+.cand.txt span{color:#ffc157}\
 \
 #backBtn{position:absolute;top:16px;left:16px;z-index:6;background:rgba(20,22,30,.85);color:#fff;border:1px solid var(--line);border-radius:20px;padding:8px 16px;cursor:pointer;font-size:14px}\
 #backBtn:hover{background:var(--accent);border-color:var(--accent)}\
@@ -480,10 +489,12 @@ function go(i, opts) {
   var back = i < cur;
   cur = i;
   var apply = function () {
+    setFrameRatio();               // tout de suite : pas de saut quand l'image arrive
     slideEl.src = IMG(SLIDES[cur].img);
     renderElements();
   };
-  var tr = META.transition || 'fade';
+  // pas de fondu par défaut : net, comme un site
+  var tr = META.transition || 'none';
   if (opts.instant || tr === 'none') { wrap.classList.remove('tr-out', 'tr-in'); apply(); }
   else {
     wrap.dataset.tr = tr;
@@ -541,8 +552,9 @@ function renderCandidates() {
   if (!editMode || !showObjects) return;
   (SLIDES[cur].objects || []).forEach(function (o) {
     var d = document.createElement('div');
-    d.className = 'cand';
+    d.className = 'cand' + (o.kind === 'ligne' ? ' txt' : '');
     setRect(d, o);
+    if (o.ellipse) d.style.borderRadius = '50%';
     d.title = 'Cliquer pour en faire un bouton';
     if (o.label) {
       var lab = document.createElement('span');
@@ -553,9 +565,13 @@ function renderCandidates() {
     d.addEventListener('click', function (e) {
       e.stopPropagation();
       pushUndo();
-      els().push({ type: 'zone', x: o.x, y: o.y, w: o.w, h: o.h, look: 'hover',
-                   hover: 'light',
-                   action: 'goto', slide: Math.min(cur + 1, SLIDES.length - 1) });
+      var z = { type: 'zone', x: o.x, y: o.y, w: o.w, h: o.h, look: 'hover',
+                hover: 'light',
+                action: 'goto', slide: Math.min(cur + 1, SLIDES.length - 1) };
+      if (o.ellipse) z.ellipse = true;            // forme ronde de Slides
+      if (o.kind === 'ligne') z.radius = 8;       // ligne de texte : arrondi léger
+      if (o.label) z.label = o.label;             // resservira si on en fait un bouton plein
+      els().push(z);
       select(els().length - 1);
       buildThumbs();
       toast('Bouton créé sur cet objet — choisis sa destination');
@@ -687,6 +703,8 @@ function buildEl(el, i, depth, box) {
     // l'arrondi épouse la forme du bouton dessiné en dessous : sans quoi les
     // coins d'une zone rectangulaire réagissent au survol hors du bouton
     if (el.radius != null && (el.look || 'hover') !== 'button') d.style.borderRadius = el.radius + 'px';
+    // zone ronde : le survol épouse le rond, il ne déborde plus en carré
+    if (el.ellipse && (el.look || 'hover') !== 'button') d.style.borderRadius = '50%';
     if ((el.look || 'hover') === 'button') {
       makeBtn(d, el, (el.icon ? el.icon + ' ' : '') + (el.label || ''));
       scalables.push({ node: d, el: el, box: box, kind: 'button' });
@@ -768,6 +786,12 @@ function buildEl(el, i, depth, box) {
       d.appendChild(cov);
     }
     if (depth === 0 && i >= els().length) d.classList.add('master');
+    if (el.type === 'zone') {
+      var tg = document.createElement('span');
+      tg.className = 'ztag';
+      tg.textContent = actionLabel(el);
+      d.appendChild(tg);
+    }
     if (sel === i) {
       d.classList.add('sel');
       ['se', 'nw'].forEach(function (c) {
@@ -864,6 +888,24 @@ function doAction(el) {
       renderElements();
       break;
     }
+  }
+}
+
+/* Étiquette d'édition d'une zone : ce que fait le bouton, en un coup d'œil. */
+function actionLabel(el) {
+  switch (el.action) {
+    case 'goto': return '→ ' + (typeof el.slide === 'number' ? slideName(el.slide) : '?');
+    case 'overlay': return '⧉ ' + (el.slide === -2 ? 'plusieurs diapos'
+      : (typeof el.slide === 'number' ? slideName(el.slide) : '?')) + ' en grand';
+    case 'panel': return '🗔 ' + (typeof el.slide === 'number' ? slideName(el.slide) : '?') +
+      ' → ' + (el.panelName || 'Panneau');
+    case 'next': return '→ suivante';
+    case 'prev': return '← précédente';
+    case 'back': return '↩ retour';
+    case 'url': return '🔗 ' + (el.url || 'lien vide');
+    case 'video': return '▶ vidéo';
+    case 'copy': return '📋 copier';
+    default: return 'zone sans action';
   }
 }
 
@@ -1321,7 +1363,7 @@ function viewFields() {
     '<b>Diaporama</b> : compteur, progression et vignettes. ' +
     '<b>Kiosque</b> : plus aucune navigation libre.</p>';
   h += '<label>Transition entre les pages<select id="vTrans">' +
-    opt('none', 'Aucune (coupe franche)', META.transition) +
+    opt('none', 'Aucune (net, comme un site)', META.transition || 'none') +
     opt('fade', 'Fondu', META.transition) +
     opt('slide', 'Glissement', META.transition) +
     opt('zoom', 'Zoom', META.transition) +
@@ -1409,6 +1451,11 @@ function renderProps() {
     '" placeholder="' + escA('Diapo ' + (cur + 1)) + '"></label>' +
     '<label class="ck"><input type="checkbox" id="pHid"' + (s.hidden ? ' checked' : '') +
     '><span>Diapo cachée — hors navigation, accessible uniquement via un bouton</span></label>';
+  if (offFormat(s))
+    h += '<label>Cette page n’est pas au format du pack<select id="pFitPage">' +
+      opt('entire', 'La montrer entière (elle paraît plus petite)', s.cover ? 'cover' : 'entire') +
+      opt('cover', 'La recadrer au format du pack (rogne les bords)', s.cover ? 'cover' : 'entire') +
+      '</select></label>';
 
   if (!el) {
     h += '<hr><p class="muted">' +
@@ -1454,12 +1501,17 @@ function renderProps() {
     if ((el.look || 'hover') === 'button') {
       h += btnFields(el);
     } else {
-      h += '<label>Arrondi des coins <span class="muted">' + (el.radius == null ? 6 : el.radius) +
-        ' px</span><input type="range" id="pRadius" min="0" max="90" value="' +
-        (el.radius == null ? 6 : el.radius) + '"></label>';
+      h += '<label>Forme de la zone<select id="pZShape">' +
+        opt('rect', 'Rectangle (coins réglables)', el.ellipse ? 'ellipse' : 'rect') +
+        opt('ellipse', 'Ronde / ovale', el.ellipse ? 'ellipse' : 'rect') +
+        '</select></label>';
+      if (!el.ellipse)
+        h += '<label>Arrondi des coins <span class="muted">' + (el.radius == null ? 6 : el.radius) +
+          ' px</span><input type="range" id="pRadius" min="0" max="90" value="' +
+          (el.radius == null ? 6 : el.radius) + '"></label>';
       if ((el.look || 'hover') === 'hover')
-        h += '<p class="muted">Règle-le pour épouser la forme du bouton que tu as ' +
-          'dessiné dans Slides : sinon les coins de la zone réagissent en dehors de lui.</p>';
+        h += '<p class="muted">Fais-lui épouser la forme du bouton que tu as ' +
+          'dessiné dans Slides : sinon la zone réagit en dehors de lui.</p>';
     }
   } else if (el.type === 'text') {
     h += '<label>Texte<textarea id="pText">' + esc(el.text || '') + '</textarea></label>' +
@@ -1604,6 +1656,14 @@ function bindSlideFields(s) {
     });
     nm.addEventListener('blur', function () { started = false; renderProps(); });
   }
+  var ff = $('pFitPage');
+  if (ff) ff.addEventListener('change', function (e) {
+    pushUndo();
+    if (e.target.value === 'cover') s.cover = true; else delete s.cover;
+    markDirty();
+    setFrameRatio();
+    scaleText();
+  });
   var c = $('pHid');
   if (c) c.addEventListener('change', function (e) {
     pushUndo();
@@ -1721,6 +1781,9 @@ function bindElementFields(el) {
   });
   set('pVUrl', 'change', function (e) { el.video = { url: ytEmbed(e.target.value.trim()) }; }, true);
   set('pLook', 'change', function (e) { el.look = e.target.value; }, true);
+  set('pZShape', 'change', function (e) {
+    if (e.target.value === 'ellipse') el.ellipse = true; else delete el.ellipse;
+  }, true);
   set('pBtn', 'change', function (e) {
     el.btn = e.target.value;
     delete el.radius;                 // chaque style a son arrondi naturel
@@ -2453,9 +2516,39 @@ document.addEventListener('touchend', function (e) {
 
 /* le cadre épouse le format réel de la page : c'est ce qui empêche
    l'étirement quand le PDF n'est pas en 16/9 */
+/* Format du pack : celui de la majorité des pages. Sert de référence pour
+   signaler une page d'un autre format, et pour la recadrer si demandé. */
+var _deckRatio = null;
+function deckRatio() {
+  if (_deckRatio) return _deckRatio;
+  var counts = {}, best = null, bestN = 0;
+  SLIDES.forEach(function (s) {
+    if (!s.ar) return;
+    counts[s.ar] = (counts[s.ar] || 0) + 1;
+    if (counts[s.ar] > bestN) { bestN = counts[s.ar]; best = s.ar; }
+  });
+  _deckRatio = best;
+  return best;
+}
+function offFormat(s) {
+  var d = deckRatio();
+  return !!(s.ar && d && Math.abs(s.ar - d) > 0.02);
+}
+/* Le cadre prend le format de la page — mémorisé à la conversion (s.ar), donc
+   appliqué AVANT que l'image n'arrive : la page ne saute pas pendant une
+   transition. « cover » recadre la page au format du pack. */
+function setFrameRatio() {
+  var s = SLIDES[cur];
+  var ar = (s.cover && deckRatio()) || s.ar;
+  if (ar) wrap.style.aspectRatio = String(ar);
+  slideEl.style.objectFit = (s.cover && offFormat(s)) ? 'cover' : 'contain';
+}
 function fitFrame() {
-  if (slideEl.naturalWidth && slideEl.naturalHeight)
-    wrap.style.aspectRatio = slideEl.naturalWidth + ' / ' + slideEl.naturalHeight;
+  var s = SLIDES[cur];
+  // vieux pack sans format mémorisé : on l'apprend de l'image elle-même
+  if (!s.ar && slideEl.naturalWidth && slideEl.naturalHeight)
+    s.ar = Math.round(slideEl.naturalWidth / slideEl.naturalHeight * 1e4) / 1e4;
+  setFrameRatio();
   scaleText();
 }
 window.addEventListener('resize', function () { scaleText(); placeFloatbar(); });
