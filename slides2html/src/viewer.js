@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.4.0';
+var APP_VERSION = '4.5.0';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {
@@ -33,7 +33,12 @@ SLIDES.forEach(function (s) {
 });
 
 var FR = META.lang !== 'en';
-var IMG = function (i) { return META.embed ? 'data:image/jpeg;base64,' + ASSETS.images[i] : ASSETS.images[i]; };
+/* les pages sont encodées en WebP quand le convertisseur le peut (plus léger),
+   en JPEG sinon — ASSETS.imgMime dit lequel ; les vieux packs n'en ont pas */
+var IMG = function (i) {
+  return META.embed ? 'data:' + (ASSETS.imgMime || 'image/jpeg') + ';base64,' + ASSETS.images[i]
+                    : ASSETS.images[i];
+};
 var MEDIA = function (id) {
   var m = ASSETS.media[id];
   return m ? (m.data ? 'data:' + m.mime + ';base64,' + m.data : m.path) : '';
@@ -1179,6 +1184,24 @@ function readAsMedia(file, cb) {
   };
   r.readAsDataURL(file);
 }
+/* Ré-encode une image importée en WebP quand ça l'allège vraiment — en local,
+   par le navigateur. On garde l'original si le WebP n'est pas plus petit, et
+   on ne touche ni aux gif (animation) ni aux svg (vectoriel). */
+function shrinkMedia(id, img) {
+  var m = ASSETS.media[id];
+  if (!m || /gif|svg/.test(m.mime) || !img.width) return;
+  try {
+    var c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    c.getContext('2d').drawImage(img, 0, 0);
+    var du = c.toDataURL('image/webp', 0.9);
+    var b64 = du.split(',')[1];
+    if (du.indexOf('data:image/webp') === 0 && b64.length < m.data.length * 0.9) {
+      m.mime = 'image/webp';
+      m.data = b64;
+    }
+  } catch (e) { /* image illisible en canvas : on garde l'original */ }
+}
 function addImageFile(file) {
   if (file.size > 25 * 1024 * 1024 &&
       !confirm('Image de ' + Math.round(file.size / 1e6) + ' Mo : le HTML final sera lourd. Continuer ?')) return;
@@ -1189,6 +1212,7 @@ function addImageFile(file) {
                    w: w, h: h, fit: 'contain', radius: 0, action: 'none' }, 'Image ajoutée');
     };
     probe.onload = function () {
+      shrinkMedia(id, probe);
       var box = wrap.getBoundingClientRect();
       var slideRatio = (box.width / box.height) || 1.777;
       var ratio = (probe.width / probe.height) || 1;
@@ -1978,7 +2002,14 @@ function bindElementFields(el) {
   on('pMHere', 'click', function () { setPages([cur]); renderProps(); });
   on('pReplace', 'click', function () {
     pickFile('image/*', function (f) {
-      readAsMedia(f, function (id) { pushUndo(); el.media = id; renderElements(); });
+      readAsMedia(f, function (id, dataUrl) {
+        pushUndo();
+        el.media = id;
+        var probe = new Image();
+        probe.onload = function () { shrinkMedia(id, probe); renderElements(); };
+        probe.onerror = function () { renderElements(); };
+        probe.src = dataUrl;
+      });
     });
   });
 

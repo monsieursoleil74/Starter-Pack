@@ -229,7 +229,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.4.0';
+var APP_VERSION = '4.5.0';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {
@@ -254,7 +254,12 @@ SLIDES.forEach(function (s) {
 });
 
 var FR = META.lang !== 'en';
-var IMG = function (i) { return META.embed ? 'data:image/jpeg;base64,' + ASSETS.images[i] : ASSETS.images[i]; };
+/* les pages sont encodées en WebP quand le convertisseur le peut (plus léger),
+   en JPEG sinon — ASSETS.imgMime dit lequel ; les vieux packs n'en ont pas */
+var IMG = function (i) {
+  return META.embed ? 'data:' + (ASSETS.imgMime || 'image/jpeg') + ';base64,' + ASSETS.images[i]
+                    : ASSETS.images[i];
+};
 var MEDIA = function (id) {
   var m = ASSETS.media[id];
   return m ? (m.data ? 'data:' + m.mime + ';base64,' + m.data : m.path) : '';
@@ -1400,6 +1405,24 @@ function readAsMedia(file, cb) {
   };
   r.readAsDataURL(file);
 }
+/* Ré-encode une image importée en WebP quand ça l'allège vraiment — en local,
+   par le navigateur. On garde l'original si le WebP n'est pas plus petit, et
+   on ne touche ni aux gif (animation) ni aux svg (vectoriel). */
+function shrinkMedia(id, img) {
+  var m = ASSETS.media[id];
+  if (!m || /gif|svg/.test(m.mime) || !img.width) return;
+  try {
+    var c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    c.getContext('2d').drawImage(img, 0, 0);
+    var du = c.toDataURL('image/webp', 0.9);
+    var b64 = du.split(',')[1];
+    if (du.indexOf('data:image/webp') === 0 && b64.length < m.data.length * 0.9) {
+      m.mime = 'image/webp';
+      m.data = b64;
+    }
+  } catch (e) { /* image illisible en canvas : on garde l'original */ }
+}
 function addImageFile(file) {
   if (file.size > 25 * 1024 * 1024 &&
       !confirm('Image de ' + Math.round(file.size / 1e6) + ' Mo : le HTML final sera lourd. Continuer ?')) return;
@@ -1410,6 +1433,7 @@ function addImageFile(file) {
                    w: w, h: h, fit: 'contain', radius: 0, action: 'none' }, 'Image ajoutée');
     };
     probe.onload = function () {
+      shrinkMedia(id, probe);
       var box = wrap.getBoundingClientRect();
       var slideRatio = (box.width / box.height) || 1.777;
       var ratio = (probe.width / probe.height) || 1;
@@ -2199,7 +2223,14 @@ function bindElementFields(el) {
   on('pMHere', 'click', function () { setPages([cur]); renderProps(); });
   on('pReplace', 'click', function () {
     pickFile('image/*', function (f) {
-      readAsMedia(f, function (id) { pushUndo(); el.media = id; renderElements(); });
+      readAsMedia(f, function (id, dataUrl) {
+        pushUndo();
+        el.media = id;
+        var probe = new Image();
+        probe.onload = function () { shrinkMedia(id, probe); renderElements(); };
+        probe.onerror = function () { renderElements(); };
+        probe.src = dataUrl;
+      });
     });
   });
 
@@ -2975,7 +3006,7 @@ go(isNaN(start) ? firstVisible() : clamp(start, 0, SLIDES.length - 1), { instant
 (function () {
 'use strict';
 
-var APP_VERSION = '4.4.0';
+var APP_VERSION = '4.5.0';
 var $ = function (id) { return document.getElementById(id); };
 
 /* pdf.js a besoin d'un worker : on le sert depuis un blob, aucun fichier
@@ -2984,6 +3015,14 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
   new Blob([$('pdf-worker').textContent], { type: 'text/javascript' }));
 
 var state = { pdf: null, pptx: null, deck: null, width: 1600, quality: 0.85, busy: false, url: null };
+
+/* WebP : mêmes pixels, fichier bien plus léger. Encodé par le navigateur
+   lui-même, en local — repli JPEG si le navigateur ne sait pas l'écrire. */
+var WEBP = (function () {
+  var c = document.createElement('canvas');
+  c.width = c.height = 2;
+  return c.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+})();
 
 /* ---------------- utilitaires ---------------- */
 
@@ -3415,6 +3454,7 @@ function buildHtml(title, images, zones, notes, objects, old, ars) {
     };
   }
   var assets = { images: images, media: media };
+  if (WEBP) assets.imgMime = 'image/webp';
   var j = function (o) { return JSON.stringify(o).replace(/<\//g, '<\\/'); };
   return '<!DOCTYPE html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
@@ -3456,7 +3496,7 @@ async function convert() {
       canvas.width = Math.round(vp.width);
       canvas.height = Math.round(vp.height);
       await page.render({ canvasContext: ctx, viewport: vp }).promise;
-      images.push(canvas.toDataURL('image/jpeg', state.quality).split(',')[1]);
+      images.push(canvas.toDataURL(WEBP ? 'image/webp' : 'image/jpeg', state.quality).split(',')[1]);
       ars.push(Math.round(vp.width / vp.height * 1e4) / 1e4);   // format réel de la page
       var z = await pageZones(pdf, page, vp);
       nz += z.length;
@@ -3468,6 +3508,8 @@ async function convert() {
       if (i === 1 || i % 5 === 0 || i === n) log('Diapo ' + i + ' / ' + n);
       await tick();
     }
+    log(WEBP ? 'Images encodées en WebP — même qualité, fichier nettement plus léger'
+             : 'Ce navigateur ne sait pas écrire le WebP : images en JPEG (rien d’autre ne change)');
     if (nz) log(nz + ' lien(s) du PDF converti(s) en zones cliquables');
     if (nt) log(nt + ' texte(s) repéré(s) — « ⌖ Objets » dans l’éditeur les transforme en boutons, au pixel près');
     // des pages de formats différents : ça se voit à la lecture, on prévient

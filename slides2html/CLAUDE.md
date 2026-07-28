@@ -131,6 +131,14 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   panneau l'option `s.cover` (« recadrer au format du pack » → cadre au format
   du pack + `object-fit:cover`). Les zones issues des liens PDF d'une page
   recadrée ne sont pas remappées — cas marginal, assumé.
+- **Images en WebP** : le convertisseur encode les pages en WebP quand le
+  navigateur sait l'écrire (test `WEBP` sur un canvas, repli JPEG sinon) et le
+  note dans `ASSETS.imgMime` ; `IMG()` lit ce mime, défaut `image/jpeg` pour
+  les vieux packs — ne jamais re-hardcoder le préfixe. `serialize()` réécrit
+  `ASSETS` entier, le marqueur suit tout seul. Les images importées passent
+  par `shrinkMedia()` : ré-encodage WebP q0.9 gardé seulement s'il gagne
+  ≥ 10 %, jamais pour gif (animation) ni svg. Tout est encodé par le
+  navigateur, en local — l'argument confidentialité du projet ne bouge pas.
 - **Candidats** : `s.objects` mélange les formes du .pptx (vert) et les
   lignes de texte du PDF (`kind:'ligne'`, ambre), reconstruites par
   `pageTexts()` via `getTextContent()` — boîtes au glyphe près, fusion par
@@ -317,7 +325,10 @@ scénarios :
     cliqué, clic droit sur un élément ouvre ses actions, 🎯 vise une vignette
     sans naviguer (Échap annule), une vignette glissée sur la page devient un
     bouton vers cette diapo, la liste « Sur cette page » sélectionne un
-    élément enfoui.
+    élément enfoui ;
+12. WebP : pages encodées et affichées en WebP, pack plus léger que le même en
+    JPEG, un vieux pack JPEG se lit toujours, une reconversion le fait passer
+    en WebP en gardant ses réglages, une image déposée est allégée.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
 balise `#cfg` du document garde la config d'ORIGINE, l'état vivant est dans
 la fermeture JS — vérifier via le DOM, ou après un enregistrement.

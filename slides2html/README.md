@@ -47,6 +47,14 @@ son format), même si l'image a été convertie en qualité *Légère* : elle es
 agrandie au besoin. Pour un pack lu en plein écran sur de grands moniteurs,
 convertis en *Standard* ou *Haute* pour rester net.
 
+Les images des pages sont encodées en **WebP** (même qualité, fichier
+nettement plus léger — souvent 30 à 60 % de gain) ; les images que tu ajoutes
+par-dessus sont allégées de la même façon quand ça vaut le coup. Tout est
+encodé **par ton navigateur, en local** — rien ne sort de ta machine, comme
+pour le reste de l'outil. Si le navigateur ne sait pas écrire le WebP, le
+convertisseur repasse en JPEG tout seul, et les packs déjà produits en JPEG
+se lisent comme avant.
+
 ## Le mode édition (touche `E` dans le HTML produit)
 
 C'est un petit outil de mise en page : tu ajoutes des éléments **par-dessus**

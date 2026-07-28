@@ -318,3 +318,7 @@ A SAVOIR
   La page remplit toujours l'ecran, quelle que soit la qualite choisie ;
   mais une image "Legere" (1280 px) agrandie sur un grand ecran sera un
   peu douce. Pour un pack lu en plein ecran, reste en Standard ou Haute.
+- Les images sont encodees en WebP (meme qualite, fichier bien plus
+  leger), par ton navigateur, en local : rien ne sort de ta machine.
+  Les anciens packs en JPEG se lisent comme avant ; une reconversion
+  les fait passer en WebP en gardant tous les reglages.
