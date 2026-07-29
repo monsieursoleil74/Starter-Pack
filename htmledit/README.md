@@ -75,6 +75,25 @@ mode **🖼 Images** → clique la pastille (elle se cadre en orange pointillé)
 l'image, et le nom écrit *sous* la pastille reste en place. À refaire pour
 chaque personnage.
 
+## 🔗 Brancher les liens
+
+Les boutons d'une maquette pointent souvent vers `#` — nulle part. Le mode
+**🔗 Liens** liste **tous les liens de la page** avec leur destination
+actuelle, et **signale en orange ceux qui n'ont pas d'adresse**. Clique une
+ligne (ou le bouton dans la page), tape l'adresse, valide.
+
+- Le champ est pré-rempli avec l'adresse actuelle : tu peux corriger au lieu
+  de retaper.
+- Case **« Ouvrir dans un nouvel onglet »**, cochée par défaut — décoche-la
+  pour un lien interne à la page.
+- Sur un **bouton qui n'est pas un vrai lien**, l'outil pose un clic qui ouvre
+  l'adresse. Ça marche pareil à l'arrivée.
+
+**Chemins réseau** (`\\serveur\projet\…`) : tu peux les saisir, mais sache que
+les navigateurs refusent le plus souvent de les ouvrir depuis une page web,
+par sécurité. L'outil te prévient. Si le pack est lu depuis le même partage,
+un chemin **relatif** (`../rigs/pipo/`) est bien plus fiable.
+
 ## 🎬 Brancher les vidéos
 
 Beaucoup de maquettes ont un encadré « VIDÉO » qui ne contient **aucun

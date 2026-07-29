@@ -83,7 +83,7 @@ button{font:inherit;cursor:pointer}
 #busy{position:fixed;inset:0;background:rgba(10,12,17,.72);display:flex;align-items:center;
       justify-content:center;z-index:70;font-size:15px}
 /* petit choix quand on vise une zone qui ne contient pas encore d'image */
-#ask,#askv{position:fixed;inset:0;background:rgba(10,12,17,.66);display:flex;align-items:center;
+#ask,#askv,#askl{position:fixed;inset:0;background:rgba(10,12,17,.66);display:flex;align-items:center;
      justify-content:center;z-index:80}
 #askIn{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;
        max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
@@ -97,6 +97,24 @@ button{font:inherit;cursor:pointer}
 #askIn button span{color:var(--muted);font-size:12px}
 #askIn code{background:var(--panel3);padding:1px 5px;border-radius:4px;font-size:11.5px}
 #askIn .cancel{background:none;border:none;color:var(--muted);text-align:center;margin-top:8px}
+#askIn .lab{display:block;color:var(--muted);font-size:12.5px;margin-top:6px}
+#askIn input[type=text]{width:100%;margin-top:5px;background:var(--panel2);color:var(--fg);
+  border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:inherit;font-size:13px}
+#askIn input[type=text]:focus{outline:none;border-color:var(--accent)}
+#askIn .ck{display:flex;gap:8px;align-items:center;color:var(--fg);font-size:13px;margin-top:10px;cursor:pointer}
+#askIn .warn{color:var(--warn);font-size:12px;margin:10px 0 0;line-height:1.5}
+#askIn #asklOk{border-color:var(--ok);text-align:center}
+/* liste des liens */
+#lnks{display:flex;flex-direction:column;gap:4px;margin:6px 0 14px}
+#lnks .lk{background:var(--panel2);border:1px solid transparent;border-radius:8px;padding:7px 9px;
+  cursor:pointer;text-align:left;color:var(--fg);font:inherit;font-size:12.5px;width:100%;overflow:hidden}
+#lnks .lk:hover{border-color:var(--accent);background:var(--panel3)}
+#lnks .lk b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+#lnks .lk span{display:block;color:var(--muted);font-size:11px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+#lnks .lk.vide span{color:var(--warn)}
+#lnks .lk.done{border-color:var(--ok)}
+#lnkInfo{color:var(--muted);font-size:12px;margin:2px 0 0}
 </style>
 </head>
 <body>
@@ -127,6 +145,7 @@ button{font:inherit;cursor:pointer}
   <button class="tool" id="mText">✏️ Textes</button>
   <button class="tool" id="mImg">🖼 Images</button>
   <button class="tool" id="mVid">🎬 Vidéos</button>
+  <button class="tool" id="mLink">🔗 Liens</button>
   <button class="tool" id="mView">👁 Aperçu</button>
   <span class="sp"></span>
   <button class="tool" id="undo" title="Annuler la dernière retouche (Ctrl+Z)">↶</button>
@@ -144,6 +163,11 @@ button{font:inherit;cursor:pointer}
       <h3>Images de la page</h3>
       <p id="galInfo"></p>
       <div id="gal"></div>
+    </div>
+    <div id="lnkBox" class="hidden">
+      <h3>Liens de la page</h3>
+      <p id="lnkInfo"></p>
+      <div id="lnks"></div>
     </div>
     <h3>Mes retouches</h3>
     <div id="list"></div>
@@ -176,6 +200,19 @@ button{font:inherit;cursor:pointer}
       de la vidéo — à réserver aux clips courts</span></button>
   </div>
   <button class="cancel" id="askvNo">Annuler</button>
+</div></div>
+<div id="askl" class="hidden"><div id="askIn">
+  <h3>Vers quoi doit pointer ce bouton ?</h3>
+  <p id="asklWhat"></p>
+  <label class="lab">Adresse
+    <input type="text" id="asklUrl" placeholder="https://drive.google.com/…" spellcheck="false"></label>
+  <label class="ck"><input type="checkbox" id="asklBlank" checked>
+    <span>Ouvrir dans un nouvel onglet</span></label>
+  <p class="warn hidden" id="asklWarn"></p>
+  <div class="row" style="margin-top:12px">
+    <button id="asklOk"><b>Enregistrer ce lien</b></button>
+  </div>
+  <button class="cancel" id="asklNo">Annuler</button>
 </div></div>
 <div id="busy" class="hidden">Chargement de ta page…</div>
 <input type="file" id="pick" accept=".html,.htm" class="hidden">
@@ -377,8 +414,27 @@ function targetVideo(t) {
   if (z && z !== doc.body) return { el: z, kind: 'vzone' };
   return null;
 }
+/* En mode Liens : un <a>, sinon le bouton ou la zone cliquable la plus proche
+   (une maquette ouvre parfois ses liens depuis un <button>). */
+function targetLink(t) {
+  if (!t || t.nodeType !== 1) return null;
+  var a = t.closest ? t.closest('a') : null;
+  if (a) return { el: a, kind: 'a' };
+  var b = t.closest ? t.closest('button,[role=button],li,div,section') : null;
+  if (b && b !== doc.body) return { el: b, kind: 'zone' };
+  return null;
+}
 var hiNode = null;
 function onMove(e) {
+  if (mode === 'link') {
+    var tl = targetLink(e.target);
+    var nl = tl ? tl.el : null;
+    if (nl === hiNode) return;
+    if (hiNode) hiNode.classList.remove('pk-hi-img', 'pk-hi-zone');
+    hiNode = nl;
+    if (nl) nl.classList.add(tl.kind === 'a' ? 'pk-hi-img' : 'pk-hi-zone');
+    return;
+  }
   if (mode === 'vid') {
     var tv = targetVideo(e.target);
     var nv = tv ? tv.el : null;
@@ -417,7 +473,95 @@ function onClick(e) {
     if (!hv) return;
     e.preventDefault(); e.stopPropagation();
     askForVideo(hv.el, hv.kind);
+  } else if (mode === 'link') {
+    var hl = targetLink(t);
+    if (!hl) return;
+    e.preventDefault(); e.stopPropagation();
+    askForLink(hl.el);
   }
+}
+
+/* ------------------------------------------------------------------- liens
+   Un <a href="#"> de maquette ne mène nulle part : on lui donne sa vraie
+   adresse. Sur un <button>, il n'y a pas d'attribut href — le correctif pose
+   alors un clic qui ouvre l'adresse. */
+var lnkEl = null;
+function hrefOf(n) {
+  var h = n.getAttribute ? (n.getAttribute('href') || '') : '';
+  return (h === '#' || h === 'javascript:void(0)') ? '' : h;
+}
+function askForLink(el) {
+  lnkEl = el;
+  var dejaP = patches.filter(function (p) { return p.kind === 'link'; })
+    .find(function (p) { return p.sel === pathOf(el); });
+  var txt = short(el.textContent, 40);
+  $('asklWhat').textContent = (el.tagName === 'A' ? 'Lien' : 'Bouton') +
+    (txt ? ' « ' + txt + ' »' : '') + (el.tagName === 'A' ? '' :
+    ' — pas de lien d’origine, le clic ouvrira l’adresse.');
+  $('asklUrl').value = dejaP ? dejaP.after : hrefOf(el);
+  $('asklBlank').checked = dejaP ? dejaP.blank !== false : true;
+  $('asklWarn').classList.add('hidden');
+  $('askl').classList.remove('hidden');
+  setTimeout(function () { $('asklUrl').focus(); $('asklUrl').select(); }, 30);
+}
+function closeAskl() { $('askl').classList.add('hidden'); lnkEl = null; }
+$('asklNo').addEventListener('click', closeAskl);
+$('askl').addEventListener('click', function (e) { if (e.target === $('askl')) closeAskl(); });
+$('asklUrl').addEventListener('input', function () {
+  var v = $('asklUrl').value.trim();
+  var w = $('asklWarn');
+  // un chemin réseau ou disque : les navigateurs refusent souvent de l'ouvrir
+  if (/^(\\\\|[a-zA-Z]:\\)/.test(v)) {
+    w.textContent = '⚠ Chemin réseau : par sécurité, les navigateurs refusent souvent ' +
+      'd’ouvrir ce genre d’adresse depuis une page. Ça marchera surtout si ta page est ' +
+      'servie depuis le même partage.';
+    w.classList.remove('hidden');
+  } else if (v && !/^(https?:|mailto:|tel:|file:|#|\/|\.)/.test(v)) {
+    w.textContent = 'Astuce : une adresse web commence par https://';
+    w.classList.remove('hidden');
+  } else w.classList.add('hidden');
+});
+$('asklUrl').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); $('asklOk').click(); }
+});
+$('asklOk').addEventListener('click', function () {
+  var el = lnkEl, url = $('asklUrl').value.trim(), blank = $('asklBlank').checked;
+  closeAskl();
+  if (!el || !url) return;
+  var p = { kind: 'link', sel: pathOf(el), before: '', after: url, blank: blank,
+            label: '🔗 ' + short(url, 30) };
+  applyOne(p, el);
+  addPatch(p);
+  if (mode === 'link') renderLinks();
+});
+
+/* la liste de tous les liens, avec leur cible actuelle */
+function collectLinks() {
+  if (!doc) return [];
+  return Array.prototype.slice.call(doc.querySelectorAll('a')).map(function (a) {
+    return { sel: pathOf(a), node: a, txt: short(a.textContent, 34) || '(sans texte)',
+             href: hrefOf(a) };
+  });
+}
+function renderLinks() {
+  var box = $('lnks');
+  box.innerHTML = '';
+  var liens = collectLinks();
+  var vides = liens.filter(function (l) { return !l.href; }).length;
+  $('lnkInfo').textContent = liens.length
+    ? liens.length + ' lien(s)' + (vides ? ', dont ' + vides + ' sans adresse' : '') +
+      ' — clique pour choisir la destination'
+    : 'Aucun lien <a> ; clique directement un bouton dans la page.';
+  liens.forEach(function (l) {
+    var pat = patches.filter(function (p) { return p.kind === 'link'; })
+      .find(function (p) { return p.sel === l.sel; });
+    var b = document.createElement('button');
+    b.className = 'lk' + (pat ? ' done' : (l.href ? '' : ' vide'));
+    b.innerHTML = '<b>' + esc(l.txt) + '</b><span>' +
+      esc(pat ? pat.after : (l.href || 'aucune adresse')) + '</span>';
+    b.addEventListener('click', function () { flash(l.node); askForLink(l.node); });
+    box.appendChild(b);
+  });
 }
 
 /* ------------------------------------------------------------------ vidéos
@@ -654,6 +798,30 @@ function applyOne(p, n) {
     n.load();
   } else if (p.kind === 'video') {
     putVideo(n, p, doc);
+  } else if (p.kind === 'link') {
+    putLink(n, p);
+  }
+}
+
+/* Donne sa destination à un lien — ou, sur un bouton, un clic qui l'ouvre. */
+function putLink(n, p) {
+  if (n.tagName === 'A') {
+    n.setAttribute('href', p.after);
+    if (p.blank !== false) { n.setAttribute('target', '_blank'); n.setAttribute('rel', 'noopener'); }
+    else { n.removeAttribute('target'); }
+    return;
+  }
+  if (n.dataset.pkLink === p.after) return;
+  n.dataset.pkLink = p.after;
+  if (!n.pkLinked) {
+    n.pkLinked = true;
+    n.style.cursor = 'pointer';
+    n.addEventListener('click', function (ev) {
+      var u = n.dataset.pkLink;
+      if (!u) return;
+      ev.preventDefault(); ev.stopPropagation();
+      window.open(u, p.blank === false ? '_self' : '_blank', 'noopener');
+    }, true);
   }
 }
 
@@ -719,11 +887,11 @@ function renderList() {
 /* --------------------------------------------------------------- les modes */
 function setMode(m) {
   mode = m;
-  ['mText', 'mImg', 'mVid', 'mView'].forEach(function (id) { $(id).classList.remove('on'); });
-  $({ text: 'mText', img: 'mImg', vid: 'mVid', view: 'mView' }[m]).classList.add('on');
+  ['mText', 'mImg', 'mVid', 'mLink', 'mView'].forEach(function (id) { $(id).classList.remove('on'); });
+  $({ text: 'mText', img: 'mImg', vid: 'mVid', link: 'mLink', view: 'mView' }[m]).classList.add('on');
   if (doc && doc.body) {
     doc.body.classList.toggle('pk-text', m === 'text');
-    doc.body.classList.toggle('pk-img', m === 'img' || m === 'vid');
+    doc.body.classList.toggle('pk-img', m === 'img' || m === 'vid' || m === 'link');
     if (hiNode) { hiNode.classList.remove('pk-hi-img', 'pk-hi-zone'); hiNode = null; }
   }
   var h = $('hint');
@@ -731,11 +899,17 @@ function setMode(m) {
   if (m === 'text') h.textContent = '✏️ Clique un texte pour le réécrire — Échap pour valider';
   if (m === 'img') h.textContent = '🖼 Clique une image, ou choisis-la dans la liste à droite';
   if (m === 'vid') h.textContent = '🎬 Clique la zone où la vidéo doit se lire (ouvre d’abord la fenêtre en 👁 Aperçu)';
+  if (m === 'link') h.textContent = '🔗 Clique un bouton ou un lien pour choisir où il mène';
   $('galBox').classList.toggle('hidden', m !== 'img');
+  $('lnkBox').classList.toggle('hidden', m !== 'link');
   if (m === 'img') renderGallery();
+  if (m === 'link') renderLinks();
   $('help').innerHTML = m === 'view'
     ? 'Mode aperçu : la page se comporte normalement, tu peux cliquer ses boutons et vérifier tes retouches.'
-    : (m === 'vid'
+    : (m === 'link'
+      ? 'Les liens sans adresse sont signalés en orange dans la liste. Sur un bouton qui ' +
+        'n’est pas un vrai lien, l’outil pose un clic qui ouvre l’adresse.'
+    : m === 'vid'
       ? 'Pour une vidéo qui s’ouvre dans une fenêtre : passe en <b>👁 Aperçu</b>, clique le ' +
         'bouton qui l’ouvre, puis reviens ici et clique l’encadré de la vidéo.'
     : m === 'text'
@@ -769,7 +943,13 @@ function exportFile() {
     "height:100%;object-fit:contain;background:#000;z-index:9');" +
     "if(getComputedStyle(n).position==='static')n.style.position='relative';" +
     "n.setAttribute('data-pk-hide','1');n.appendChild(v)}" +
-    "if(v.getAttribute('src')!==p.after)v.setAttribute('src',p.after)}});" +
+    "if(v.getAttribute('src')!==p.after)v.setAttribute('src',p.after)}" +
+    "else if(p.kind==='link'){if(n.tagName==='A'){if(n.getAttribute('href')!==p.after){" +
+    "n.setAttribute('href',p.after)}if(p.blank!==false){n.setAttribute('target','_blank');" +
+    "n.setAttribute('rel','noopener')}}else{if(n.dataset.pkLink!==p.after)n.dataset.pkLink=p.after;" +
+    "if(!n.pkLinked){n.pkLinked=true;n.style.cursor='pointer';n.addEventListener('click',function(ev){" +
+    "var u=n.dataset.pkLink;if(!u)return;ev.preventDefault();ev.stopPropagation();" +
+    "window.open(u,p.blank===false?'_self':'_blank','noopener')},true)}}}});" +
     "busy=false}" +
     /* la règle de masquage est vérifiée à CHAQUE passage : une page qui se
        reconstruit toute seule vide son head et l'emporterait sinon */
@@ -826,6 +1006,7 @@ window.addEventListener('drop', function (e) {
 $('mText').addEventListener('click', function () { setMode('text'); });
 $('mImg').addEventListener('click', function () { setMode('img'); });
 $('mVid').addEventListener('click', function () { setMode('vid'); });
+$('mLink').addEventListener('click', function () { setMode('link'); });
 $('mView').addEventListener('click', function () { setMode('view'); });
 $('save').addEventListener('click', exportFile);
 $('reload').addEventListener('click', function () { render(); toast('Page rechargée, retouches rejouées'); });
@@ -836,6 +1017,11 @@ $('undo').addEventListener('click', function () {
   render(true);
 });
 document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    if (!$('askl').classList.contains('hidden')) return closeAskl();
+    if (!$('askv').classList.contains('hidden')) return closeAskv();
+    if (!$('ask').classList.contains('hidden')) return closeAsk();
+  }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); $('undo').click(); }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); exportFile(); }
 });
