@@ -37,7 +37,8 @@ Tu as déjà une **maquette HTML** qui te plaît ? Remplace ses **textes** et se
 
 1. Double-clic sur `Editeur-HTML.html`, dépose ta maquette dedans
 2. **✏️ Textes** : clique un texte et réécris-le · **🖼 Images** : clique une
-   image pour la remplacer par un fichier de ton disque
+   image pour la remplacer (ou une zone pour y **poser** une image) ·
+   **🎬 Vidéos** : branche une vidéo locale sur un encadré ou un lecteur
 3. 💾 Exporter → `ta-maquette - modifie.html`
 
 Ta page n'est jamais réécrite : le fichier exporté est ton original **plus un

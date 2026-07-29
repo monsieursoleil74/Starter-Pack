@@ -75,6 +75,34 @@ mode **🖼 Images** → clique la pastille (elle se cadre en orange pointillé)
 l'image, et le nom écrit *sous* la pastille reste en place. À refaire pour
 chaque personnage.
 
+## 🎬 Brancher les vidéos
+
+Beaucoup de maquettes ont un encadré « VIDÉO » qui ne contient **aucun
+lecteur** — c'est un décor. Le mode **🎬 Vidéos** en pose un vrai.
+
+Si la vidéo s'ouvre **dans une fenêtre** (clic sur un bouton *Lire la vidéo*) :
+
+1. passe en **👁 Aperçu** et clique le bouton pour ouvrir la fenêtre ;
+2. reviens en **🎬 Vidéos** et clique l'encadré de la vidéo ;
+3. choisis comment la brancher.
+
+Deux façons, et le choix compte :
+
+| | Le fichier HTML | La vidéo |
+|---|---|---|
+| **Posée à côté** *(recommandé)* | reste léger | à copier dans un dossier `videos/` à côté du HTML |
+| **Embarquée** | grossit d'environ 1,4 × le poids de la vidéo | dans le fichier, rien à copier |
+
+Pour un pack diffusé sur le serveur du studio, **« posée à côté »** est
+presque toujours le bon choix : le HTML reste maniable et tu remplaces une
+vidéo sans refaire la page. L'outil te rappelle en clair, dans le panneau de
+droite, la liste des fichiers à copier et sous quel nom.
+
+L'embarqué est parfait pour un clip court qu'on veut pouvoir envoyer seul.
+
+Un lecteur **déjà présent** dans la maquette se traite pareil : clique-le, et
+tu changes juste la vidéo qu'il lit.
+
 ## Où vont les images ? (et le poids du fichier)
 
 Chaque image que tu déposes est **encodée dans le HTML lui-même**, en base64 :
