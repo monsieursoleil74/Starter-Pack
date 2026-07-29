@@ -168,13 +168,17 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   💾 (`save()`) purge le brouillon ; « Ignorer » aussi, sinon la retouche
   suivante l'écraserait en silence. `localStorage` sur `file://` est partagé
   entre tous les fichiers locaux : ne jamais stocker sans préfixe + id.
-- **Images en WebP** : le convertisseur encode les pages en WebP quand le
-  navigateur sait l'écrire (test `WEBP` sur un canvas, repli JPEG sinon) et le
-  note dans `ASSETS.imgMime` ; `IMG()` lit ce mime, défaut `image/jpeg` pour
-  les vieux packs — ne jamais re-hardcoder le préfixe. `serialize()` réécrit
-  `ASSETS` entier, le marqueur suit tout seul. Les images importées passent
-  par `shrinkMedia()` : ré-encodage WebP q0.9 gardé seulement s'il gagne
-  ≥ 10 %, jamais pour gif (animation) ni svg. Tout est encodé par le
+- **Pages en JPEG, délibérément** : le WebP lossy de canvas impose un
+  sous-échantillonnage chroma 4:2:0 qui floute le texte fin — mesuré (écart
+  moyen vs rendu sans perte : ~0,68 en WebP quel que soit le réglage, ~0,03
+  en JPEG), et le WebP sans perte de canvas compresse mal (4,7× le PNG). Les
+  pages repassent donc en JPEG (préréglage Haute à q 0,92) : **ne pas
+  « optimiser » en WebP sans re-mesurer la fidélité sur du texte**.
+  `ASSETS.imgMime` reste lu par `IMG()` (défaut `image/jpeg`) : les packs
+  produits pendant la période WebP se lisent tels quels et une reconversion
+  les repasse en JPEG. Les images importées passent toujours par
+  `shrinkMedia()` (WebP q0,9 si gain ≥ 10 %, jamais gif/svg) : sur des
+  photos, le sous-échantillonnage est invisible. Tout est encodé par le
   navigateur, en local — l'argument confidentialité du projet ne bouge pas.
 - **Candidats** : `s.objects` mélange les formes du .pptx (vert) et les
   lignes de texte du PDF (`kind:'ligne'`, ambre), reconstruites par
@@ -369,9 +373,8 @@ scénarios :
     sans naviguer (Échap annule), une vignette glissée sur la page devient un
     bouton vers cette diapo, la liste « Sur cette page » sélectionne un
     élément enfoui ;
-12. WebP : pages encodées et affichées en WebP, pack plus léger que le même en
-    JPEG, un vieux pack JPEG se lit toujours, une reconversion le fait passer
-    en WebP en gardant ses réglages, une image déposée est allégée ;
+12. netteté : pages en JPEG sans marqueur imgMime, un pack de l'ère WebP se
+    lit toujours (imgMime respecté), une image déposée reste allégée en WebP ;
 13. brouillon de secours : fermer sans 💾 puis rouvrir → reprise proposée avec
     la date, le travail revient marqué non enregistré, 💾 purge le brouillon
     (pas de fausse alerte ensuite), « Ignorer » l'oublie pour de bon ;

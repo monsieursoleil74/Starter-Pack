@@ -5,7 +5,7 @@
 (function () {
 'use strict';
 
-var APP_VERSION = '4.9.0';
+var APP_VERSION = '4.9.1';
 var $ = function (id) { return document.getElementById(id); };
 
 /* pdf.js a besoin d'un worker : on le sert depuis un blob, aucun fichier
@@ -14,14 +14,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
   new Blob([$('pdf-worker').textContent], { type: 'text/javascript' }));
 
 var state = { pdf: null, pptx: null, deck: null, width: 1600, quality: 0.85, busy: false, url: null };
-
-/* WebP : mêmes pixels, fichier bien plus léger. Encodé par le navigateur
-   lui-même, en local — repli JPEG si le navigateur ne sait pas l'écrire. */
-var WEBP = (function () {
-  var c = document.createElement('canvas');
-  c.width = c.height = 2;
-  return c.toDataURL('image/webp').indexOf('data:image/webp') === 0;
-})();
 
 /* ---------------- utilitaires ---------------- */
 
@@ -495,7 +487,6 @@ function buildHtml(title, images, zones, notes, objects, old, ars, fonts) {
   if (!cfg.meta.id)
     cfg.meta.id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
   var assets = { images: images, media: media };
-  if (WEBP) assets.imgMime = 'image/webp';
   var j = function (o) { return JSON.stringify(o).replace(/<\//g, '<\\/'); };
   return '<!DOCTYPE html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
@@ -537,7 +528,10 @@ async function convert() {
       canvas.width = Math.round(vp.width);
       canvas.height = Math.round(vp.height);
       await page.render({ canvasContext: ctx, viewport: vp }).promise;
-      images.push(canvas.toDataURL(WEBP ? 'image/webp' : 'image/jpeg', state.quality).split(',')[1]);
+      // JPEG volontairement : le WebP lossy du navigateur impose un
+      // sous-échantillonnage de la couleur qui floute le texte fin — mesuré,
+      // pas supposé. La netteté des pages prime sur le poids.
+      images.push(canvas.toDataURL('image/jpeg', state.quality).split(',')[1]);
       ars.push(Math.round(vp.width / vp.height * 1e4) / 1e4);   // format réel de la page
       var z = await pageZones(pdf, page, vp);
       nz += z.length;
@@ -549,8 +543,6 @@ async function convert() {
       if (i === 1 || i % 5 === 0 || i === n) log('Diapo ' + i + ' / ' + n);
       await tick();
     }
-    log(WEBP ? 'Images encodées en WebP — même qualité, fichier nettement plus léger'
-             : 'Ce navigateur ne sait pas écrire le WebP : images en JPEG (rien d’autre ne change)');
     if (nz) log(nz + ' lien(s) du PDF converti(s) en zones cliquables');
     if (nt) log(nt + ' texte(s) repéré(s) — « ⌖ Objets » dans l’éditeur les transforme en boutons, au pixel près');
     // des pages de formats différents : ça se voit à la lecture, on prévient

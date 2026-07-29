@@ -58,13 +58,14 @@ tout est dans le fichier. Les images ou vidéos très lourdes ajoutées juste
 avant la fermeture peuvent ne pas tenir dans ce filet — le reste revient
 toujours.
 
-Les images des pages sont encodées en **WebP** (même qualité, fichier
-nettement plus léger — souvent 30 à 60 % de gain) ; les images que tu ajoutes
-par-dessus sont allégées de la même façon quand ça vaut le coup. Tout est
-encodé **par ton navigateur, en local** — rien ne sort de ta machine, comme
-pour le reste de l'outil. Si le navigateur ne sait pas écrire le WebP, le
-convertisseur repasse en JPEG tout seul, et les packs déjà produits en JPEG
-se lisent comme avant.
+Les pages sont encodées en **JPEG haute fidélité** — un choix mesuré, pas un
+défaut : le WebP « lossy » du navigateur impose un sous-échantillonnage de la
+couleur qui **floute le texte fin**, et la netteté de tes pages passe avant le
+poids du fichier. Les **images que tu ajoutes** (captures, photos collées)
+restent allégées en WebP quand ça les réduit vraiment — sur une photo, l'effet
+est invisible. Les packs produits pendant la période WebP se lisent comme
+avant, et une reconversion les repasse en pages nettes. Tout est encodé par
+ton navigateur, en local.
 
 ## Le mode édition (touche `E` dans le HTML produit)
 

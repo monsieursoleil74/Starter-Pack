@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.9.0';
+var APP_VERSION = '4.9.1';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {

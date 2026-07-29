@@ -335,10 +335,12 @@ A SAVOIR
   La page remplit toujours l'ecran, quelle que soit la qualite choisie ;
   mais une image "Legere" (1280 px) agrandie sur un grand ecran sera un
   peu douce. Pour un pack lu en plein ecran, reste en Standard ou Haute.
-- Les images sont encodees en WebP (meme qualite, fichier bien plus
-  leger), par ton navigateur, en local : rien ne sort de ta machine.
-  Les anciens packs en JPEG se lisent comme avant ; une reconversion
-  les fait passer en WebP en gardant tous les reglages.
+- Les pages sont en JPEG haute fidelite : le WebP du navigateur floute
+  le texte fin (mesure, pas suppose), et la nettete passe avant le
+  poids. Les images que tu ajoutes (captures, photos) restent allegees
+  en WebP quand ca les reduit vraiment. Les packs produits pendant la
+  periode WebP se lisent comme avant ; une reconversion les repasse en
+  pages nettes.
 - Brouillon de secours : si tu fermes l'onglet sans enregistrer (ou si
   le navigateur plante), la reouverture du fichier propose de reprendre
   ton travail, avec sa date. Le brouillon vit dans le stockage local du
