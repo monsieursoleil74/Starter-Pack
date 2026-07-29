@@ -123,6 +123,34 @@ L'embarqué est parfait pour un clip court qu'on veut pouvoir envoyer seul.
 Un lecteur **déjà présent** dans la maquette se traite pareil : clique-le, et
 tu changes juste la vidéo qu'il lit.
 
+## Un même emplacement, plusieurs contenus (fiches par personnage)
+
+Une maquette réutilise souvent **la même balise image** pour afficher tour à
+tour plusieurs contenus : la fiche de Pipo, puis celle de Bruno, dans le même
+cadre. Sans précaution, remplacer l'une remplacerait les autres.
+
+L'outil s'appuie donc sur la **description de l'image** (son `alt`, que la
+maquette met à jour quand tu changes de personnage) : ta retouche est liée à
+ce contenu-là, et la retouche l'affiche dans la liste (`portrait.png — Pipo`).
+Quand tu passes à un autre personnage, **son visuel d'origine revient**. Tu
+peux donc donner une image différente à chacun, en les faisant défiler.
+
+Ça vaut aussi dans l'éditeur : la page s'y comporte comme le fichier final,
+onglets et sélecteurs compris.
+
+**La limite à connaître :** si la maquette affiche *littéralement* la même
+image pour tout le monde — c'est le cas d'un carrousel de planches partagé —
+il n'y a **qu'un seul emplacement** et l'outil ne peut pas en inventer
+d'autres. Là, c'est la maquette qu'il faut faire évoluer (un carrousel par
+personnage) ; l'éditeur ne peut que remplir ce qui existe.
+
+## Le texte collé prend le style du site
+
+Coller depuis Word, Google Docs ou une page web apporte normalement toute la
+mise en forme d'origine (police énorme, couleurs, interlignes). L'outil ne
+garde **que le texte** : il prend automatiquement la police et la taille de ta
+maquette. Rien à nettoyer.
+
 ## Où vont les images ? (et le poids du fichier)
 
 Chaque image que tu déposes est **encodée dans le HTML lui-même**, en base64 :

@@ -316,6 +316,7 @@ function render(keepScroll) {
     doc = fr.contentDocument;
     applyAll();
     injectUi();
+    watchDoc();
     setMode(mode);
     if (sc) try { fr.contentWindow.scrollTo(0, sc); } catch (e) {}
     setTimeout(function () {
@@ -326,9 +327,24 @@ function render(keepScroll) {
   fr.srcdoc = src;
 }
 
+/* La page peut se remettre à jour toute seule (changement d'onglet, de
+   personnage…) : on rejoue alors les retouches, exactement comme le fera le
+   fichier exporté. Jamais pendant une saisie, pour ne pas écraser la frappe. */
+var moTimer = null, applying = false;
+function watchDoc() {
+  if (!doc || !window.MutationObserver) return;
+  new MutationObserver(function () {
+    if (applying || editing) return;
+    clearTimeout(moTimer);
+    moTimer = setTimeout(function () { if (!editing) applyAll(); }, 90);
+  }).observe(doc.documentElement, { childList: true, subtree: true, attributes: true,
+    attributeFilter: ['src', 'alt', 'href', 'style', 'class'] });
+}
+
 /* Applique les retouches sur le document affiché. */
 function applyAll() {
-  if (!doc) return;
+  if (!doc || applying) return;
+  applying = true;
   ensureCss();
   patches.forEach(function (p) {
     var n;
@@ -339,6 +355,7 @@ function applyAll() {
         applyOne(p, n);
     } else applyOne(p, n);
   });
+  applying = false;
 }
 
 /* Une page qui se reconstruit toute seule peut vider son head : on remet
@@ -741,8 +758,18 @@ function startEdit(n) {
     var sel = doc.defaultView.getSelection();
     sel.removeAllRanges(); sel.addRange(rg);
   } catch (e) {}
+  // coller depuis Word, Docs ou une page web colle aussi leur mise en forme
+  // (polices géantes, couleurs) : on ne garde que le texte
+  var onPaste = function (ev) {
+    ev.preventDefault();
+    var t = (ev.clipboardData || doc.defaultView.clipboardData).getData('text/plain') || '';
+    t = t.replace(/\r/g, '');
+    doc.execCommand('insertText', false, t);
+  };
+  n.addEventListener('paste', onPaste);
   var done = function () {
     n.removeAttribute('contenteditable');
+    n.removeEventListener('paste', onPaste);
     n.removeEventListener('blur', done);
     editing = null;
     var after = n.textContent;
@@ -811,7 +838,9 @@ function renderGallery() {
     ? media.length + ' image(s) trouvée(s), carrousels compris — clique pour remplacer'
     : 'Aucune image détectée sur cette page.';
   media.forEach(function (m, i) {
-    var done = patches.some(function (p) { return p.sel === m.sel; });
+    var done = patches.some(function (p) {
+      return p.sel === m.sel && (!p.alt || p.alt === (m.node.getAttribute('alt') || '').trim());
+    });
     var b = document.createElement('button');
     b.className = 'g' + (done ? ' done' : '');
     var vis = document.createElement('div');
@@ -850,6 +879,13 @@ $('pickImg').addEventListener('change', function (e) {
     imgTarget = null;
     var p = { kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
               hide: hide || undefined, label: short(f.name, 34) };
+    // Une maquette réutilise souvent la MÊME balise pour plusieurs contenus
+    // (la fiche de Pipo puis celle de Bruno) en ne changeant que le alt :
+    // on s'y accroche, sinon la retouche déborderait sur les autres.
+    if (isImg) {
+      var alt = (el.getAttribute('alt') || '').trim();
+      if (alt) { p.alt = alt; p.label += ' — ' + short(alt, 18); }
+    }
     applyOne(p, el);
     addPatch(p);
     if (mode === 'img') renderGallery();
@@ -863,8 +899,19 @@ function applyOne(p, n) {
     n.textContent = p.after;
     n.dataset.pkEdited = p.id || '1';
   } else if (p.kind === 'img' && n.tagName === 'IMG') {
-    n.removeAttribute('srcset');
-    n.src = p.after;
+    // Même balise, contenus différents (la fiche de Pipo puis celle de Bruno) :
+    // on pose notre image quand c'est le bon, et on REMET celle d'origine
+    // quand ce n'en est plus un — sinon elle déborderait sur les autres.
+    var bon = !p.alt || (n.getAttribute('alt') || '').trim() === p.alt;
+    if (bon) {
+      if (n.getAttribute('src') !== p.after) {
+        if (!n.pkOrig) n.pkOrig = n.getAttribute('src');
+        n.removeAttribute('srcset');
+        n.setAttribute('src', p.after);
+      }
+    } else if (n.getAttribute('src') === p.after && n.pkOrig) {
+      n.setAttribute('src', n.pkOrig);
+    }
   } else if (p.kind === 'bg') {
     n.style.backgroundImage = 'url("' + p.after + '")';
     n.style.backgroundSize = 'cover';
@@ -1011,7 +1058,11 @@ function exportFile() {
     "if(!n)return;" +
     "if(p.kind==='text'){if(n.dataset.pkEdited===p.id||!p.before||n.textContent.trim()===p.before.trim()){" +
     "n.textContent=p.after;n.dataset.pkEdited=p.id}}" +
-    "else if(p.kind==='img'&&n.tagName==='IMG'){if(n.src!==p.after){n.removeAttribute('srcset');n.src=p.after}}" +
+    "else if(p.kind==='img'&&n.tagName==='IMG'){" +
+    "var bon=!p.alt||(n.getAttribute('alt')||'').trim()===p.alt;" +
+    "if(bon){if(n.getAttribute('src')!==p.after){if(!n.pkOrig)n.pkOrig=n.getAttribute('src');" +
+    "n.removeAttribute('srcset');n.setAttribute('src',p.after)}}" +
+    "else if(n.getAttribute('src')===p.after&&n.pkOrig){n.setAttribute('src',n.pkOrig)}}" +
     "else if(p.kind==='bg'){var u='url(\"'+p.after+'\")';if(n.style.backgroundImage!==u){" +
     "n.style.backgroundImage=u;n.style.backgroundSize='cover';n.style.backgroundPosition='center';" +
     "n.style.backgroundRepeat='no-repeat'}if(p.hide&&!n.hasAttribute('data-pk-hide'))n.setAttribute('data-pk-hide','1')}" +
