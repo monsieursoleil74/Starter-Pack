@@ -99,11 +99,12 @@ un chemin **relatif** (`../rigs/pipo/`) est bien plus fiable.
 Beaucoup de maquettes ont un encadré « VIDÉO » qui ne contient **aucun
 lecteur** — c'est un décor. Le mode **🎬 Vidéos** en pose un vrai.
 
-Si la vidéo s'ouvre **dans une fenêtre** (clic sur un bouton *Lire la vidéo*) :
+Si la vidéo s'ouvre **dans une fenêtre** (clic sur un bouton *RIG*, *TOOLS*…),
+**clique simplement ce bouton** en mode 🎬 Vidéos : l'outil ouvre la fenêtre
+pour toi et vise l'emplacement du lecteur à l'intérieur — pas le bouton. Il
+te reste à choisir comment brancher la vidéo.
 
-1. passe en **👁 Aperçu** et clique le bouton pour ouvrir la fenêtre ;
-2. reviens en **🎬 Vidéos** et clique l'encadré de la vidéo ;
-3. choisis comment la brancher.
+Tu peux aussi cliquer directement un encadré ou un lecteur déjà visible.
 
 Deux façons, et le choix compte :
 

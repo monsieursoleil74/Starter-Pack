@@ -436,7 +436,8 @@ function onMove(e) {
     return;
   }
   if (mode === 'vid') {
-    var tv = targetVideo(e.target);
+    var btn = e.target.closest ? e.target.closest('a,button,[role=button]') : null;
+    var tv = btn && !btn.querySelector('video') ? { el: btn, kind: 'vzone' } : targetVideo(e.target);
     var nv = tv ? tv.el : null;
     if (nv === hiNode) return;
     if (hiNode) hiNode.classList.remove('pk-hi-img', 'pk-hi-zone');
@@ -454,7 +455,7 @@ function onMove(e) {
 }
 
 function onClick(e) {
-  if (mode === 'view') return;
+  if (mode === 'view' || laisserPasser) return;
   var t = e.target;
   if (mode === 'text') {
     var n = t;
@@ -469,6 +470,14 @@ function onClick(e) {
     if (hit.kind === 'zone') askForZone(hit.el);
     else pickImageFor(hit.el, hit.kind === 'img');
   } else if (mode === 'vid') {
+    // un bouton n'est pas l'emplacement de la vidéo : c'est ce qu'il OUVRE.
+    // On l'ouvre donc pour lui, et on vise la fenêtre qui apparaît.
+    var bt = t.closest ? t.closest('a,button,[role=button]') : null;
+    if (bt && !bt.querySelector('video')) {
+      e.preventDefault(); e.stopPropagation();
+      ouvrirPuisPlacer(bt);
+      return;
+    }
     var hv = targetVideo(t);
     if (!hv) return;
     e.preventDefault(); e.stopPropagation();
@@ -568,7 +577,78 @@ function renderLinks() {
    Une maquette a souvent un simple encadré « VIDÉO » sans lecteur : on pose
    donc un vrai lecteur dans la zone, soit vers un fichier posé à côté du
    HTML (léger), soit embarqué dans le fichier (autonome mais lourd). */
-var vidEl = null, vidKind = '', vidEmbed = false;
+var vidEl = null, vidKind = '', vidEmbed = false, laisserPasser = false;
+
+/* Ce qui est visible en ce moment, pour repérer ce qui apparaîtra après le clic */
+function blocsVisibles() {
+  var m = {};
+  Array.prototype.forEach.call(doc.querySelectorAll('div,section,figure,video,iframe'), function (n) {
+    var r = n.getBoundingClientRect();
+    if (r.width > 120 && r.height > 80) m[pathOf(n)] = 1;
+  });
+  return m;
+}
+/* Après ouverture : l'emplacement du lecteur, dans ce qui vient d'apparaître.
+   On ne se fie pas à la taille — d'autres blocs peuvent apparaître au passage
+   (cartes révélées au défilement) — mais au SENS : un bloc qui parle de vidéo,
+   dans une fenêtre par-dessus la page, au format d'un écran. */
+function emplacementVideo(avant) {
+  var vs = Array.prototype.slice.call(doc.querySelectorAll('video'))
+    .filter(function (v) { var r = v.getBoundingClientRect(); return r.width > 80 && r.height > 60; });
+  if (vs.length) return { el: vs[0], kind: 'vsrc' };
+  var ifr = Array.prototype.slice.call(doc.querySelectorAll('iframe'))
+    .filter(function (f) {
+      var r = f.getBoundingClientRect();
+      return r.width > 200 && r.height > 120 && !avant[pathOf(f)];
+    });
+  if (ifr.length) return { el: ifr[0], kind: 'vzone' };
+
+  var neufs = [];
+  Array.prototype.forEach.call(doc.querySelectorAll('div,section,figure'), function (n) {
+    var r = n.getBoundingClientRect();
+    if (r.width < 180 || r.height < 100) return;
+    if (avant[pathOf(n)]) return;                       // était déjà là
+    var fixe = false, a = n;
+    while (a && a !== doc.body) {
+      if (doc.defaultView.getComputedStyle(a).position === 'fixed') { fixe = true; break; }
+      a = a.parentElement;
+    }
+    neufs.push({ n: n, r: r, aire: r.width * r.height, ratio: r.width / r.height,
+                 parle: /vid[ée]o|player|lecteur/i.test(n.textContent || ''), fixe: fixe });
+  });
+  if (!neufs.length) return null;
+
+  // 1) ceux qui parlent de vidéo ; 2) sinon ceux d'une fenêtre par-dessus
+  var lot = neufs.filter(function (o) { return o.parle; });
+  if (!lot.length) lot = neufs.filter(function (o) { return o.fixe; });
+  if (!lot.length) lot = neufs;
+
+  // parmi eux, l'écran : le format le plus proche du 16/9, le plus intérieur
+  lot.sort(function (a, b) {
+    var da = Math.abs(a.ratio - 16 / 9), db = Math.abs(b.ratio - 16 / 9);
+    if (Math.abs(da - db) > 0.06) return da - db;
+    return a.aire - b.aire;
+  });
+  return { el: lot[0].n, kind: 'vzone' };
+}
+function ouvrirPuisPlacer(bt) {
+  // un vrai lien vers une autre page : on ne le suit pas dans l'aperçu
+  var href = bt.getAttribute && bt.getAttribute('href');
+  if (href && href !== '#' && !/^javascript:/i.test(href)) {
+    toast('Ce bouton mène à une autre page : c’est le mode 🔗 Liens qu’il te faut');
+    return;
+  }
+  var avant = blocsVisibles();
+  laisserPasser = true;
+  try { bt.click(); } catch (e) {}
+  laisserPasser = false;
+  toast('Ouverture de la fenêtre…');
+  setTimeout(function () {
+    var cible = emplacementVideo(avant);
+    if (cible) { flash(cible.el); askForVideo(cible.el, cible.kind); }
+    else toast('Rien ne s’est ouvert — passe en 👁 Aperçu, ouvre la fenêtre, puis reviens cliquer son encadré');
+  }, 800);
+}
 function askForVideo(el, kind) {
   vidEl = el; vidKind = kind;
   var r = el.getBoundingClientRect();
@@ -898,7 +978,7 @@ function setMode(m) {
   h.classList.toggle('hidden', m === 'view');
   if (m === 'text') h.textContent = '✏️ Clique un texte pour le réécrire — Échap pour valider';
   if (m === 'img') h.textContent = '🖼 Clique une image, ou choisis-la dans la liste à droite';
-  if (m === 'vid') h.textContent = '🎬 Clique la zone où la vidéo doit se lire (ouvre d’abord la fenêtre en 👁 Aperçu)';
+  if (m === 'vid') h.textContent = '🎬 Clique le bouton qui ouvre la vidéo — l’outil ouvre la fenêtre et vise le lecteur';
   if (m === 'link') h.textContent = '🔗 Clique un bouton ou un lien pour choisir où il mène';
   $('galBox').classList.toggle('hidden', m !== 'img');
   $('lnkBox').classList.toggle('hidden', m !== 'link');
@@ -910,8 +990,9 @@ function setMode(m) {
       ? 'Les liens sans adresse sont signalés en orange dans la liste. Sur un bouton qui ' +
         'n’est pas un vrai lien, l’outil pose un clic qui ouvre l’adresse.'
     : m === 'vid'
-      ? 'Pour une vidéo qui s’ouvre dans une fenêtre : passe en <b>👁 Aperçu</b>, clique le ' +
-        'bouton qui l’ouvre, puis reviens ici et clique l’encadré de la vidéo.'
+      ? 'Clique simplement le <b>bouton qui ouvre la vidéo</b> : l’outil ouvre la fenêtre ' +
+        'pour toi et vise l’emplacement du lecteur dedans. Tu peux aussi cliquer ' +
+        'directement un encadré ou un lecteur déjà visible.'
     : m === 'text'
       ? 'Clique n’importe quel texte de la page et réécris-le. Un clic ailleurs (ou Échap) valide.'
       : 'Cadre <b style="color:#3ecf8e">vert</b> : une image, clic = remplacer. ' +
