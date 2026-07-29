@@ -69,6 +69,12 @@ surbrillance te dit ce que tu vises :
 
 L'image est cadrée en *cover* (elle remplit sans se déformer, quitte à rogner).
 
+**Exemple concret — mettre les portraits dans les pastilles de personnages :**
+mode **🖼 Images** → clique la pastille (elle se cadre en orange pointillé) →
+**« à la place du contenu »** → choisis le portrait. La lettre disparaît sous
+l'image, et le nom écrit *sous* la pastille reste en place. À refaire pour
+chaque personnage.
+
 ## Où vont les images ? (et le poids du fichier)
 
 Chaque image que tu déposes est **encodée dans le HTML lui-même**, en base64 :

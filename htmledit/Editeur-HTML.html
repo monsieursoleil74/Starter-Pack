@@ -273,6 +273,7 @@ function render(keepScroll) {
 /* Applique les retouches sur le document affiché. */
 function applyAll() {
   if (!doc) return;
+  ensureCss();
   patches.forEach(function (p) {
     var n;
     try { n = doc.querySelector(p.sel); } catch (e) { return; }
@@ -284,8 +285,13 @@ function applyAll() {
   });
 }
 
-/* Surbrillance + capture des clics dans la page, selon le mode. */
-function injectUi() {
+/* Une page qui se reconstruit toute seule peut vider son head : on remet
+   notre feuille de style à chaque application. */
+function ensureCss() {
+  if (!doc || doc.getElementById('pk-ui')) return;
+  injectCss();
+}
+function injectCss() {
   var st = doc.createElement('style');
   st.id = 'pk-ui';
   st.textContent =
@@ -297,7 +303,11 @@ function injectUi() {
     '[contenteditable=true]{outline:2px solid #ffc157!important;background:rgba(255,193,87,.12)!important}' +
     '[data-pk-hide]>*{visibility:hidden!important}';
   (doc.head || doc.documentElement).appendChild(st);
+}
 
+/* Surbrillance + capture des clics dans la page, selon le mode. */
+function injectUi() {
+  injectCss();
   doc.addEventListener('click', onClick, true);
   doc.addEventListener('mousemove', onMove, true);
   doc.addEventListener('keydown', function (e) {
@@ -610,9 +620,13 @@ function exportFile() {
     "n.style.backgroundImage=u;n.style.backgroundSize='cover';n.style.backgroundPosition='center';" +
     "n.style.backgroundRepeat='no-repeat'}if(p.hide&&!n.hasAttribute('data-pk-hide'))n.setAttribute('data-pk-hide','1')}});" +
     "busy=false}" +
-    "if(!document.getElementById('" + MARK + "-css')){var s=document.createElement('style');" +
-    "s.id='" + MARK + "-css';s.textContent='[data-pk-hide]>*{visibility:hidden!important}';" +
+    /* la règle de masquage est vérifiée à CHAQUE passage : une page qui se
+       reconstruit toute seule vide son head et l'emporterait sinon */
+    "function css(){if(document.getElementById('" + MARK + "-css'))return;" +
+    "var s=document.createElement('style');s.id='" + MARK + "-css';" +
+    "s.textContent='[data-pk-hide]>*{visibility:hidden!important}';" +
     "(document.head||document.documentElement).appendChild(s)}" +
+    "var ap0=ap;ap=function(){css();ap0()};" +
     "ap();if(document.readyState!=='complete')window.addEventListener('load',ap);" +
     "var t=null;new MutationObserver(function(){clearTimeout(t);t=setTimeout(ap,60)})" +
     ".observe(document.documentElement,{childList:true,subtree:true});" +
