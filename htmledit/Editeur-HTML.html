@@ -69,6 +69,9 @@ button{font:inherit;cursor:pointer}
             text-overflow:ellipsis;white-space:nowrap}
 #gal .g.done{border-color:var(--ok)}
 #gal .g.done .nm{color:var(--ok)}
+#gal .hd{grid-column:1/-1;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+         color:var(--muted);margin:8px 0 0;padding-top:8px;border-top:1px solid var(--line)}
+#gal .hd:first-child{margin-top:0;padding-top:0;border-top:none}
 #galInfo{color:var(--muted);font-size:12px;margin:2px 0 0}
 #besoins{background:#2b2413;border:1px solid rgba(255,193,87,.5);color:#ffe2b0;border-radius:9px;padding:9px 11px;font-size:12px;line-height:1.6;margin-top:10px}
 #besoins code{background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px}
@@ -83,8 +86,22 @@ button{font:inherit;cursor:pointer}
 #busy{position:fixed;inset:0;background:rgba(10,12,17,.72);display:flex;align-items:center;
       justify-content:center;z-index:70;font-size:15px}
 /* petit choix quand on vise une zone qui ne contient pas encore d'image */
-#ask,#askv,#askl{position:fixed;inset:0;background:rgba(10,12,17,.66);display:flex;align-items:center;
+#ask,#askv,#askl,#askg{position:fixed;inset:0;background:rgba(10,12,17,.66);display:flex;align-items:center;
      justify-content:center;z-index:80}
+/* choisir parmi les images empilées au même endroit (carrousel, visuel de fond) */
+#askgGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 2px;
+          max-height:56vh;overflow:auto}
+#askgGrid .gi{padding:7px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);
+              color:var(--fg);font:inherit;text-align:left;cursor:pointer}
+#askgGrid .gi:hover{border-color:var(--ok);background:var(--panel3)}
+#askgGrid .gi .box{height:74px;border-radius:7px;background:#0c0e14 center/contain no-repeat;
+                   display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px}
+#askgGrid .gi .nm{font-size:12px;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#askgGrid .gi .su{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#askgGrid .gi.done{border-color:var(--ok)}
+#askgGrid .gi.done .nm{color:var(--ok)}
+#askgGrid .gi.zone{grid-column:1/-1}
+#askgGrid .gi.zone .box{height:34px}
 #askIn{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;
        max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 #askIn h3{margin:0 0 6px;font-size:16px}
@@ -187,6 +204,12 @@ button{font:inherit;cursor:pointer}
       <span>le texte et les éléments actuels restent visibles par-dessus</span></button>
   </div>
   <button class="cancel" id="askNo">Annuler</button>
+</div></div>
+<div id="askg" class="hidden"><div id="askIn">
+  <h3>Plusieurs images à cet endroit</h3>
+  <p id="askgWhat"></p>
+  <div id="askgGrid"></div>
+  <button class="cancel" id="askgNo">Terminé</button>
 </div></div>
 <div id="askv" class="hidden"><div id="askIn">
   <h3>Quelle vidéo doit s’ouvrir ici ?</h3>
@@ -375,7 +398,10 @@ function injectCss() {
     '.pk-hi-img{outline:3px solid rgba(62,207,142,.95)!important;outline-offset:2px}' +
     '.pk-hi-zone{outline:2px dashed rgba(255,193,87,.95)!important;outline-offset:2px}' +
     '[contenteditable=true]{outline:2px solid #ffc157!important;background:rgba(255,193,87,.12)!important}' +
-    '[data-pk-hide]>*:not(.pk-vid){visibility:hidden!important}';
+    '[data-pk-hide]>*:not(.pk-vid){visibility:hidden!important}' +
+    '#pk-tip{position:fixed;z-index:2147483647;pointer-events:none;background:rgba(16,18,26,.95);' +
+    'color:#eaf0ff;font:600 12px/1.35 system-ui,sans-serif;padding:5px 9px;border-radius:8px;' +
+    'border:1px solid rgba(255,255,255,.18);box-shadow:0 6px 20px rgba(0,0,0,.5);white-space:nowrap}';
   (doc.head || doc.documentElement).appendChild(st);
 }
 
@@ -421,6 +447,44 @@ function targetAt(t) {
   if (z && z !== doc.body) return { el: z, kind: 'zone' };
   return null;
 }
+
+/* Toutes les images EMPILÉES sous le curseur, celle du dessus en premier.
+   Un carrousel superpose ses visuels au même endroit et n'en montre qu'un ;
+   une carte pose souvent son visuel sous un dégradé et sous son texte. Dans
+   les deux cas, le clic n'atteint jamais que ce qu'il y a au-dessus. On
+   interroge donc la pile entière du point visé, pas seulement son sommet. */
+function imagesAt(x, y) {
+  if (!doc || !doc.elementsFromPoint) return [];
+  var st;
+  try { st = doc.elementsFromPoint(x, y) || []; } catch (e) { return []; }
+  var out = [], vu = [];
+  for (var i = 0; i < st.length; i++) {
+    var n = st[i];
+    if (!n || n === doc.body || n === doc.documentElement) break;
+    if (vu.indexOf(n) >= 0 || (n.id || '').indexOf('pk-') === 0) continue;
+    vu.push(n);
+    var r = n.getBoundingClientRect();
+    if (r.width < 12 || r.height < 12) continue;
+    if (n.tagName === 'IMG') out.push({ el: n, kind: 'img' });
+    else if (bgOf(n)) out.push({ el: n, kind: 'bg' });
+  }
+  return out;
+}
+/* petite étiquette qui suit le curseur : dit ce qu'un clic va faire */
+function tip(txt, x, y) {
+  if (!doc) return;
+  var t = doc.getElementById('pk-tip');
+  if (!txt) { if (t) t.remove(); return; }
+  if (!t) {
+    t = doc.createElement('div');
+    t.id = 'pk-tip';
+    (doc.body || doc.documentElement).appendChild(t);
+  }
+  t.textContent = txt;
+  t.style.left = Math.max(6, Math.min(x + 14, doc.defaultView.innerWidth - 260)) + 'px';
+  t.style.top = Math.max(6, y - 34) + 'px';
+}
+
 /* En mode Vidéos : un lecteur existant, ou la zone où le poser. */
 function targetVideo(t) {
   if (!t || t.nodeType !== 1) return null;
@@ -464,8 +528,12 @@ function onMove(e) {
     return;
   }
   if (mode !== 'img') return;
-  var t = targetAt(e.target);
+  var pile = imagesAt(e.clientX, e.clientY);
+  var t = pile.length ? pile[0] : targetAt(e.target);
   var n = t ? t.el : null;
+  tip(pile.length > 1 ? pile.length + ' images ici — clique pour choisir'
+      : pile.length === 1 ? 'Remplacer cette image'
+      : t ? 'Poser une image ici' : '', e.clientX, e.clientY);
   if (n === hiNode) return;
   if (hiNode) hiNode.classList.remove('pk-hi-img', 'pk-hi-zone');
   hiNode = n;
@@ -482,10 +550,14 @@ function onClick(e) {
     e.preventDefault(); e.stopPropagation();
     startEdit(n);
   } else if (mode === 'img') {
+    var pile = imagesAt(e.clientX, e.clientY);
     var hit = targetAt(t);
-    if (!hit) return;
+    if (!pile.length && !hit) return;
     e.preventDefault(); e.stopPropagation();
-    if (hit.kind === 'zone') askForZone(hit.el);
+    tip('');
+    if (pile.length > 1) choisirImage(pile, hit && hit.kind === 'zone' ? hit.el : null);
+    else if (pile.length === 1) pickImageFor(pile[0].el, pile[0].kind === 'img');
+    else if (hit.kind === 'zone') askForZone(hit.el);
     else pickImageFor(hit.el, hit.kind === 'img');
   } else if (mode === 'vid') {
     // un bouton n'est pas l'emplacement de la vidéo : c'est ce qu'il OUVRE.
@@ -766,6 +838,79 @@ $('askCover').addEventListener('click', function () {
   if (el) pickImageFor(el, false, true);
 });
 
+/* ------------------------------------ choisir parmi des images superposées
+   Le panneau reste ouvert : dans un carrousel on remplace ses deux ou trois
+   visuels d'affilée, sans avoir à re-viser la même zone à chaque fois. */
+var pileSel = null, pileZone = null;
+function estCachee(n) {
+  try {
+    var s = doc.defaultView.getComputedStyle(n);
+    return parseFloat(s.opacity) < .05 || s.visibility === 'hidden';
+  } catch (e) { return false; }
+}
+function fondUrl(n) {
+  var v = bgOf(n) || '';
+  var m = v.match(/url\(["']?([^"')]+)/);
+  return m ? m[1] : '';
+}
+function choisirImage(l, zone) {
+  pileSel = l; pileZone = zone || null;
+  renderChoix();
+  $('askg').classList.remove('hidden');
+}
+function closeAskg() { $('askg').classList.add('hidden'); pileSel = null; pileZone = null; }
+function renderChoix() {
+  var g = $('askgGrid');
+  g.innerHTML = '';
+  if (!pileSel) return;
+  $('askgWhat').textContent = pileSel.length + ' images sont superposées ici — carrousel, ' +
+    'visuel posé sous un texte… Clique celle que tu veux remplacer.';
+  pileSel.forEach(function (c, i) {
+    var sel = pathOf(c.el);
+    var alt = (c.el.getAttribute('alt') || '').trim();
+    var fait = patches.some(function (p) {
+      return p.sel === sel && (p.kind === 'img' || p.kind === 'bg') && (!p.alt || p.alt === alt);
+    });
+    var b = document.createElement('button');
+    b.className = 'gi' + (fait ? ' done' : '');
+    var v = document.createElement('div');
+    v.className = 'box';
+    v.textContent = c.kind === 'bg' ? 'fond' : 'image';
+    if (c.kind === 'img')
+      vignette(c.el, function (u) { if (u) { v.style.backgroundImage = 'url("' + u + '")'; v.textContent = ''; } });
+    else {
+      var fu = fondUrl(c.el);
+      if (fu && /^(data|blob):/.test(fu)) { v.style.backgroundImage = 'url("' + fu + '")'; v.textContent = ''; }
+    }
+    var nm = document.createElement('div');
+    nm.className = 'nm';
+    nm.textContent = (fait ? '✓ ' : '') + (alt || nameOf(c.el) || (c.kind === 'bg' ? 'Fond' : 'Image ' + (i + 1)));
+    var su = document.createElement('div');
+    su.className = 'su';
+    su.textContent = c.kind === 'bg' ? 'image de fond'
+      : estCachee(c.el) ? 'pas affichée en ce moment' : 'affichée';
+    b.appendChild(v); b.appendChild(nm); b.appendChild(su);
+    b.addEventListener('click', function () {
+      flash(c.el);
+      pickImageFor(c.el, c.kind === 'img');
+    });
+    g.appendChild(b);
+  });
+  if (pileZone) {
+    var z = document.createElement('button');
+    z.className = 'gi zone';
+    z.innerHTML = '<div class="box">+</div><div class="nm">Aucune de celles-ci</div>' +
+      '<div class="su">poser une nouvelle image par-dessus cette zone</div>';
+    z.addEventListener('click', function () {
+      var el = pileZone; closeAskg();
+      askForZone(el);
+    });
+    g.appendChild(z);
+  }
+}
+$('askgNo').addEventListener('click', closeAskg);
+$('askg').addEventListener('click', function (e) { if (e.target === $('askg')) closeAskg(); });
+
 /* ------------------------------------------------------------ édition texte */
 function startEdit(n) {
   editing = n;
@@ -823,12 +968,71 @@ function thumbOf(im) {
     return c.toDataURL('image/jpeg', 0.7);
   } catch (e) { return ''; }
 }
+/* Une maquette « bundlée » sert ses images depuis des URL blob : les dessiner
+   dans un canvas salit celui-ci et la vignette échoue. On récupère alors le
+   fichier lui-même depuis la page, sans le recoder. */
+var vign = {};
+function vignette(im, cb) {
+  var direct = thumbOf(im);
+  if (direct) return cb(direct);
+  var s = im.getAttribute('src') || '';
+  if (!s) return cb('');
+  if (/^data:/.test(s)) return cb(s);
+  if (vign[s] !== undefined) return cb(vign[s]);
+  try {
+    doc.defaultView.fetch(s)
+      .then(function (r) { return r.blob(); })
+      .then(function (b) { vign[s] = URL.createObjectURL(b); cb(vign[s]); })
+      .catch(function () { vign[s] = ''; cb(''); });
+  } catch (e) { cb(''); }
+}
 function nameOf(im) {
   if (im.alt && im.alt.trim()) return im.alt.trim();
   var s = im.getAttribute('src') || '';
   if (/^(blob|data):/.test(s)) return '';
   var m = s.split(/[\\/]/).pop();
   return m ? decodeURIComponent(m).slice(0, 30) : '';
+}
+/* Un carrousel, ce sont deux ou trois images dans le même conteneur : on les
+   présente ensemble plutôt qu'en vrac, sous le titre qui les précède. */
+function groupeDe(im) {
+  var q = im.parentElement;
+  for (var d = 0; q && d < 4 && q !== doc.body; d++, q = q.parentElement) {
+    var n = q.querySelectorAll('img').length;
+    if (n > 8) return null;        // un conteneur de page entière n'est pas un carrousel
+    if (n > 1) return q;
+  }
+  return null;
+}
+/* Le nom du bloc : ce que les images ont en commun (« Planche proto I / II »
+   → « Planche proto »), sinon le titre juste au-dessus. */
+function nomGroupe(g) {
+  var alts = [];
+  Array.prototype.forEach.call(g.querySelectorAll('img'), function (im) {
+    var a = (im.getAttribute('alt') || '').trim();
+    if (a) alts.push(a);
+  });
+  if (alts.length > 1) {
+    var c = alts[0];
+    for (var i = 1; i < alts.length; i++) {
+      var j = 0;
+      while (j < c.length && j < alts[i].length && c[j] === alts[i][j]) j++;
+      c = c.slice(0, j);
+    }
+    // ne pas couper au milieu d'un mot, et laisser tomber le numéro de la vue
+    if (c.length < alts[0].length && !/\s$/.test(c)) c = c.slice(0, c.lastIndexOf(' ') + 1);
+    c = c.replace(/[\s\-–—:,]+$/, '').replace(/\s+[IVXLCDM\d]+$/i, '').trim();
+    if (c.length > 2) return c;
+  }
+  var n = g, t = '';
+  for (var up = 0; n && up < 3 && !t; up++, n = n.parentElement) {
+    var s = n.previousElementSibling;
+    for (var k = 0; s && k < 3 && !t; k++, s = s.previousElementSibling) {
+      var x = (s.textContent || '').trim().replace(/\s+/g, ' ');
+      if (x && x.length <= 40) t = x;
+    }
+  }
+  return t;
 }
 function collectMedia() {
   if (!doc) return [];
@@ -837,7 +1041,9 @@ function collectMedia() {
     var sel = pathOf(im);
     if (seen[sel]) return;
     seen[sel] = 1;
-    out.push({ sel: sel, kind: 'img', node: im, name: nameOf(im), thumb: thumbOf(im) });
+    var g = groupeDe(im);
+    out.push({ sel: sel, kind: 'img', node: im, name: nameOf(im), thumb: thumbOf(im),
+               grp: g ? pathOf(g) : '', grpName: g ? nomGroupe(g) : '' });
   });
   // fonds en image : on ne balaie que ce qui est raisonnable
   var all = doc.querySelectorAll('div,section,header,footer,a,span,li,figure,button,main,article,aside,td,nav,h1,h2,h3,p');
@@ -858,7 +1064,30 @@ function renderGallery() {
   $('galInfo').textContent = media.length
     ? media.length + ' image(s) trouvée(s), carrousels compris — clique pour remplacer'
     : 'Aucune image détectée sur cette page.';
+  // un « groupe » d'une seule image n'en est pas un
+  media.forEach(function (m) {
+    if (m.grp && media.filter(function (o) { return o.grp === m.grp; }).length < 2) m.grp = '';
+  });
+  // les images d'un même carrousel se suivent, sous leur titre ; les autres après
+  var grp = media.filter(function (m) { return m.grp; });
+  grp.sort(function (a, b) { return a.grp < b.grp ? -1 : a.grp > b.grp ? 1 : 0; });
+  media = grp.concat(media.filter(function (m) { return !m.grp; }));
+  var grpVu = '';
   media.forEach(function (m, i) {
+    if (m.grp && m.grp !== grpVu) {
+      grpVu = m.grp;
+      var hd = document.createElement('div');
+      hd.className = 'hd';
+      var nb = media.filter(function (o) { return o.grp === m.grp; }).length;
+      hd.textContent = (m.grpName || 'Images superposées') + ' — ' + nb + ' images au même endroit';
+      box.appendChild(hd);
+    } else if (!m.grp && grpVu !== 'seules') {
+      grpVu = 'seules';
+      var hd2 = document.createElement('div');
+      hd2.className = 'hd';
+      hd2.textContent = 'Images isolées';
+      box.appendChild(hd2);
+    }
     var done = patches.some(function (p) {
       return p.sel === m.sel && (!p.alt || p.alt === (m.node.getAttribute('alt') || '').trim());
     });
@@ -866,8 +1095,10 @@ function renderGallery() {
     b.className = 'g' + (done ? ' done' : '');
     var vis = document.createElement('div');
     vis.className = 'box';
-    if (m.thumb) vis.style.backgroundImage = 'url("' + m.thumb + '")';
-    else vis.textContent = m.kind === 'bg' ? 'fond' : 'image ' + (i + 1);
+    vis.textContent = m.kind === 'bg' ? 'fond' : 'image ' + (i + 1);
+    if (m.thumb) { vis.style.backgroundImage = 'url("' + m.thumb + '")'; vis.textContent = ''; }
+    else if (m.kind === 'img')
+      vignette(m.node, function (u) { if (u) { vis.style.backgroundImage = 'url("' + u + '")'; vis.textContent = ''; } });
     var nm = document.createElement('div');
     nm.className = 'nm';
     nm.textContent = (done ? '✓ ' : '') + (m.name || 'Image ' + (i + 1));
@@ -910,6 +1141,12 @@ $('pickImg').addEventListener('change', function (e) {
     applyOne(p, el);
     addPatch(p);
     if (mode === 'img') renderGallery();
+    if (!$('askg').classList.contains('hidden')) {
+      renderChoix();
+      // dans un carrousel, le visuel remplacé n'est pas forcément celui affiché
+      if (isImg && estCachee(el))
+        toast('Remplacée — elle apparaîtra quand le carrousel l’affichera');
+    }
   };
   r.readAsDataURL(f);
 });
@@ -1065,11 +1302,12 @@ function setMode(m) {
     doc.body.classList.toggle('pk-text', m === 'text');
     doc.body.classList.toggle('pk-img', m === 'img' || m === 'vid' || m === 'link');
     if (hiNode) { hiNode.classList.remove('pk-hi-img', 'pk-hi-zone'); hiNode = null; }
+    tip('');
   }
   var h = $('hint');
   h.classList.toggle('hidden', m === 'view');
   if (m === 'text') h.textContent = '✏️ Clique un texte pour le réécrire — Échap pour valider';
-  if (m === 'img') h.textContent = '🖼 Clique une image, ou choisis-la dans la liste à droite';
+  if (m === 'img') h.textContent = '🖼 Clique une image — s’il y en a plusieurs au même endroit, l’outil te les montre';
   if (m === 'vid') h.textContent = '🎬 Clique le bouton qui ouvre la vidéo — l’outil ouvre la fenêtre et vise le lecteur';
   if (m === 'link') h.textContent = '🔗 Clique un bouton ou un lien pour choisir où il mène';
   $('galBox').classList.toggle('hidden', m !== 'img');

@@ -46,11 +46,31 @@ retouche est simplement ignorée au lieu d'écraser le nouveau contenu.
 ## Carrousels et images empilées
 
 Dans un carrousel, les images sont **superposées au même endroit** et une seule
-est visible : un clic dans la page n'atteint jamais que celle du dessus. En
-mode **🖼 Images**, le panneau de droite liste donc **toutes les images de la
-page** — visibles, cachées sous la pile, hors écran ou pas encore chargées.
-Clique une vignette : l'outil t'emmène à l'image (elle clignote en vert) et
-ouvre le sélecteur de fichier. Les images déjà remplacées sont marquées ✓.
+est visible : un clic n'atteint normalement que celle du dessus.
+
+**Clique simplement le carrousel.** L'outil regarde toute la pile sous ton
+curseur et t'ouvre **la liste de SES images** — pas celles de la page entière.
+Tu choisis celle que tu veux remplacer, et le panneau **reste ouvert** : tu
+enchaînes la deuxième, la troisième, sans re-viser la zone. Chacune est marquée
+✓ dès qu'elle est faite.
+
+Le survol te dit à l'avance ce qu'un clic va faire : *« 3 images ici — clique
+pour choisir »*, *« Remplacer cette image »* ou *« Poser une image ici »*.
+
+Chaque image de la liste indique si elle est **affichée** ou **pas affichée en
+ce moment** — dans un carrousel, celle que tu remplaces n'est pas forcément
+celle que tu vois ; elle apparaîtra quand le carrousel la fera défiler.
+
+Le panneau de droite, lui, garde la vue d'ensemble : **toutes les images de la
+page**, désormais **groupées par bloc** (« Planche proto — 2 images au même
+endroit »), y compris celles qui sont hors écran ou pas encore chargées.
+
+### Un visuel caché sous un texte ou un dégradé
+
+Même mécanisme pour une carte dont l'image sert de fond, posée sous un dégradé
+et sous son texte (le bloc « Ton & intentions », par exemple) : le clic tombait
+sur le dégradé, jamais sur l'image. Maintenant l'outil voit ce qu'il y a
+**dessous** et te la propose directement.
 
 ## Poser une image là où il n'y en a pas
 
