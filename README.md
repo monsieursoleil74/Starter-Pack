@@ -23,3 +23,26 @@ vers la dernière version.
 Tout se passe dans le navigateur : aucun fichier n'est envoyé en ligne.
 
 📖 [Mode d'emploi complet](slides2html/README.md) · 📄 [Version courte](slides2html/LISEZMOI.txt)
+
+---
+
+## ✏️ Éditeur HTML local
+
+Tu as déjà une **maquette HTML** qui te plaît ? Remplace ses **textes** et ses
+**images** sans toucher au code, et récupère un fichier prêt à diffuser.
+
+### ⬇ [Télécharger l'outil (Editeur-HTML.html)](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html)
+
+**En trois étapes :**
+
+1. Double-clic sur `Editeur-HTML.html`, dépose ta maquette dedans
+2. **✏️ Textes** : clique un texte et réécris-le · **🖼 Images** : clique une
+   image pour la remplacer par un fichier de ton disque
+3. 💾 Exporter → `ta-maquette - modifie.html`
+
+Ta page n'est jamais réécrite : le fichier exporté est ton original **plus un
+petit correctif** qui rejoue tes remplacements. Même une maquette dont le
+contenu est construit par du JavaScript fonctionne, et tu peux redéposer le
+fichier exporté pour continuer plus tard.
+
+📖 [Mode d'emploi complet](htmledit/README.md)

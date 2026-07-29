@@ -11,6 +11,7 @@ on:
       - claude/git-github-publish-5u5ayq   # branche par défaut du dépôt
     paths:
       - 'slides2html/Convertisseur.html'
+      - 'htmledit/Editeur-HTML.html'
       - '.github/workflows/publier-outil.yml'
   workflow_dispatch:
 
@@ -31,18 +32,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
-          NOTES="Ouvre **Convertisseur.html** dans Edge ou Chrome (double-clic) et dépose dedans le PDF exporté depuis Google Slides.
+          NOTES="Deux outils, deux besoins — rien à installer, ce sont des pages web qu'on ouvre en double-cliquant. Tout se passe dans le navigateur, aucun fichier n'est envoyé en ligne.
 
-          Rien à installer : c'est une page web, pas un programme. Tout se passe dans le navigateur, aucun fichier n'est envoyé en ligne.
+          **Convertisseur.html** — transforme un PDF exporté de Google Slides en pack HTML interactif (boutons, panneaux, pages cachées, vidéos). [Mode d'emploi](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/slides2html/README.md)
 
-          Mode d'emploi : [slides2html/README.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/slides2html/README.md)
+          **Editeur-HTML.html** — remplace les textes et les images d'une maquette HTML que tu as déjà, sans toucher au code. [Mode d'emploi](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/htmledit/README.md)
 
           Version publiée depuis le commit ${{ github.sha }}."
           if gh release view outil >/dev/null 2>&1; then
             gh release edit outil --notes "$NOTES" --latest
-            gh release upload outil slides2html/Convertisseur.html --clobber
+            gh release upload outil slides2html/Convertisseur.html htmledit/Editeur-HTML.html --clobber
           else
-            gh release create outil slides2html/Convertisseur.html \
-              --title "Convertisseur — dernière version" \
+            gh release create outil slides2html/Convertisseur.html htmledit/Editeur-HTML.html \
+              --title "Les outils — dernière version" \
               --notes "$NOTES" --latest
           fi

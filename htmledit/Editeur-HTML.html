@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Éditeur HTML local — remplacer textes et images</title>
+<style>
+:root{--bg:#0f1116;--panel:#161923;--panel2:#1e222e;--panel3:#272c3a;--fg:#e8eaf0;
+      --muted:#8b93a7;--line:#2a2f3d;--accent:#5b8cff;--ok:#3ecf8e;--warn:#ffc157}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif;
+     display:flex;flex-direction:column;overflow:hidden}
+.hidden{display:none!important}
+
+/* ---------- accueil ---------- */
+#home{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
+#homeIn{max-width:640px;width:100%}
+h1{font-size:24px;margin:0 0 6px}
+#homeIn>p{color:var(--muted);margin:0 0 20px}
+#drop{border:2px dashed var(--line);border-radius:16px;padding:44px 24px;text-align:center;
+      cursor:pointer;transition:border-color .15s,background .15s;background:var(--panel)}
+#drop:hover,#drop.over{border-color:var(--accent);background:var(--panel2)}
+#drop b{display:block;font-size:17px;margin-bottom:6px}
+#drop span{color:var(--muted);font-size:13px}
+.note{margin-top:18px;color:var(--muted);font-size:12.5px;line-height:1.7}
+.note b{color:var(--fg)}
+
+/* ---------- barre du haut ---------- */
+header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);
+       border-bottom:1px solid var(--line);flex-shrink:0}
+#fname{font-weight:600;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#count{color:var(--muted);font-size:12.5px}
+header .sp{flex:1}
+button{font:inherit;cursor:pointer}
+.tool{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:9px;
+      padding:7px 12px;font-size:13px;transition:background .12s,border-color .12s}
+.tool:hover{background:var(--panel3)}
+.tool.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.tool.go{background:var(--ok);border-color:var(--ok);color:#0b2417;font-weight:600}
+.tool.go:hover{filter:brightness(1.08)}
+.tool:disabled{opacity:.45;cursor:default}
+
+/* ---------- corps ---------- */
+#main{flex:1;display:flex;min-height:0}
+#stage{flex:1;position:relative;background:#0a0c11;min-width:0}
+#frame{width:100%;height:100%;border:0;display:block;background:#fff}
+#side{width:280px;background:var(--panel);border-left:1px solid var(--line);
+      padding:12px;overflow-y:auto;flex-shrink:0}
+#side h3{font-size:11.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:4px 0 8px}
+#side p.help{color:var(--muted);font-size:12.5px;line-height:1.65}
+#list{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+#list .it{display:flex;gap:8px;align-items:center;background:var(--panel2);border-radius:8px;
+          padding:7px 9px;font-size:12.5px}
+#list .it span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#list .it button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px}
+#list .it button:hover{color:#ff8a8a}
+#list .it i{font-style:normal}
+
+#hint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(20,22,30,.94);
+      border:1px solid var(--line);color:var(--fg);padding:8px 16px;border-radius:20px;font-size:13px;
+      pointer-events:none;z-index:5;box-shadow:0 8px 26px rgba(0,0,0,.5)}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--panel3);
+       color:var(--fg);padding:10px 18px;border-radius:12px;opacity:0;transition:.25s;z-index:60;
+       box-shadow:0 10px 30px rgba(0,0,0,.55);pointer-events:none;max-width:80vw;text-align:center}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#busy{position:fixed;inset:0;background:rgba(10,12,17,.72);display:flex;align-items:center;
+      justify-content:center;z-index:70;font-size:15px}
+</style>
+</head>
+<body>
+
+<div id="home">
+  <div id="homeIn">
+    <h1>Éditeur HTML local</h1>
+    <p>Tu as une maquette HTML qui te plaît ? Remplace ses <b>textes</b> et ses
+       <b>images</b> sans toucher au code, et récupère un fichier prêt à diffuser.</p>
+    <div id="drop">
+      <b>Dépose ton fichier .html ici</b>
+      <span>ou clique pour le choisir — tout se passe sur ta machine, rien n’est envoyé en ligne</span>
+    </div>
+    <p class="note">
+      <b>Comment ça marche.</b> Ta page est ouverte telle quelle, avec ses scripts et ses
+      animations. Tes retouches sont enregistrées <b>par-dessus</b> : le fichier exporté est
+      ton original + un petit correctif qui rejoue tes remplacements à l’ouverture. Rien
+      n’est réécrit, donc rien ne casse — et tu peux redéposer le fichier exporté ici pour
+      continuer plus tard.
+    </p>
+  </div>
+</div>
+
+<header class="hidden" id="bar">
+  <span id="fname"></span>
+  <span id="count"></span>
+  <span class="sp"></span>
+  <button class="tool" id="mText">✏️ Textes</button>
+  <button class="tool" id="mImg">🖼 Images</button>
+  <button class="tool" id="mView">👁 Aperçu</button>
+  <span class="sp"></span>
+  <button class="tool" id="undo" title="Annuler la dernière retouche (Ctrl+Z)">↶</button>
+  <button class="tool" id="reload" title="Recharger la page d’origine et rejouer les retouches">⟳</button>
+  <button class="tool go" id="save">💾 Exporter</button>
+</header>
+
+<div id="main" class="hidden">
+  <div id="stage">
+    <iframe id="frame" title="aperçu"></iframe>
+    <div id="hint" class="hidden"></div>
+  </div>
+  <aside id="side">
+    <h3>Mes retouches</h3>
+    <div id="list"></div>
+    <p class="help" id="help"></p>
+  </aside>
+</div>
+
+<div id="toast"></div>
+<div id="busy" class="hidden">Chargement de ta page…</div>
+<input type="file" id="pick" accept=".html,.htm" class="hidden">
+<input type="file" id="pickImg" accept="image/*" class="hidden">
+
+<script>
+(function () {
+'use strict';
+var $ = function (id) { return document.getElementById(id); };
+var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
+var APP = '1.0.0';
+
+var src = '';            // texte du fichier d'origine, sans notre correctif
+var fileName = 'page.html';
+var patches = [];        // [{sel, kind:'text'|'img'|'bg', before, after, label}]
+var mode = 'text';
+var doc = null;          // document de l'iframe
+var editing = null;      // élément en cours d'édition
+
+/* ------------------------------------------------------------------ outils */
+function toast(msg) {
+  var t = $('toast');
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function () { t.classList.remove('on'); }, 2600);
+}
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
+  });
+}
+function short(s, n) {
+  s = String(s || '').replace(/\s+/g, ' ').trim();
+  return s.length > n ? s.slice(0, n) + '…' : s;
+}
+
+/* Chemin CSS stable d'un élément : c'est lui qui permet de retrouver la même
+   place après un rechargement, même si la page se reconstruit toute seule. */
+function pathOf(n) {
+  var parts = [];
+  while (n && n.nodeType === 1 && n !== doc.documentElement) {
+    var i = 1, sib = n;
+    while ((sib = sib.previousElementSibling)) if (sib.tagName === n.tagName) i++;
+    parts.unshift(n.tagName.toLowerCase().replace(/[^a-z0-9_-]/g, '') + ':nth-of-type(' + i + ')');
+    n = n.parentNode;
+  }
+  return parts.join('>');
+}
+
+/* ------------------------------------------------- chargement d'un fichier */
+function openFile(file) {
+  if (!file) return;
+  fileName = file.name;
+  $('busy').classList.remove('hidden');
+  var r = new FileReader();
+  r.onload = function () {
+    var txt = String(r.result);
+    var found = extractPatch(txt);
+    src = found.src;
+    patches = found.patches;
+    $('home').classList.add('hidden');
+    $('bar').classList.remove('hidden');
+    $('main').classList.remove('hidden');
+    $('fname').textContent = fileName;
+    document.title = fileName + ' — Éditeur HTML';
+    renderList();
+    render();
+    setMode('text');
+    if (patches.length) toast(patches.length + ' retouche(s) déjà dans ce fichier — tu peux continuer');
+  };
+  r.onerror = function () {
+    $('busy').classList.add('hidden');
+    alert('Lecture du fichier impossible.');
+  };
+  r.readAsText(file);
+}
+
+/* Sépare la page d'origine de notre correctif : un fichier déjà exporté peut
+   donc être redéposé ici pour reprendre le travail. */
+function extractPatch(txt) {
+  var out = { src: txt, patches: [] };
+  var re = new RegExp('<script id="' + MARK + '-data"[^>]*>([\\s\\S]*?)<\\/script>');
+  var m = txt.match(re);
+  if (m) {
+    try { out.patches = JSON.parse(m[1]) || []; } catch (e) { out.patches = []; }
+  }
+  // on retire l'ancien correctif : il sera régénéré à l'export
+  out.src = txt.replace(new RegExp('\\s*<!--' + MARK + '-->[\\s\\S]*?<!--\\/' + MARK + '-->', 'g'), '');
+  return out;
+}
+
+/* ------------------------------------------------------- rendu dans l'iframe */
+function render(keepScroll) {
+  var fr = $('frame');
+  var sc = 0;
+  try { sc = keepScroll && fr.contentWindow ? fr.contentWindow.scrollY : 0; } catch (e) {}
+  $('busy').classList.remove('hidden');
+  fr.onload = function () {
+    doc = fr.contentDocument;
+    applyAll();
+    injectUi();
+    setMode(mode);
+    if (sc) try { fr.contentWindow.scrollTo(0, sc); } catch (e) {}
+    setTimeout(function () {
+      applyAll();                    // la page peut se construire après coup
+      $('busy').classList.add('hidden');
+    }, 700);
+  };
+  fr.srcdoc = src;
+}
+
+/* Applique les retouches sur le document affiché. */
+function applyAll() {
+  if (!doc) return;
+  patches.forEach(function (p) {
+    var n;
+    try { n = doc.querySelector(p.sel); } catch (e) { return; }
+    if (!n) return;
+    if (p.kind === 'text') {
+      if (n.dataset.pkEdited === p.id || !p.before || n.textContent.trim() === p.before.trim()) {
+        n.textContent = p.after;
+        n.dataset.pkEdited = p.id;
+      }
+    } else if (p.kind === 'img' && n.tagName === 'IMG') {
+      n.src = p.after;
+    } else if (p.kind === 'bg') {
+      n.style.backgroundImage = 'url("' + p.after + '")';
+    }
+  });
+}
+
+/* Surbrillance + capture des clics dans la page, selon le mode. */
+function injectUi() {
+  var st = doc.createElement('style');
+  st.id = 'pk-ui';
+  st.textContent =
+    'body.pk-text *:not(html):not(body):hover{outline:2px solid rgba(91,140,255,.9)!important;' +
+    'outline-offset:1px;cursor:text!important}' +
+    'body.pk-img img:hover,body.pk-img .pk-bg:hover{outline:3px solid rgba(62,207,142,.95)!important;' +
+    'outline-offset:2px;cursor:copy!important}' +
+    '[contenteditable=true]{outline:2px solid #ffc157!important;background:rgba(255,193,87,.12)!important}';
+  (doc.head || doc.documentElement).appendChild(st);
+
+  doc.addEventListener('click', onClick, true);
+  doc.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && editing) { editing.blur(); }
+  }, true);
+}
+
+/* Un élément est-il un porteur de texte simple (pas un gros conteneur) ? */
+function textish(n) {
+  if (!n || n.nodeType !== 1) return false;
+  if (/^(HTML|BODY|SCRIPT|STYLE|IMG|SVG|VIDEO|IFRAME|CANVAS)$/.test(n.tagName)) return false;
+  if (!n.textContent || !n.textContent.trim()) return false;
+  // que du texte à l'intérieur (pas d'autres blocs) : on édite au plus près
+  for (var i = 0; i < n.children.length; i++)
+    if (n.children[i].textContent && n.children[i].textContent.trim()) return false;
+  return true;
+}
+function bgOf(n) {
+  var v = doc.defaultView.getComputedStyle(n).backgroundImage;
+  return v && v !== 'none' && /url\(/.test(v) ? v : null;
+}
+
+function onClick(e) {
+  if (mode === 'view') return;
+  var t = e.target;
+  if (mode === 'text') {
+    var n = t;
+    while (n && !textish(n)) n = n.parentElement;
+    if (!n) return;
+    e.preventDefault(); e.stopPropagation();
+    startEdit(n);
+  } else if (mode === 'img') {
+    var img = t.closest ? t.closest('img') : null;
+    var el = img;
+    if (!el) { var q = t; while (q && q.nodeType === 1 && !bgOf(q)) q = q.parentElement; el = q && q.nodeType === 1 ? q : null; }
+    if (!el) return;
+    e.preventDefault(); e.stopPropagation();
+    pickImageFor(el, !!img);
+  }
+}
+
+/* ------------------------------------------------------------ édition texte */
+function startEdit(n) {
+  editing = n;
+  var before = n.dataset.pkOrig || n.textContent;
+  n.dataset.pkOrig = before;
+  n.setAttribute('contenteditable', 'true');
+  n.focus();
+  try {
+    var rg = doc.createRange();
+    rg.selectNodeContents(n);
+    var sel = doc.defaultView.getSelection();
+    sel.removeAllRanges(); sel.addRange(rg);
+  } catch (e) {}
+  var done = function () {
+    n.removeAttribute('contenteditable');
+    n.removeEventListener('blur', done);
+    editing = null;
+    var after = n.textContent;
+    if (after.trim() === before.trim()) return;
+    addPatch({ kind: 'text', sel: pathOf(n), before: before, after: after,
+               label: short(after, 40) || '(vide)' });
+  };
+  n.addEventListener('blur', done);
+}
+
+/* ----------------------------------------------------------- remplacer image */
+var imgTarget = null, imgIsImg = false;
+function pickImageFor(el, isImg) {
+  imgTarget = el; imgIsImg = isImg;
+  $('pickImg').value = '';
+  $('pickImg').click();
+}
+$('pickImg').addEventListener('change', function (e) {
+  var f = e.target.files[0];
+  if (!f || !imgTarget) return;
+  var r = new FileReader();
+  r.onload = function () {
+    var data = String(r.result);
+    var el = imgTarget, isImg = imgIsImg;
+    imgTarget = null;
+    if (isImg) {
+      el.src = data;
+      el.removeAttribute('srcset');
+    } else {
+      el.style.backgroundImage = 'url("' + data + '")';
+    }
+    addPatch({ kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
+               label: short(f.name, 34) });
+  };
+  r.readAsDataURL(f);
+});
+
+/* --------------------------------------------------------------- retouches */
+function addPatch(p) {
+  p.id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  // une nouvelle retouche au même endroit remplace la précédente
+  patches = patches.filter(function (o) { return !(o.sel === p.sel && o.kind === p.kind); });
+  patches.push(p);
+  renderList();
+  toast('Retouche enregistrée — pense à 💾 Exporter');
+}
+function removePatch(i) {
+  patches.splice(i, 1);
+  renderList();
+  render(true);            // on recharge pour revenir à l'état d'origine
+}
+function renderList() {
+  var l = $('list');
+  l.innerHTML = '';
+  patches.forEach(function (p, i) {
+    var d = document.createElement('div');
+    d.className = 'it';
+    d.innerHTML = '<i>' + (p.kind === 'text' ? '✏️' : '🖼') + '</i><span>' + esc(p.label) + '</span>';
+    var b = document.createElement('button');
+    b.textContent = '✕';
+    b.title = 'Annuler cette retouche';
+    b.addEventListener('click', function () { removePatch(i); });
+    d.appendChild(b);
+    l.appendChild(d);
+  });
+  $('count').textContent = patches.length ? patches.length + ' retouche(s)' : 'aucune retouche';
+  $('undo').disabled = !patches.length;
+  $('save').disabled = false;
+}
+
+/* --------------------------------------------------------------- les modes */
+function setMode(m) {
+  mode = m;
+  ['mText', 'mImg', 'mView'].forEach(function (id) { $(id).classList.remove('on'); });
+  $({ text: 'mText', img: 'mImg', view: 'mView' }[m]).classList.add('on');
+  if (doc && doc.body) {
+    doc.body.classList.toggle('pk-text', m === 'text');
+    doc.body.classList.toggle('pk-img', m === 'img');
+  }
+  var h = $('hint');
+  h.classList.toggle('hidden', m === 'view');
+  if (m === 'text') h.textContent = '✏️ Clique un texte pour le réécrire — Échap pour valider';
+  if (m === 'img') h.textContent = '🖼 Clique une image pour la remplacer par un fichier de ton disque';
+  $('help').innerHTML = m === 'view'
+    ? 'Mode aperçu : la page se comporte normalement, tu peux cliquer ses boutons et vérifier tes retouches.'
+    : (m === 'text'
+      ? 'Clique n’importe quel texte de la page et réécris-le. Un clic ailleurs (ou Échap) valide.'
+      : 'Clique une image pour la remplacer. Les fonds en image se remplacent aussi.');
+}
+
+/* ------------------------------------------------------------------ export */
+function exportFile() {
+  var data = JSON.stringify(patches).replace(/<\//g, '<\\/');
+  var run = "(function(){var D=document.getElementById('" + MARK + "-data');if(!D)return;" +
+    "var P=[];try{P=JSON.parse(D.textContent)||[]}catch(e){return}" +
+    "var busy=false;" +
+    "function ap(){if(busy)return;busy=true;P.forEach(function(p){var n;try{n=document.querySelector(p.sel)}catch(e){return}" +
+    "if(!n)return;" +
+    "if(p.kind==='text'){if(n.dataset.pkEdited===p.id||!p.before||n.textContent.trim()===p.before.trim()){" +
+    "n.textContent=p.after;n.dataset.pkEdited=p.id}}" +
+    "else if(p.kind==='img'&&n.tagName==='IMG'){if(n.src!==p.after){n.removeAttribute('srcset');n.src=p.after}}" +
+    "else if(p.kind==='bg'){var u='url(\"'+p.after+'\")';if(n.style.backgroundImage!==u)n.style.backgroundImage=u}});" +
+    "busy=false}" +
+    "ap();if(document.readyState!=='complete')window.addEventListener('load',ap);" +
+    "var t=null;new MutationObserver(function(){clearTimeout(t);t=setTimeout(ap,60)})" +
+    ".observe(document.documentElement,{childList:true,subtree:true});" +
+    "[120,400,1200,3000].forEach(function(d){setTimeout(ap,d)})})();";
+
+  var block = '\n<!--' + MARK + '-->\n' +
+    '<script id="' + MARK + '-data" type="application/json">' + data + '<\/script>\n' +
+    '<script id="' + MARK + '-run">' + run + '<\/script>\n' +
+    '<!--/' + MARK + '-->\n';
+
+  var out;
+  var i = src.lastIndexOf('</body>');
+  if (i < 0) i = src.lastIndexOf('</html>');
+  out = i < 0 ? src + block : src.slice(0, i) + block + src.slice(i);
+
+  var name = fileName.replace(/\.html?$/i, '') + ' - modifie.html';
+  var blob = new Blob([out], { type: 'text/html' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  toast('Fichier exporté — tu peux le redéposer ici plus tard pour continuer');
+}
+
+/* ------------------------------------------------------------- branchements */
+$('drop').addEventListener('click', function () { $('pick').click(); });
+$('pick').addEventListener('change', function (e) { openFile(e.target.files[0]); });
+['dragenter', 'dragover'].forEach(function (ev) {
+  $('drop').addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.add('over'); });
+});
+['dragleave', 'drop'].forEach(function (ev) {
+  $('drop').addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.remove('over'); });
+});
+$('drop').addEventListener('drop', function (e) {
+  if (e.dataTransfer && e.dataTransfer.files.length) openFile(e.dataTransfer.files[0]);
+});
+window.addEventListener('dragover', function (e) { e.preventDefault(); });
+window.addEventListener('drop', function (e) {
+  e.preventDefault();
+  if (!$('home').classList.contains('hidden') && e.dataTransfer && e.dataTransfer.files.length)
+    openFile(e.dataTransfer.files[0]);
+});
+
+$('mText').addEventListener('click', function () { setMode('text'); });
+$('mImg').addEventListener('click', function () { setMode('img'); });
+$('mView').addEventListener('click', function () { setMode('view'); });
+$('save').addEventListener('click', exportFile);
+$('reload').addEventListener('click', function () { render(); toast('Page rechargée, retouches rejouées'); });
+$('undo').addEventListener('click', function () {
+  if (!patches.length) return;
+  patches.pop();
+  renderList();
+  render(true);
+});
+document.addEventListener('keydown', function (e) {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); $('undo').click(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); exportFile(); }
+});
+window.addEventListener('beforeunload', function (e) {
+  if (patches.length) { e.preventDefault(); e.returnValue = ''; }
+});
+})();
+</script>
+</body>
+</html>
