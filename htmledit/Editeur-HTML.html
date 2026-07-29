@@ -80,6 +80,20 @@ button{font:inherit;cursor:pointer}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 #busy{position:fixed;inset:0;background:rgba(10,12,17,.72);display:flex;align-items:center;
       justify-content:center;z-index:70;font-size:15px}
+/* petit choix quand on vise une zone qui ne contient pas encore d'image */
+#ask{position:fixed;inset:0;background:rgba(10,12,17,.66);display:flex;align-items:center;
+     justify-content:center;z-index:80}
+#askIn{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;
+       max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+#askIn h3{margin:0 0 6px;font-size:16px}
+#askIn p{margin:0 0 14px;color:var(--muted);font-size:13px}
+#askIn .row{display:flex;flex-direction:column;gap:8px}
+#askIn button{text-align:left;padding:11px 13px;border-radius:10px;border:1px solid var(--line);
+              background:var(--panel2);color:var(--fg);font-size:13.5px}
+#askIn button:hover{background:var(--panel3);border-color:var(--ok)}
+#askIn button b{display:block}
+#askIn button span{color:var(--muted);font-size:12px}
+#askIn .cancel{background:none;border:none;color:var(--muted);text-align:center;margin-top:8px}
 </style>
 </head>
 <body>
@@ -134,6 +148,17 @@ button{font:inherit;cursor:pointer}
 </div>
 
 <div id="toast"></div>
+<div id="ask" class="hidden"><div id="askIn">
+  <h3>Cette zone ne contient pas d’image</h3>
+  <p id="askWhat"></p>
+  <div class="row">
+    <button id="askCover"><b>Mettre l’image à la place du contenu</b>
+      <span>l’image remplit la zone, le texte dessous est masqué — pour une pastille de personnage</span></button>
+    <button id="askBg"><b>Mettre l’image en fond</b>
+      <span>le texte et les éléments actuels restent visibles par-dessus</span></button>
+  </div>
+  <button class="cancel" id="askNo">Annuler</button>
+</div></div>
 <div id="busy" class="hidden">Chargement de ta page…</div>
 <input type="file" id="pick" accept=".html,.htm" class="hidden">
 <input type="file" id="pickImg" accept="image/*" class="hidden">
@@ -253,15 +278,9 @@ function applyAll() {
     try { n = doc.querySelector(p.sel); } catch (e) { return; }
     if (!n) return;
     if (p.kind === 'text') {
-      if (n.dataset.pkEdited === p.id || !p.before || n.textContent.trim() === p.before.trim()) {
-        n.textContent = p.after;
-        n.dataset.pkEdited = p.id;
-      }
-    } else if (p.kind === 'img' && n.tagName === 'IMG') {
-      n.src = p.after;
-    } else if (p.kind === 'bg') {
-      n.style.backgroundImage = 'url("' + p.after + '")';
-    }
+      if (n.dataset.pkEdited === p.id || !p.before || n.textContent.trim() === p.before.trim())
+        applyOne(p, n);
+    } else applyOne(p, n);
   });
 }
 
@@ -272,12 +291,15 @@ function injectUi() {
   st.textContent =
     'body.pk-text *:not(html):not(body):hover{outline:2px solid rgba(91,140,255,.9)!important;' +
     'outline-offset:1px;cursor:text!important}' +
-    'body.pk-img img:hover,body.pk-img .pk-bg:hover{outline:3px solid rgba(62,207,142,.95)!important;' +
-    'outline-offset:2px;cursor:copy!important}' +
-    '[contenteditable=true]{outline:2px solid #ffc157!important;background:rgba(255,193,87,.12)!important}';
+    'body.pk-img{cursor:copy}' +
+    '.pk-hi-img{outline:3px solid rgba(62,207,142,.95)!important;outline-offset:2px}' +
+    '.pk-hi-zone{outline:2px dashed rgba(255,193,87,.95)!important;outline-offset:2px}' +
+    '[contenteditable=true]{outline:2px solid #ffc157!important;background:rgba(255,193,87,.12)!important}' +
+    '[data-pk-hide]>*{visibility:hidden!important}';
   (doc.head || doc.documentElement).appendChild(st);
 
   doc.addEventListener('click', onClick, true);
+  doc.addEventListener('mousemove', onMove, true);
   doc.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && editing) { editing.blur(); }
   }, true);
@@ -298,6 +320,34 @@ function bgOf(n) {
   return v && v !== 'none' && /url\(/.test(v) ? v : null;
 }
 
+/* Ce que vise la souris en mode Images : une vraie image, un fond, ou — à
+   défaut — la zone la plus proche, pour y POSER une image (une pastille de
+   personnage n'en contient aucune : il n'y a rien à « remplacer »). */
+var ZONES = 'button,a,li,figure,div,section,header,footer,article,aside,td,th,nav,main,label';
+function targetAt(t) {
+  if (!t || t.nodeType !== 1) return null;
+  var img = t.closest ? t.closest('img') : null;
+  if (img) return { el: img, kind: 'img' };
+  var q = t;
+  while (q && q.nodeType === 1 && q !== doc.body) {
+    if (bgOf(q)) return { el: q, kind: 'bg' };
+    q = q.parentElement;
+  }
+  var z = t.closest ? t.closest(ZONES) : null;
+  if (z && z !== doc.body) return { el: z, kind: 'zone' };
+  return null;
+}
+var hiNode = null;
+function onMove(e) {
+  if (mode !== 'img') return;
+  var t = targetAt(e.target);
+  var n = t ? t.el : null;
+  if (n === hiNode) return;
+  if (hiNode) hiNode.classList.remove('pk-hi-img', 'pk-hi-zone');
+  hiNode = n;
+  if (n) n.classList.add(t.kind === 'zone' ? 'pk-hi-zone' : 'pk-hi-img');
+}
+
 function onClick(e) {
   if (mode === 'view') return;
   var t = e.target;
@@ -308,14 +358,37 @@ function onClick(e) {
     e.preventDefault(); e.stopPropagation();
     startEdit(n);
   } else if (mode === 'img') {
-    var img = t.closest ? t.closest('img') : null;
-    var el = img;
-    if (!el) { var q = t; while (q && q.nodeType === 1 && !bgOf(q)) q = q.parentElement; el = q && q.nodeType === 1 ? q : null; }
-    if (!el) return;
+    var hit = targetAt(t);
+    if (!hit) return;
     e.preventDefault(); e.stopPropagation();
-    pickImageFor(el, !!img);
+    if (hit.kind === 'zone') askForZone(hit.el);
+    else pickImageFor(hit.el, hit.kind === 'img');
   }
 }
+
+/* Poser une image dans une zone qui n'en a pas : en fond, ou à la place du
+   contenu (la lettre d'une pastille disparaît alors sous l'image). */
+var askEl = null;
+function askForZone(el) {
+  askEl = el;
+  var r = el.getBoundingClientRect();
+  var quoi = el.tagName.toLowerCase();
+  var txt = short(el.textContent, 24);
+  $('askWhat').textContent = 'Zone visée : <' + quoi + '>' + (txt ? ' « ' + txt + ' »' : '') +
+    ', ' + Math.round(r.width) + '×' + Math.round(r.height) + ' px.';
+  $('ask').classList.remove('hidden');
+}
+function closeAsk() { $('ask').classList.add('hidden'); askEl = null; }
+$('askNo').addEventListener('click', closeAsk);
+$('ask').addEventListener('click', function (e) { if (e.target === $('ask')) closeAsk(); });
+$('askBg').addEventListener('click', function () {
+  var el = askEl; closeAsk();
+  if (el) pickImageFor(el, false, false);
+});
+$('askCover').addEventListener('click', function () {
+  var el = askEl; closeAsk();
+  if (el) pickImageFor(el, false, true);
+});
 
 /* ------------------------------------------------------------ édition texte */
 function startEdit(n) {
@@ -343,9 +416,9 @@ function startEdit(n) {
 }
 
 /* ----------------------------------------------------------- remplacer image */
-var imgTarget = null, imgIsImg = false;
-function pickImageFor(el, isImg) {
-  imgTarget = el; imgIsImg = isImg;
+var imgTarget = null, imgIsImg = false, imgHide = false;
+function pickImageFor(el, isImg, hide) {
+  imgTarget = el; imgIsImg = isImg; imgHide = !!hide;
   $('pickImg').value = '';
   $('pickImg').click();
 }
@@ -381,8 +454,8 @@ function collectMedia() {
     out.push({ sel: sel, kind: 'img', node: im, name: nameOf(im), thumb: thumbOf(im) });
   });
   // fonds en image : on ne balaie que ce qui est raisonnable
-  var all = doc.querySelectorAll('div,section,header,footer,a,span,li,figure');
-  for (var i = 0; i < all.length && i < 3000; i++) {
+  var all = doc.querySelectorAll('div,section,header,footer,a,span,li,figure,button,main,article,aside,td,nav,h1,h2,h3,p');
+  for (var i = 0; i < all.length && i < 6000; i++) {
     var n = all[i];
     if (!bgOf(n)) continue;
     var s2 = pathOf(n);
@@ -435,20 +508,33 @@ $('pickImg').addEventListener('change', function (e) {
   var r = new FileReader();
   r.onload = function () {
     var data = String(r.result);
-    var el = imgTarget, isImg = imgIsImg;
+    var el = imgTarget, isImg = imgIsImg, hide = imgHide;
     imgTarget = null;
-    if (isImg) {
-      el.src = data;
-      el.removeAttribute('srcset');
-    } else {
-      el.style.backgroundImage = 'url("' + data + '")';
-    }
-    addPatch({ kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
-               label: short(f.name, 34) });
+    var p = { kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
+              hide: hide || undefined, label: short(f.name, 34) };
+    applyOne(p, el);
+    addPatch(p);
     if (mode === 'img') renderGallery();
   };
   r.readAsDataURL(f);
 });
+
+/* Applique une retouche à un élément déjà trouvé. */
+function applyOne(p, n) {
+  if (p.kind === 'text') {
+    n.textContent = p.after;
+    n.dataset.pkEdited = p.id || '1';
+  } else if (p.kind === 'img' && n.tagName === 'IMG') {
+    n.removeAttribute('srcset');
+    n.src = p.after;
+  } else if (p.kind === 'bg') {
+    n.style.backgroundImage = 'url("' + p.after + '")';
+    n.style.backgroundSize = 'cover';
+    n.style.backgroundPosition = 'center';
+    n.style.backgroundRepeat = 'no-repeat';
+    if (p.hide) n.setAttribute('data-pk-hide', '1');
+  }
+}
 
 /* --------------------------------------------------------------- retouches */
 function addPatch(p) {
@@ -491,6 +577,7 @@ function setMode(m) {
   if (doc && doc.body) {
     doc.body.classList.toggle('pk-text', m === 'text');
     doc.body.classList.toggle('pk-img', m === 'img');
+    if (hiNode) { hiNode.classList.remove('pk-hi-img', 'pk-hi-zone'); hiNode = null; }
   }
   var h = $('hint');
   h.classList.toggle('hidden', m === 'view');
@@ -502,8 +589,10 @@ function setMode(m) {
     ? 'Mode aperçu : la page se comporte normalement, tu peux cliquer ses boutons et vérifier tes retouches.'
     : (m === 'text'
       ? 'Clique n’importe quel texte de la page et réécris-le. Un clic ailleurs (ou Échap) valide.'
-      : 'Dans un carrousel, les images sont empilées : passe par la liste ci-dessus pour ' +
-        'atteindre celles qui ne sont pas au-dessus de la pile.');
+      : 'Cadre <b style="color:#3ecf8e">vert</b> : une image, clic = remplacer. ' +
+        'Cadre <b style="color:#ffc157">orange pointillé</b> : une zone sans image ' +
+        '(pastille, bloc) — clic = y poser une image. Dans un carrousel, les images ' +
+        'sont empilées : passe par la liste ci-dessus.');
 }
 
 /* ------------------------------------------------------------------ export */
@@ -517,8 +606,13 @@ function exportFile() {
     "if(p.kind==='text'){if(n.dataset.pkEdited===p.id||!p.before||n.textContent.trim()===p.before.trim()){" +
     "n.textContent=p.after;n.dataset.pkEdited=p.id}}" +
     "else if(p.kind==='img'&&n.tagName==='IMG'){if(n.src!==p.after){n.removeAttribute('srcset');n.src=p.after}}" +
-    "else if(p.kind==='bg'){var u='url(\"'+p.after+'\")';if(n.style.backgroundImage!==u)n.style.backgroundImage=u}});" +
+    "else if(p.kind==='bg'){var u='url(\"'+p.after+'\")';if(n.style.backgroundImage!==u){" +
+    "n.style.backgroundImage=u;n.style.backgroundSize='cover';n.style.backgroundPosition='center';" +
+    "n.style.backgroundRepeat='no-repeat'}if(p.hide&&!n.hasAttribute('data-pk-hide'))n.setAttribute('data-pk-hide','1')}});" +
     "busy=false}" +
+    "if(!document.getElementById('" + MARK + "-css')){var s=document.createElement('style');" +
+    "s.id='" + MARK + "-css';s.textContent='[data-pk-hide]>*{visibility:hidden!important}';" +
+    "(document.head||document.documentElement).appendChild(s)}" +
     "ap();if(document.readyState!=='complete')window.addEventListener('load',ap);" +
     "var t=null;new MutationObserver(function(){clearTimeout(t);t=setTimeout(ap,60)})" +
     ".observe(document.documentElement,{childList:true,subtree:true});" +

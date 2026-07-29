@@ -52,6 +52,23 @@ page** — visibles, cachées sous la pile, hors écran ou pas encore chargées.
 Clique une vignette : l'outil t'emmène à l'image (elle clignote en vert) et
 ouvre le sélecteur de fichier. Les images déjà remplacées sont marquées ✓.
 
+## Poser une image là où il n'y en a pas
+
+Certaines zones n'ont **aucune image à remplacer** : une pastille de personnage,
+c'est souvent juste une lettre sur un fond de couleur. En mode **🖼 Images**, la
+surbrillance te dit ce que tu vises :
+
+- **cadre vert plein** → une image : clic = la remplacer ;
+- **cadre orange pointillé** → une zone sans image (pastille, bloc, bandeau) :
+  clic = **y poser une image**, avec deux façons au choix :
+  - **à la place du contenu** — l'image remplit la zone et ce qu'il y avait
+    dedans (la lettre « P ») est masqué. C'est le choix pour transformer une
+    pastille en portrait ;
+  - **en fond** — l'image se place derrière, le texte reste lisible par-dessus.
+    Pratique pour un bandeau ou une carte.
+
+L'image est cadrée en *cover* (elle remplit sans se déformer, quitte à rogner).
+
 ## Où vont les images ? (et le poids du fichier)
 
 Chaque image que tu déposes est **encodée dans le HTML lui-même**, en base64 :
