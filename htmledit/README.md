@@ -43,6 +43,35 @@ Une retouche de texte ne s'applique que si le texte d'origine est encore là :
 si tu remplaces la maquette par une nouvelle version où ce texte a changé, la
 retouche est simplement ignorée au lieu d'écraser le nouveau contenu.
 
+## Carrousels et images empilées
+
+Dans un carrousel, les images sont **superposées au même endroit** et une seule
+est visible : un clic dans la page n'atteint jamais que celle du dessus. En
+mode **🖼 Images**, le panneau de droite liste donc **toutes les images de la
+page** — visibles, cachées sous la pile, hors écran ou pas encore chargées.
+Clique une vignette : l'outil t'emmène à l'image (elle clignote en vert) et
+ouvre le sélecteur de fichier. Les images déjà remplacées sont marquées ✓.
+
+## Où vont les images ? (et le poids du fichier)
+
+Chaque image que tu déposes est **encodée dans le HTML lui-même**, en base64 :
+pas de dossier d'images à côté, le fichier exporté se suffit à lui-même. Tu le
+copies sur le serveur, tu l'envoies par mail, tu le lis hors ligne — il marche
+tout seul.
+
+Conséquence à connaître : **le fichier grossit d'environ 1,37 × le poids de tes
+images**. Dix visuels de 500 Ko, c'est ~7 Mo de HTML. Deux conseils :
+
+- réduis tes planches avant de les déposer (1600 px de large suffisent
+  largement pour un écran) ;
+- si ta maquette d'origine chargeait ses images depuis un dossier voisin
+  (`assets/…`), les images que tu remplaces deviennent **embarquées**, donc
+  autonomes — c'est un gain, mais le fichier s'alourdit d'autant.
+
+Les images que tu **ne touches pas** restent exactement comme elles étaient
+dans ta maquette : embarquées si elles l'étaient, dans leur dossier si elles
+l'étaient. L'outil n'y touche pas.
+
 ## Bon à savoir
 
 - Les images que tu déposes sont **embarquées dans le fichier** (en base64) :

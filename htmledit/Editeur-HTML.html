@@ -57,6 +57,20 @@ button{font:inherit;cursor:pointer}
 #list .it button:hover{color:#ff8a8a}
 #list .it i{font-style:normal}
 
+/* galerie : toutes les images de la page, même celles empilées dans un
+   carrousel ou hors écran — c'est le seul moyen de les atteindre toutes */
+#gal{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0 14px}
+#gal .g{background:var(--panel2);border:1px solid transparent;border-radius:9px;padding:6px;
+        cursor:pointer;text-align:left;color:var(--fg);font:inherit;overflow:hidden}
+#gal .g:hover{border-color:var(--ok);background:var(--panel3)}
+#gal .g .box{height:52px;border-radius:6px;background:#0c0e14 center/contain no-repeat;
+             display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px}
+#gal .g .nm{font-size:11px;color:var(--muted);margin-top:4px;overflow:hidden;
+            text-overflow:ellipsis;white-space:nowrap}
+#gal .g.done{border-color:var(--ok)}
+#gal .g.done .nm{color:var(--ok)}
+#galInfo{color:var(--muted);font-size:12px;margin:2px 0 0}
+
 #hint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(20,22,30,.94);
       border:1px solid var(--line);color:var(--fg);padding:8px 16px;border-radius:20px;font-size:13px;
       pointer-events:none;z-index:5;box-shadow:0 8px 26px rgba(0,0,0,.5)}
@@ -108,6 +122,11 @@ button{font:inherit;cursor:pointer}
     <div id="hint" class="hidden"></div>
   </div>
   <aside id="side">
+    <div id="galBox" class="hidden">
+      <h3>Images de la page</h3>
+      <p id="galInfo"></p>
+      <div id="gal"></div>
+    </div>
     <h3>Mes retouches</h3>
     <div id="list"></div>
     <p class="help" id="help"></p>
@@ -330,6 +349,86 @@ function pickImageFor(el, isImg) {
   $('pickImg').value = '';
   $('pickImg').click();
 }
+
+/* ---------------------------------------------- galerie de toutes les images
+   Un carrousel empile ses images au même endroit (une seule visible) : au
+   clic, on n'attrape jamais que celle du dessus. La galerie les liste TOUTES,
+   y compris celles hors écran ou pas encore chargées. */
+function thumbOf(im) {
+  try {
+    if (!im.complete || !im.naturalWidth) return '';
+    var w = 96, h = Math.max(1, Math.round(w * im.naturalHeight / im.naturalWidth));
+    var c = doc.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(im, 0, 0, w, h);
+    return c.toDataURL('image/jpeg', 0.7);
+  } catch (e) { return ''; }
+}
+function nameOf(im) {
+  if (im.alt && im.alt.trim()) return im.alt.trim();
+  var s = im.getAttribute('src') || '';
+  if (/^(blob|data):/.test(s)) return '';
+  var m = s.split(/[\\/]/).pop();
+  return m ? decodeURIComponent(m).slice(0, 30) : '';
+}
+function collectMedia() {
+  if (!doc) return [];
+  var out = [], seen = {};
+  Array.prototype.forEach.call(doc.querySelectorAll('img'), function (im) {
+    var sel = pathOf(im);
+    if (seen[sel]) return;
+    seen[sel] = 1;
+    out.push({ sel: sel, kind: 'img', node: im, name: nameOf(im), thumb: thumbOf(im) });
+  });
+  // fonds en image : on ne balaie que ce qui est raisonnable
+  var all = doc.querySelectorAll('div,section,header,footer,a,span,li,figure');
+  for (var i = 0; i < all.length && i < 3000; i++) {
+    var n = all[i];
+    if (!bgOf(n)) continue;
+    var s2 = pathOf(n);
+    if (seen[s2]) continue;
+    seen[s2] = 1;
+    out.push({ sel: s2, kind: 'bg', node: n, name: 'fond', thumb: '' });
+  }
+  return out;
+}
+function renderGallery() {
+  var box = $('gal');
+  box.innerHTML = '';
+  var media = collectMedia();
+  $('galInfo').textContent = media.length
+    ? media.length + ' image(s) trouvée(s), carrousels compris — clique pour remplacer'
+    : 'Aucune image détectée sur cette page.';
+  media.forEach(function (m, i) {
+    var done = patches.some(function (p) { return p.sel === m.sel; });
+    var b = document.createElement('button');
+    b.className = 'g' + (done ? ' done' : '');
+    var vis = document.createElement('div');
+    vis.className = 'box';
+    if (m.thumb) vis.style.backgroundImage = 'url("' + m.thumb + '")';
+    else vis.textContent = m.kind === 'bg' ? 'fond' : 'image ' + (i + 1);
+    var nm = document.createElement('div');
+    nm.className = 'nm';
+    nm.textContent = (done ? '✓ ' : '') + (m.name || 'Image ' + (i + 1));
+    b.appendChild(vis); b.appendChild(nm);
+    b.title = m.name || ('Image ' + (i + 1));
+    b.addEventListener('click', function () {
+      flash(m.node);
+      pickImageFor(m.node, m.kind === 'img');
+    });
+    box.appendChild(b);
+  });
+}
+/* montre où se trouve l'image dans la page avant de la remplacer */
+function flash(n) {
+  try {
+    n.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    var old = n.style.outline, oldO = n.style.opacity;
+    n.style.outline = '3px solid #3ecf8e';
+    if (doc.defaultView.getComputedStyle(n).opacity === '0') n.style.opacity = '1';
+    setTimeout(function () { n.style.outline = old; n.style.opacity = oldO; }, 1200);
+  } catch (e) {}
+}
 $('pickImg').addEventListener('change', function (e) {
   var f = e.target.files[0];
   if (!f || !imgTarget) return;
@@ -346,6 +445,7 @@ $('pickImg').addEventListener('change', function (e) {
     }
     addPatch({ kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
                label: short(f.name, 34) });
+    if (mode === 'img') renderGallery();
   };
   r.readAsDataURL(f);
 });
@@ -395,12 +495,15 @@ function setMode(m) {
   var h = $('hint');
   h.classList.toggle('hidden', m === 'view');
   if (m === 'text') h.textContent = '✏️ Clique un texte pour le réécrire — Échap pour valider';
-  if (m === 'img') h.textContent = '🖼 Clique une image pour la remplacer par un fichier de ton disque';
+  if (m === 'img') h.textContent = '🖼 Clique une image, ou choisis-la dans la liste à droite';
+  $('galBox').classList.toggle('hidden', m !== 'img');
+  if (m === 'img') renderGallery();
   $('help').innerHTML = m === 'view'
     ? 'Mode aperçu : la page se comporte normalement, tu peux cliquer ses boutons et vérifier tes retouches.'
     : (m === 'text'
       ? 'Clique n’importe quel texte de la page et réécris-le. Un clic ailleurs (ou Échap) valide.'
-      : 'Clique une image pour la remplacer. Les fonds en image se remplacent aussi.');
+      : 'Dans un carrousel, les images sont empilées : passe par la liste ci-dessus pour ' +
+        'atteindre celles qui ne sont pas au-dessus de la pile.');
 }
 
 /* ------------------------------------------------------------------ export */
