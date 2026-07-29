@@ -185,6 +185,12 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   - `scaleText()` calcule la police d'après la hauteur du cadre avec un
     facteur par style (les styles à fond ont leur propre marge intérieure), ou
     d'après `el.size` s'il est réglé.
+  - survol personnalisé : `el.bhov` (shadow|lift|grow|none, absent = selon le
+    style) pose `bh-*` sur le cadre, `el.hovCol` pose `.hovcol` + `--hc`. Les
+    règles `bh-*`/`hovcol` sont APRÈS les survols `bs-*` dans la feuille et
+    plus spécifiques : elles priment. Les styles sans fond (plain, link)
+    prennent l'ombre en `drop-shadow` (suit les lettres), pas en `box-shadow`
+    (rectangle invisible).
   - le double-clic pour réécrire un texte est détecté **à la main**
     (`lastTap`) : `pointerdown` fait `preventDefault()` pour le glissement, ce
     qui supprime le `dblclick` du navigateur, et le premier clic redessine de
@@ -344,7 +350,9 @@ scénarios :
     en WebP en gardant ses réglages, une image déposée est allégée ;
 13. brouillon de secours : fermer sans 💾 puis rouvrir → reprise proposée avec
     la date, le travail revient marqué non enregistré, 💾 purge le brouillon
-    (pas de fausse alerte ensuite), « Ignorer » l'oublie pour de bon.
+    (pas de fausse alerte ensuite), « Ignorer » l'oublie pour de bon ;
+14. survol des boutons : effet choisi (ombre, soulève, grossit, aucun) +
+    couleur du texte au survol, retour au repos, réglage enregistré.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
 balise `#cfg` du document garde la config d'ORIGINE, l'état vivant est dans
 la fermeture JS — vérifier via le DOM, ou après un enregistrement.

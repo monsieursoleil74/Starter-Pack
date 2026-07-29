@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.6.0';
+var APP_VERSION = '4.7.0';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {
@@ -207,6 +207,25 @@ body.editing .navzone,#stage.onhidden .navzone{display:none}\
 .bs-bloc{width:100%;height:100%;padding:.2em .7em;background:var(--bc);color:var(--bt);box-shadow:0 .12em .5em rgba(0,0,0,.28)}\
 .act .bs-bloc:hover{filter:brightness(1.1)}\
 .act .btn-in:active{transform:translateY(.03em) scale(.985)}\
+/* réglages de survol du bouton — posés sur l'élément, ils priment sur le\
+   comportement par défaut du style (spécificité + ordre dans la feuille).\
+   Les styles sans fond (texte seul, lien) prennent une ombre qui suit les\
+   lettres (drop-shadow), pas le rectangle invisible autour. */\
+.act.bh-shadow .btn-in:hover{box-shadow:0 .45em 1.2em rgba(0,0,0,.55)}\
+.act.bh-shadow .bs-plain:hover,.act.bh-shadow .bs-link:hover{box-shadow:none;transform:none;filter:drop-shadow(0 .28em .45em rgba(0,0,0,.65))}\
+.act.bh-lift .btn-in:hover{transform:translateY(-.14em);box-shadow:0 .5em 1.2em rgba(0,0,0,.5)}\
+.act.bh-lift .bs-plain:hover,.act.bh-lift .bs-link:hover{box-shadow:none;filter:drop-shadow(0 .3em .5em rgba(0,0,0,.6))}\
+.act.bh-grow .btn-in:hover{transform:scale(1.07)}\
+.act.bh-grow .bs-plain:hover,.act.bh-grow .bs-link:hover{filter:none}\
+.bh-none .bs-plain:hover{transform:none;filter:none}\
+.bh-none .bs-link:hover{filter:none}\
+.bh-none .bs-link:hover::after{transform:scaleX(0)}\
+.bh-none .bs-ghost:hover{background:transparent;color:var(--bc);box-shadow:none}\
+.bh-none .bs-pill:hover{transform:none;box-shadow:0 .12em .5em rgba(0,0,0,.28);filter:none}\
+.bh-none .bs-soft:hover{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.26);transform:none}\
+.bh-none .bs-bloc:hover{filter:none}\
+/* couleur du texte au survol : suit aussi le soulignement du style lien */\
+.act.hovcol .btn-in:hover{color:var(--hc)}\
 body.editing .el{outline:1px dashed rgba(91,140,255,.55);cursor:grab}\
 /* en édition les zones invisibles se voient : un voile bleu + une étiquette,\
    pour retrouver d'un coup d'œil ce qui a déjà été posé */\
@@ -673,6 +692,9 @@ function makeBtn(d, el, txt) {
   else if (el.radius != null && !BTN_FLAT[st] && st !== 'pill')
     sp.style.borderRadius = el.radius + 'px';
   d.classList.add('hasbtn');
+  // survol personnalisé : effet choisi + couleur du texte
+  if (el.bhov && el.bhov !== 'auto') d.classList.add('bh-' + el.bhov);
+  if (el.hovCol) { d.classList.add('hovcol'); d.style.setProperty('--hc', el.hovCol); }
   // en lecture, seul le bouton visible réagit — pas le cadre autour de lui
   if (st !== 'bloc' && !editMode) { d.classList.add('hug'); d.hugNode = sp; }
   d.appendChild(sp);
@@ -1403,8 +1425,19 @@ function btnFields(el) {
       (el.size ? el.size + ' %' : 'auto') + '</span>' +
       '<input type="range" id="pBSize" min="0" max="16" step="0.5" value="' +
       (el.size || 0) + '"></label>';
+  h += '<label>Au survol<select id="pBHov">' +
+    opt('auto', 'Selon le style (défaut)', el.bhov || 'auto') +
+    opt('shadow', 'Ombre portée', el.bhov) +
+    opt('lift', 'Se soulève + ombre', el.bhov) +
+    opt('grow', 'Grossit', el.bhov) +
+    opt('none', 'Aucun effet', el.bhov) +
+    '</select></label>' +
+    '<label class="ck"><input type="checkbox" id="pHovColOn"' + (el.hovCol ? ' checked' : '') +
+    '><span>Le texte change de couleur au survol</span></label>' +
+    (el.hovCol ? '<label>Couleur au survol<input type="color" id="pHovCol" value="' + el.hovCol + '"></label>' : '');
   h += '<p class="muted">Le cadre ne sert qu’à placer le bouton : c’est le ' +
-    'texte qui prend la forme, et lui seul réagit au clic.</p>';
+    'texte qui prend la forme, et lui seul réagit au clic. Essaie le survol ' +
+    'dans 👁 Test.</p>';
   return h;
 }
 function actionFields(el) {
@@ -1955,6 +1988,14 @@ function bindElementFields(el) {
     delete el.radius;                 // chaque style a son arrondi naturel
   }, true);
   live('pBtnCol', function (e) { el.btnColor = e.target.value; });
+  set('pBHov', 'change', function (e) {
+    if (e.target.value === 'auto') delete el.bhov; else el.bhov = e.target.value;
+  });
+  set('pHovColOn', 'change', function (e) {
+    if (e.target.checked) el.hovCol = el.hovCol || '#ffd966';
+    else delete el.hovCol;
+  }, true);
+  live('pHovCol', function (e) { el.hovCol = e.target.value; });
   live('pBSize', function (e) {
     var v = parseFloat(e.target.value);
     if (v) el.size = v; else delete el.size;

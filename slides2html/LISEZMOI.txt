@@ -48,6 +48,9 @@ diapo (elle n'est jamais modifiee) et tu les places a la souris.
     Bandeau          - le seul qui remplit tout le cadre
   La couleur du texte s'adapte au fond (pas de blanc sur blanc), et seul
   le bouton visible est cliquable : plus de clic fantome a cote.
+  Le survol se regle : selon le style (defaut), ombre portee, se souleve,
+  grossit, ou aucun effet -- et le texte peut changer de couleur au
+  survol (le soulignement du style lien suit). Essaie dans le mode Test.
 - Image    : ajoute un logo, une capture, une photo. Tu peux aussi la
              deposer directement sur la diapo, ou la coller (Ctrl+V).
 - Texte    : couleur, taille, graisse, alignement, ombre, fond colore.

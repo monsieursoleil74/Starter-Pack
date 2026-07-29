@@ -137,6 +137,12 @@ Deux détails qui font la différence avec un PDF :
 **Taille du texte** est libre sur une zone (*auto* = calée sur la hauteur du
 cadre) : tu peux garder un grand cadre et un petit bouton dedans.
 
+Le **survol se règle aussi** : *Selon le style* (défaut), *Ombre portée*,
+*Se soulève + ombre*, *Grossit*, ou *Aucun effet* — et une case pour que **le
+texte change de couleur au survol** (le soulignement du style lien suit la
+même couleur). Sur *Texte seul* et *Lien souligné*, l'ombre épouse les lettres,
+pas le rectangle invisible autour. Essaie dans 👁 Test.
+
 ### Les trois modes
 
 | Mode | Comment | Ce que c'est |
