@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.7.0';
+var APP_VERSION = '4.8.0';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {
@@ -692,6 +692,7 @@ function makeBtn(d, el, txt) {
   else if (el.radius != null && !BTN_FLAT[st] && st !== 'pill')
     sp.style.borderRadius = el.radius + 'px';
   d.classList.add('hasbtn');
+  if (el.font) d.style.fontFamily = '"' + el.font + '", sans-serif';
   // survol personnalisé : effet choisi + couleur du texte
   if (el.bhov && el.bhov !== 'auto') d.classList.add('bh-' + el.bhov);
   if (el.hovCol) { d.classList.add('hovcol'); d.style.setProperty('--hc', el.hovCol); }
@@ -718,6 +719,7 @@ function buildEl(el, i, depth, box) {
     d.appendChild(im);
   } else if (el.type === 'text') {
     var tBtn = el.action && el.action !== 'none' ? btnStyle(el) : null;
+    if (el.font) d.style.fontFamily = '"' + el.font + '", sans-serif';
     d.style.color = el.color || '#ffffff';
     d.style.fontWeight = el.weight || 600;
     d.style.justifyContent = el.align === 'center' ? 'center' : el.align === 'right' ? 'flex-end' : 'flex-start';
@@ -1003,6 +1005,7 @@ function attachEdit(d, i, el) {
     var p = relPct(e);
     drag = { mode: corner ? 'resize' : 'move', corner: corner, o: el, i: i,
              x0: p.x, y0: p.y, ox: el.x, oy: el.y, ow: el.w, oh: el.h, moved: false,
+             os: el.type === 'text' ? (el.size || 6) : 0,
              ratio: el.type === 'image' && el.h ? el.w / el.h : 0 };
     undoStack.push(snapshot());     // instantané pris avant le déplacement…
     redoStack.length = 0;
@@ -1127,6 +1130,11 @@ wrap.addEventListener('pointermove', function (e) {
     if (o.type !== 'text') o.h = r2(clamp(drag.oh + (p.y - drag.y0), 1, 160));
     if (drag.ratio && !e.shiftKey) o.h = r2(o.w / drag.ratio);
   }
+  // la poignée d'un texte règle aussi sa taille : la police suit la largeur
+  // du cadre, comme quand on étire un bloc de texte dans un logiciel de mise
+  // en page. Maintiens Shift pour ne changer que la largeur (retour à la ligne).
+  if (drag.mode === 'resize' && o.type === 'text' && drag.os && !e.shiftKey)
+    o.size = clamp(r2(drag.os * o.w / drag.ow), 1, 40);
   var node = nodes()[drag.i];
   if (node) setRect(node, o);
   $('floatbar').classList.add('hidden');
@@ -1396,6 +1404,28 @@ function pagesHint(el) {
     (ici ? '.' : ' — pas celle-ci, il s’affiche donc en transparence ici.');
 }
 
+/* Police d'un texte : celles relevées dans le pack (PDF + pptx) d'abord,
+   puis quelques valeurs sûres. La police choisie ne s'affiche chez le lecteur
+   que si elle est installée sur sa machine — dans un studio où tout le monde
+   a les mêmes polices, c'est le cas ; sinon repli propre sur du sans-serif. */
+function fontFields(el) {
+  var seen = {}, opts = [];
+  (META.fonts || []).forEach(function (f) {
+    if (!seen[f.toLowerCase()]) { seen[f.toLowerCase()] = 1; opts.push([f, f + ' — du pack']); }
+  });
+  [['Arial', 'Arial'], ['Georgia', 'Georgia'], ['Impact', 'Impact'],
+   ['Courier New', 'Courier New'], ['Trebuchet MS', 'Trebuchet MS']].forEach(function (p) {
+    if (!seen[p[0].toLowerCase()]) opts.push(p);
+  });
+  var h = '<label>Police<select id="pFont"><option value=""' + (el.font ? '' : ' selected') +
+    '>Par défaut (celle de l’outil)</option>';
+  opts.forEach(function (p) {
+    h += '<option value="' + escA(p[0]) + '" style="font-family:&quot;' + escA(p[0]) + '&quot;"' +
+      (el.font === p[0] ? ' selected' : '') + '>' + esc(p[1]) + '</option>';
+  });
+  return h + '</select></label>';
+}
+
 /* Apparence d'un élément cliquable. Le principe : la forme colle au texte,
    comme un bouton de site, plutôt qu'un rectangle plaqué par-dessus. */
 function btnFields(el) {
@@ -1423,8 +1453,8 @@ function btnFields(el) {
   if (zone)
     h += '<label>Taille du texte <span class="muted">' +
       (el.size ? el.size + ' %' : 'auto') + '</span>' +
-      '<input type="range" id="pBSize" min="0" max="16" step="0.5" value="' +
-      (el.size || 0) + '"></label>';
+      '<input type="range" id="pBSize" min="0" max="16" step="0.1" value="' +
+      (el.size || 0) + '"></label>' + fontFields(el);
   h += '<label>Au survol<select id="pBHov">' +
     opt('auto', 'Selon le style (défaut)', el.bhov || 'auto') +
     opt('shadow', 'Ombre portée', el.bhov) +
@@ -1718,8 +1748,11 @@ function renderProps() {
       '<label>Alignement<select id="pAlign">' +
       opt('left', 'Gauche', el.align) + opt('center', 'Centré', el.align) + opt('right', 'Droite', el.align) +
       '</select></label></div>' +
-      '<label>Taille du texte <span class="muted">' + (el.size || 6) + ' %</span>' +
-      '<input type="range" id="pSize" min="2" max="20" step="0.5" value="' + (el.size || 6) + '"></label>' +
+      '<label>Taille du texte <span class="muted">tire la poignée du cadre, ou :</span>' +
+      '<div class="grid2"><input type="range" id="pSize" min="1" max="30" step="0.1" value="' + (el.size || 6) +
+      '"><input type="number" id="pSizeN" min="1" max="40" step="0.1" value="' + (el.size || 6) +
+      '" style="max-width:74px"></div></label>' +
+      fontFields(el) +
       '<label>Graisse<select id="pWeight">' +
       opt('400', 'Normale', el.weight) + opt('600', 'Semi-grasse', el.weight) + opt('800', 'Grasse', el.weight) +
       '</select></label>' +
@@ -2006,7 +2039,21 @@ function bindElementFields(el) {
   live('pCol', function (e) { el.color = e.target.value; });
   live('pColor', function (e) { el.color = e.target.value; });
   live('pBg', function (e) { el.bg = e.target.value; });
-  live('pSize', function (e) { el.size = parseFloat(e.target.value); });
+  live('pSize', function (e) {
+    el.size = parseFloat(e.target.value);
+    var n = $('pSizeN');
+    if (n) n.value = el.size;
+  });
+  live('pSizeN', function (e) {
+    var v = parseFloat(e.target.value);
+    if (isNaN(v)) return;
+    el.size = clamp(v, 1, 40);
+    var n = $('pSize');
+    if (n) n.value = el.size;
+  });
+  set('pFont', 'change', function (e) {
+    if (e.target.value) el.font = e.target.value; else delete el.font;
+  });
   live('pRadius', function (e) { el.radius = parseInt(e.target.value, 10); });
   live('pOpacity', function (e) { el.opacity = parseInt(e.target.value, 10) / 100; });
   set('pAlign', 'change', function (e) { el.align = e.target.value; });

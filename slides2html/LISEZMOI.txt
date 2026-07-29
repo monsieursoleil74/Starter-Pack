@@ -53,8 +53,13 @@ diapo (elle n'est jamais modifiee) et tu les places a la souris.
   survol (le soulignement du style lien suit). Essaie dans le mode Test.
 - Image    : ajoute un logo, une capture, une photo. Tu peux aussi la
              deposer directement sur la diapo, ou la coller (Ctrl+V).
-- Texte    : couleur, taille, graisse, alignement, ombre, fond colore.
-             Double-clic sur le texte pour le reecrire directement.
+- Texte    : couleur, taille, graisse, alignement, ombre, fond colore,
+             police. TIRE LA POIGNEE D'ANGLE pour regler la taille
+             (Shift = largeur seule), ou le curseur / champ chiffre au
+             dixieme pres. La liste Police propose d'abord celles
+             relevees dans ton deck (PDF + pptx) -- affichees chez
+             l'animateur si elles sont installees sur son poste, sinon
+             repli propre. Double-clic pour reecrire le texte.
 - Forme    : rectangle ou ellipse, pour masquer, surligner, poser un
              fond derriere du texte.
 - Panneau  : une fenetre qui affiche UNE AUTRE DIAPO a l'interieur de

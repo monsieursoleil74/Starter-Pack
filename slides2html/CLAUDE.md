@@ -78,6 +78,15 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   bouton, son conteneur (la diapo ou le panneau). C'est ce qui permet à un
   texte de se réduire dans un panneau. La hauteur automatique n'est réécrite
   dans le modèle que pour les éléments de premier niveau (`top`).
+- **Taille d'un texte à la poignée** : le redimensionnement d'un texte règle
+  aussi `el.size` proportionnellement à la largeur (`drag.os`), Shift pour ne
+  changer que la largeur. Curseur au pas de 0,1 + champ numérique `pSizeN`
+  synchronisés. **Polices** : `meta.fonts` = familles relevées à la conversion
+  (PDF via `page.commonObjs.get(fontName).name` après `getTextContent`, pptx
+  via les attributs `typeface`, nettoyées par `cleanFont` — « ABCDEF+
+  OpenSans-Bold » → « Open Sans ») ; `el.font` pose un `font-family` avec
+  repli sans-serif. Rien n'est embarqué : la police doit être installée chez
+  le lecteur, c'est documenté et assumé (parc de studio homogène).
 - Les textes ont une **hauteur automatique** : `scaleText()` mesure le contenu
   et réécrit `el.h`. Le redimensionnement d'un texte ne touche donc que sa
   largeur. Taille de police et boutons sont exprimés en % de la hauteur de la
@@ -352,7 +361,10 @@ scénarios :
     la date, le travail revient marqué non enregistré, 💾 purge le brouillon
     (pas de fausse alerte ensuite), « Ignorer » l'oublie pour de bon ;
 14. survol des boutons : effet choisi (ombre, soulève, grossit, aucun) +
-    couleur du texte au survol, retour au repos, réglage enregistré.
+    couleur du texte au survol, retour au repos, réglage enregistré ;
+15. taille et police : poignée = taille du texte (Shift = largeur seule),
+    champ au dixième synchronisé avec le curseur, polices du deck détectées,
+    proposées, appliquées aux textes comme aux boutons, et enregistrées.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
 balise `#cfg` du document garde la config d'ORIGINE, l'état vivant est dans
 la fermeture JS — vérifier via le DOM, ou après un enregistrement.

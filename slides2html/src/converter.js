@@ -5,7 +5,7 @@
 (function () {
 'use strict';
 
-var APP_VERSION = '4.7.0';
+var APP_VERSION = '4.8.0';
 var $ = function (id) { return document.getElementById(id); };
 
 /* pdf.js a besoin d'un worker : on le sert depuis un blob, aucun fichier
@@ -138,9 +138,28 @@ async function pageZones(pdf, page, vp) {
    pdf.js sait où sont les glyphes : on reconstruit des lignes de texte avec
    leur boîte EXACTE. C'est ce qui permet de faire d'un texte le bouton
    lui-même, au lieu de la grande boîte de texte qui l'entoure. */
-async function pageTexts(page, vp) {
+/* « ABCDEF+OpenSans-BoldItalic » -> « Open Sans » : nom de famille propre,
+   tel qu'il est installé sur les postes. */
+function cleanFont(n) {
+  n = String(n || '').replace(/^[A-Z]{6}\+/, '').split(',')[0];
+  n = n.replace(/[-_ ]?(Regular|Bold|Italic|Oblique|Medium|Light|SemiBold|DemiBold|ExtraBold|Black|Thin|ExtraLight|Heavy|Book|Condensed)+$/i, '');
+  n = n.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\s+/g, ' ').trim();
+  return /^[\w &-]{2,40}$/.test(n) ? n : null;
+}
+
+async function pageTexts(page, vp, fontSet) {
   var tc;
   try { tc = await page.getTextContent(); } catch (e) { return []; }
+  // les vrais noms des polices : pdf.js les tient une fois le texte lu
+  if (fontSet) tc.items.forEach(function (it) {
+    if (!it.fontName || fontSet['#' + it.fontName]) return;
+    fontSet['#' + it.fontName] = 1;               // id interne déjà traité
+    try {
+      var f = page.commonObjs.get(it.fontName);
+      var n = f && cleanFont(f.name);
+      if (n) fontSet[n] = 1;
+    } catch (e) { /* police pas encore résolue : tant pis pour celle-ci */ }
+  });
   var lines = [];
   tc.items.forEach(function (it) {
     if (!it.str || !it.str.trim()) return;
@@ -305,6 +324,22 @@ function extractObjects(idx, count) {
   return out;
 }
 
+/* polices déclarées dans le .pptx : runs + thème */
+function pptxFonts(idx, set) {
+  var grab = function (doc) {
+    if (!doc) return;
+    localEls(doc, 'latin').forEach(function (l) {
+      var t = l.getAttribute('typeface');
+      if (t && t.charAt(0) !== '+') {
+        var n = cleanFont(t);
+        if (n) set[n] = 1;
+      }
+    });
+  };
+  idx.slidePaths.forEach(function (sp) { grab(sp ? idx.xml(sp) : null); });
+  grab(idx.xml('ppt/theme/theme1.xml'));
+}
+
 function extractNotes(idx, count) {
   var xml = idx.xml;
   var notes = [];
@@ -417,7 +452,7 @@ function mergeDeck(old, n, images, zones, notes, objects, ars) {
 
 /* ---------------- fabrication du HTML ---------------- */
 
-function buildHtml(title, images, zones, notes, objects, old, ars) {
+function buildHtml(title, images, zones, notes, objects, old, ars, fonts) {
   var cfg, media = {};
   if (old) {
     var m = mergeDeck(old, images.length, images, zones, notes, objects, ars);
@@ -452,6 +487,8 @@ function buildHtml(title, images, zones, notes, objects, old, ars) {
       })
     };
   }
+  // polices relevées à CETTE conversion : on remplace, sauf si rien trouvé
+  if (fonts && fonts.length) cfg.meta.fonts = fonts;
   // identité + date : le brouillon de secours de l'éditeur s'y compare —
   // une reconversion est plus récente que tout brouillon antérieur
   cfg.meta.saved = Date.now();
@@ -492,7 +529,7 @@ async function convert() {
     var n = pdf.numPages;
     log(n + ' diapo(s) à rendre…');
 
-    var images = [], zones = [], ars = [], texts = [], nz = 0, nt = 0;
+    var images = [], zones = [], ars = [], texts = [], nz = 0, nt = 0, fontSet = {};
     for (var i = 1; i <= n; i++) {
       var page = await pdf.getPage(i);
       var scale = state.width / page.getViewport({ scale: 1 }).width;
@@ -505,7 +542,7 @@ async function convert() {
       var z = await pageZones(pdf, page, vp);
       nz += z.length;
       zones.push(z);
-      var tl = await pageTexts(page, vp);
+      var tl = await pageTexts(page, vp, fontSet);
       nt += tl.length;
       texts.push(tl);
       progress(i / n * 0.92);
@@ -533,6 +570,7 @@ async function convert() {
         var got = notes.filter(function (t) { return t; }).length;
         log(got ? got + ' note(s) du présentateur récupérée(s)' : 'Aucune note trouvée dans le .pptx');
         objects = extractObjects(idx, n);
+        pptxFonts(idx, fontSet);
         var nb = objects.reduce(function (a, o) { return a + o.length; }, 0);
         if (nb) log(nb + ' objet(s) du .pptx repérés — dans l’éditeur, « ⌖ Objets » ' +
                     'les transforme en boutons d’un clic');
@@ -548,13 +586,18 @@ async function convert() {
       return ((objects[i2] || [])).concat(texts[i2] || []);
     });
 
+    // polices du deck : proposées dans l'éditeur pour les textes et boutons
+    var fonts = Object.keys(fontSet).filter(function (k) { return k.charAt(0) !== '#'; })
+      .sort().slice(0, 12);
+    if (fonts.length) log('Police(s) du deck relevée(s) : ' + fonts.join(', '));
+
     var old = null;
     if (state.deck) {
       old = readDeck(await state.deck.text());
       if (!old) log('Le .html déposé n’est pas un pack produit par cet outil — ignoré.', 'err');
     }
     var title = $('title').value.trim() || baseName(state.pdf.name) || 'Présentation';
-    var html = buildHtml(title, images, zones, notes, candidats, old, ars);
+    var html = buildHtml(title, images, zones, notes, candidats, old, ars, fonts);
     progress(1);
 
     state.url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));

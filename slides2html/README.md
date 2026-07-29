@@ -75,7 +75,7 @@ la diapo et tu les places à la souris. La diapo d'origine n'est jamais modifié
 |---|---|
 | **➕ Zone** | Zone cliquable dessinée à la souris. *Invisible* (rien ne s'affiche — pour rendre cliquable un bouton que tu as déjà dessiné dans Slides), *Contour visible*, ou *Bouton avec un texte* (voir [les six styles](#les-boutons-cest-le-texte-qui-fait-la-forme)). |
 | **🖼 Image** | Ajoute une image par-dessus la diapo : logo, capture, photo. Cadrage, coins arrondis, ombre, opacité. Tu peux aussi la **déposer directement sur la diapo** ou la **coller** (`Ctrl+V`). |
-| **T Texte** | Bloc de texte : couleur, taille, graisse, alignement, ombre, fond coloré. Le cadre suit le texte automatiquement ; **double-clic** pour le réécrire sur la diapo. |
+| **T Texte** | Bloc de texte : couleur, taille, graisse, alignement, ombre, fond coloré, **police**. **Tire la poignée d'angle pour régler la taille** (Shift = largeur seule) — ou le curseur au dixième près, ou le champ chiffré. Le cadre suit le texte ; **double-clic** pour le réécrire sur la diapo. |
 | **▭ Forme** | Rectangle ou ellipse, couleur et opacité réglables : masquer une zone, surligner, poser un fond derrière du texte. |
 | **🗔 Panneau** | Une fenêtre qui affiche **une autre diapo à l'intérieur** de celle-ci. Les boutons de la page restent à l'écran, seul le contenu du panneau change — on ne quitte pas la page. |
 | **🎬 Vidéo** | Fichier local (embarqué, lecture hors ligne) ou lien YouTube. |
@@ -136,6 +136,13 @@ Deux détails qui font la différence avec un PDF :
 
 **Taille du texte** est libre sur une zone (*auto* = calée sur la hauteur du
 cadre) : tu peux garder un grand cadre et un petit bouton dedans.
+
+La liste **Police** propose d'abord **les polices relevées dans ton deck**
+(lues dans le PDF et le `.pptx` à la conversion, marquées *du pack*), puis
+quelques valeurs sûres. À savoir : la police s'affiche chez l'animateur **si
+elle est installée sur sa machine** — dans un studio où les postes partagent
+les mêmes polices, c'est le cas ; sinon le texte retombe proprement sur une
+police proche. Le fichier n'embarque pas la police elle-même.
 
 Le **survol se règle aussi** : *Selon le style* (défaut), *Ombre portée*,
 *Se soulève + ombre*, *Grossit*, ou *Aucun effet* — et une case pour que **le
