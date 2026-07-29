@@ -314,6 +314,7 @@ function render(keepScroll) {
   $('busy').classList.remove('hidden');
   fr.onload = function () {
     doc = fr.contentDocument;
+    apercuUrls = {};                 // le document a changé : adresses à refaire
     applyAll();
     injectUi();
     watchDoc();
@@ -687,6 +688,10 @@ $('pickVid').addEventListener('change', function (e) {
   if (!f || !vidEl) return;
   var el = vidEl, kind = vidKind, embed = vidEmbed;
   vidEl = null;
+  var ext = (f.name.split('.').pop() || '').toLowerCase();
+  if (['mp4', 'webm', 'ogg', 'ogv', 'm4v', 'mov'].indexOf(ext) < 0 &&
+      !confirm('Les navigateurs lisent le MP4 (H.264), le WebM et l’Ogg.\n« .' + ext +
+               ' » ne se lira sans doute pas. Continuer quand même ?')) { vidEl = null; return; }
   var finish = function (src, label) {
     var p = { kind: kind === 'vsrc' ? 'vsrc' : 'video', sel: pathOf(el), before: '',
               after: src, label: label };
@@ -697,10 +702,11 @@ $('pickVid').addEventListener('change', function (e) {
   if (!embed) {
     // fichier posé à côté : la page reste légère, on rappelle quoi copier
     var rel = 'videos/' + f.name.replace(/[^\w.\- ]/g, '_');
+    apercuFichiers[pathOf(el)] = f;
     finish(rel, '🎬 ' + rel);
     besoins[rel] = f.name;
     renderList();
-    toast('Copie « ' + f.name + ' » dans un dossier videos/ à côté de ton HTML');
+    toast('Lecture possible ici ; pense à copier « ' + f.name + ' » dans un dossier videos/ à côté de ton HTML');
     return;
   }
   if (f.size > 60 * 1024 * 1024 &&
@@ -720,6 +726,21 @@ $('pickVid').addEventListener('change', function (e) {
 
 /* fichiers que l'utilisateur devra copier à côté du HTML */
 var besoins = {};
+/* Aperçu local des vidéos posées à côté : le chemin « videos/x.mp4 » ne
+   pointe sur rien tant que le fichier n'est pas copié, et l'aperçu ne saurait
+   de toute façon pas où chercher. On garde donc le fichier choisi pour
+   l'écran, sans jamais l'enregistrer dans le fichier exporté.
+   L'adresse temporaire doit être créée DANS la page affichée : une adresse
+   fabriquée ici ne lui serait pas accessible. */
+var apercuFichiers = {}, apercuUrls = {};
+function apercu(sel) {
+  if (!apercuFichiers[sel] || !doc) return null;
+  if (apercuUrls[sel]) return apercuUrls[sel];
+  try {
+    apercuUrls[sel] = doc.defaultView.URL.createObjectURL(apercuFichiers[sel]);
+    return apercuUrls[sel];
+  } catch (e) { return null; }
+}
 
 /* Poser une image dans une zone qui n'en a pas : en fond, ou à la place du
    contenu (la lettre d'une pastille disparaît alors sous l'image). */
@@ -919,10 +940,14 @@ function applyOne(p, n) {
     n.style.backgroundRepeat = 'no-repeat';
     if (p.hide) n.setAttribute('data-pk-hide', '1');
   } else if (p.kind === 'vsrc' && n.tagName === 'VIDEO') {
-    Array.prototype.slice.call(n.querySelectorAll('source')).forEach(function (s) { s.remove(); });
-    n.src = p.after;
-    n.controls = true;
-    n.load();
+    var srcV = apercu(p.sel) || p.after;
+    if (n.getAttribute('src') !== srcV) {
+      Array.prototype.slice.call(n.querySelectorAll('source')).forEach(function (s) { s.remove(); });
+      n.setAttribute('src', srcV);
+      n.controls = true;
+      n.load();
+      veilleVideo(n, p);
+    }
   } else if (p.kind === 'video') {
     putVideo(n, p, doc);
   } else if (p.kind === 'link') {
@@ -966,7 +991,27 @@ function putVideo(n, p, d) {
     n.setAttribute('data-pk-hide', '1');
     n.appendChild(v);
   }
-  if (v.getAttribute('src') !== p.after) v.setAttribute('src', p.after);
+  var src = apercu(p.sel) || p.after;
+  if (v.getAttribute('src') !== src) { v.setAttribute('src', src); veilleVideo(v, p); }
+}
+
+/* Si le lecteur n'arrive pas à lire, on dit pourquoi au lieu d'un écran noir. */
+function veilleVideo(v, p) {
+  v.addEventListener('error', function () {
+    var c = v.error ? v.error.code : 0;
+    // 4 = le navigateur a bien reçu le fichier mais ne sait pas le décoder
+    if (c === 4 && apercuFichiers[p.sel])
+      toast('Ce navigateur ne sait pas lire cette vidéo — exporte-la en MP4 (H.264) ou en WebM');
+    else if (apercuFichiers[p.sel])
+      toast('Lecture impossible dans l’aperçu — vérifie le fichier');
+    else
+      toast('Vidéo introuvable : copie le fichier dans « ' + p.after + ' » à côté du HTML');
+    var b = $('besoins');
+    b.classList.remove('hidden');
+    b.innerHTML = (b.classList.contains('hidden') ? '' : b.innerHTML) +
+      '<br><b>⚠ Le lecteur n’a rien pu lire.</b> Formats sûrs : <code>MP4 (H.264)</code> ou ' +
+      '<code>WebM</code>. Un ProRes, un HEVC ou un .mkv ne se lisent pas dans un navigateur.';
+  }, { once: true });
 }
 
 /* --------------------------------------------------------------- retouches */

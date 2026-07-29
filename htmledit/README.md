@@ -123,6 +123,16 @@ L'embarqué est parfait pour un clip court qu'on veut pouvoir envoyer seul.
 Un lecteur **déjà présent** dans la maquette se traite pareil : clique-le, et
 tu changes juste la vidéo qu'il lit.
 
+**Tu la vois tout de suite.** Même en « posée à côté » — où le fichier n'est
+pas encore dans `videos/` — le lecteur lit ta vidéo depuis ton disque pendant
+que tu travailles. Le HTML exporté, lui, garde bien le chemin propre
+`videos/ta-video.mp4`.
+
+**Si le lecteur reste noir**, c'est presque toujours le format : un navigateur
+lit le **MP4 (H.264)** et le **WebM**. Un ProRes, un HEVC, un `.mkv` ou un
+`.avi` ne se liront pas, même s'ils s'ouvrent très bien dans QuickTime ou VLC.
+L'outil te le dit et te propose la conversion à faire.
+
 ## Un même emplacement, plusieurs contenus (fiches par personnage)
 
 Une maquette réutilise souvent **la même balise image** pour afficher tour à
