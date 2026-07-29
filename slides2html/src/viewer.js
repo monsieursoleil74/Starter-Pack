@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 var CFG = JSON.parse($('cfg').textContent);
 var ASSETS = JSON.parse($('assets').textContent);
 var META = CFG.meta, SLIDES = CFG.slides;
-var APP_VERSION = '4.8.0';
+var APP_VERSION = '4.9.0';
 
 function assign(t) {
   for (var i = 1; i < arguments.length; i++) {
@@ -164,6 +164,11 @@ body.drawing #stage{cursor:crosshair}\
 #prev{left:0;justify-content:flex-start;padding-left:14px}\
 #next{right:0;justify-content:flex-end;padding-right:14px}\
 body.editing .navzone,#stage.onhidden .navzone{display:none}\
+/* mode defilement : les pages empilees en une longue page, comme un site */\
+#flow{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;z-index:2}\
+#flow .sec{position:relative;width:min(100%,calc(100vh * var(--sar,1.7778)));margin:0 auto;aspect-ratio:var(--sar,1.7778)}\
+#flow .sec>img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}\
+body.scrolling #wrap,body.scrolling .navzone{display:none}\
 \
 .el{position:absolute;z-index:3}\
 .el-video{background:#000;border-radius:8px;overflow:hidden}\
@@ -373,6 +378,7 @@ document.body.insertAdjacentHTML('beforeend',
 '<div id="main">' +
 '<div id="stage">' +
 '<div id="wrap"><img id="slide" alt=""></div>' +
+'<div id="flow" class="hidden"></div>' +
 '<div class="navzone" id="prev"><span>‹</span></div>' +
 '<div class="navzone" id="next"><span>›</span></div>' +
 '<button id="backBtn" class="hidden"></button>' +
@@ -531,9 +537,125 @@ function ytEmbed(u) {
 }
 
 /* ============================ affichage d'une diapo ============================ */
+/* ============================ mode défilement ============================
+   Toutes les pages visibles s'empilent en une longue page qui se scrolle,
+   comme un site. L'édition reste page par page : ce mode ne concerne que la
+   lecture (et l'aperçu Test). Les diapos cachées ne sont pas dans le fil —
+   un bouton qui y mène les ouvre en grand par-dessus la page. */
+function scrollActive() { return !!META.scroll && !editMode; }
+var flowSecs = [], animObs = null, scrollSeen = {}, buildingFlow = false;
+
+function buildFlow(keepScroll) {
+  var f = $('flow');
+  var st = keepScroll ? f.scrollTop : null;
+  galleryTimers.forEach(clearInterval);
+  galleryTimers.length = 0;
+  if (animObs) { animObs.disconnect(); animObs = null; }
+  f.innerHTML = '';
+  flowSecs = [];
+  scalables.length = 0;
+  buildingFlow = true;
+  SLIDES.forEach(function (s, i) {
+    if (s.hidden) return;
+    var sec = document.createElement('div');
+    sec.className = 'sec';
+    sec.dataset.slide = i;
+    sec.style.setProperty('--sar', String(s.ar || 1.7778));
+    var im = document.createElement('img');
+    im.className = 'bg';
+    im.loading = 'lazy';
+    im.src = IMG(s.img);
+    im.draggable = false;
+    im.addEventListener('load', function () { scaleText(); }, { once: true });
+    sec.appendChild(im);
+    s.elements.concat(META.master.filter(function (m) { return onPage(m, i); }))
+      .forEach(function (el) {
+        var node = buildEl(el, -1, 0, sec);
+        // les apparitions attendent que la section entre à l'écran
+        if (el.anim && el.anim !== 'none' && !scrollSeen[i]) node.style.opacity = '0';
+        sec.appendChild(node);
+      });
+    f.appendChild(sec);
+    flowSecs.push({ sec: sec, i: i });
+  });
+  buildingFlow = false;
+  scaleText();
+  // apparition des éléments quand leur section arrive à l'écran
+  if (window.IntersectionObserver) {
+    animObs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        animateSec(en.target);
+        animObs.unobserve(en.target);
+      });
+    }, { root: f, threshold: 0.25 });
+    flowSecs.forEach(function (fs) {
+      if (scrollSeen[fs.i]) animateSec(fs.sec);
+      else animObs.observe(fs.sec);
+    });
+  } else flowSecs.forEach(function (fs) { animateSec(fs.sec); });
+  if (st != null) f.scrollTop = st;
+  else scrollToSec(cur, true);
+}
+function animateSec(sec) {
+  var i = +sec.dataset.slide;
+  var first = !scrollSeen[i];
+  scrollSeen[i] = 1;
+  var slideEls = SLIDES[i] ? SLIDES[i].elements
+    .concat(META.master.filter(function (m) { return onPage(m, i); })) : [];
+  Array.prototype.forEach.call(sec.querySelectorAll(':scope > .el'), function (n, j) {
+    var el = slideEls[j];
+    n.style.opacity = '';
+    if (first && el && el.anim && el.anim !== 'none') {
+      n.classList.add('an-' + el.anim);
+      if (el.delay) n.style.animationDelay = el.delay + 'ms';
+    }
+  });
+}
+function scrollToSec(i, instant) {
+  var t = null;
+  flowSecs.forEach(function (fs) { if (fs.i === i) t = fs.sec; });
+  if (!t) return;
+  $('flow').scrollTo({ top: t.offsetTop, behavior: instant ? 'auto' : 'smooth' });
+  if (instant) spyFlow();
+}
+/* quelle section occupe le centre de l'écran : c'est la page courante */
+function spyFlow() {
+  if (!scrollActive() || !flowSecs.length) return;
+  var f = $('flow');
+  var mid = f.scrollTop + f.clientHeight / 2, best = flowSecs[0].i;
+  flowSecs.forEach(function (fs) {
+    if (fs.sec.offsetTop <= mid) best = fs.i;
+  });
+  if (META.view.progress) {
+    var total = f.scrollHeight - f.clientHeight;
+    prog.style.width = (total > 0 ? f.scrollTop / total * 100 : 100) + '%';
+  }
+  if (best === cur) return;
+  cur = best;
+  renderNav();
+  syncThumbs();
+  counter.textContent = visPos(cur) + ' ' + T.of + ' ' + visCount();
+  try { history.replaceState(null, '', '#' + (cur + 1)); } catch (e) {}
+}
+function applyMode() {
+  var on = scrollActive();
+  document.body.classList.toggle('scrolling', on);
+  $('flow').classList.toggle('hidden', !on);
+  if (on) buildFlow();
+  else { $('flow').innerHTML = ''; flowSecs = []; }
+}
+
 function go(i, opts) {
   opts = opts || {};
   i = clamp(i, 0, SLIDES.length - 1);
+  if (scrollActive()) {
+    // page cachée : hors du fil, elle s'ouvre en grand par-dessus
+    if (SLIDES[i].hidden) { openSlideOverlay([i], 0); return; }
+    if (!opts.noHist && i !== cur) { hist.push(cur); if (hist.length > 200) hist.shift(); }
+    scrollToSec(i, opts.instant);
+    return;
+  }
   if (!opts.noHist && i !== cur) { hist.push(cur); if (hist.length > 200) hist.shift(); }
   if (i !== cur) panelState = {};        // les panneaux repartent de leur contenu par défaut
   var back = i < cur;
@@ -648,7 +770,7 @@ function galleryStep(el, dir) {
   var i = list.indexOf(cur0);
   if (i < 0) i = 0;
   panelState[k] = list[(i + dir + list.length) % list.length];
-  renderElements();
+  if (scrollActive()) buildFlow(true); else renderElements();
 }
 function panelsHere() {
   return allEls().filter(function (e) { return e.type === 'panel'; });
@@ -812,8 +934,9 @@ function buildEl(el, i, depth, box) {
 
   if (el.type === 'text') scalables.push({ node: d, el: el, box: box, kind: 'text', top: depth === 0 });
 
-  // apparition à l'arrivée sur la page (lecture, ou aperçu depuis l'éditeur)
-  if ((!editMode || previewing) && el.anim && el.anim !== 'none') {
+  // apparition à l'arrivée sur la page (lecture, ou aperçu depuis l'éditeur) ;
+  // en défilement c'est l'arrivée à l'écran qui déclenche (animateSec)
+  if ((!editMode || previewing) && !buildingFlow && el.anim && el.anim !== 'none') {
     d.classList.add('an-' + el.anim);
     if (el.delay) d.style.animationDelay = el.delay + 'ms';
   }
@@ -940,7 +1063,7 @@ function doAction(el) {
       var ps = panelsHere();
       var target = el.panelName || (ps[0] ? panelKey(ps[0]) : 'Panneau');
       panelState[target] = (el.slide == null || el.slide < 0) ? null : el.slide;
-      renderElements();
+      if (scrollActive()) buildFlow(true); else renderElements();
       break;
     }
   }
@@ -1572,12 +1695,19 @@ function viewFields() {
   h += '<label class="ck"><input type="checkbox" id="v_full"' + (v.full ? ' checked' : '') +
     '><span>Page plein cadre (sans marge ni ombre)</span></label>' +
     '<div class="pbtns"><button id="vSite">🌐 Site</button>' +
+    '<button id="vScroll"' + (META.scroll ? ' style="outline:2px solid var(--accent)"' : '') +
+    '>🌊 Défilement</button>' +
     '<button id="vSlideshow">📄 Diaporama</button>' +
     '<button id="vImmersive">🔒 Kiosque</button></div>' +
     '<p class="muted" style="margin-top:8px"><b>Site</b> : rien autour de la page, ' +
     'on navigue par tes boutons, le clavier reste actif en secours. ' +
+    '<b>Défilement</b> : toutes les pages en une seule, qui se scrolle comme un ' +
+    'site — les diapos cachées s’ouvrent en grand par-dessus. ' +
     '<b>Diaporama</b> : compteur, progression et vignettes. ' +
-    '<b>Kiosque</b> : plus aucune navigation libre.</p>';
+    '<b>Kiosque</b> : plus aucune navigation libre.</p>' +
+    (META.scroll ? '<p class="muted">🌊 <b>Défilement actif</b> — regarde le rendu dans 👁 Test. ' +
+      'Les apparitions se déclenchent quand la section arrive à l’écran, et le ' +
+      'sommaire suit la position de lecture.</p>' : '');
   h += '<label>Transition entre les pages<select id="vTrans">' +
     opt('none', 'Aucune (net, comme un site)', META.transition || 'none') +
     opt('fade', 'Fondu', META.transition) +
@@ -1613,6 +1743,7 @@ function bindViewFields() {
   var profil = function (cfg2, msg) {
     return function () {
       assign(META.view, cfg2);
+      delete META.scroll;             // ces trois profils lisent page par page
       markDirty();
       applyViewChrome();
       renderProps();
@@ -1620,6 +1751,15 @@ function bindViewFields() {
     };
   };
   var w2 = function (id, fn) { var n = $(id); if (n) n.addEventListener('click', fn); };
+  w2('vScroll', function () {
+    META.scroll = true;
+    assign(META.view, { arrows: true, counter: false, progress: true, thumbs: false,
+                        header: false, full: true });
+    markDirty();
+    applyViewChrome();
+    renderProps();
+    toast('Défilement : le pack se lit en une longue page — vois le rendu dans 👁 Test');
+  });
   w2('vSite', profil({ arrows: true, counter: false, progress: false, thumbs: false,
                        header: false, full: true }, 'Mode site : rien autour de la page'));
   w2('vSlideshow', profil({ arrows: true, counter: true, progress: true, thumbs: true,
@@ -2263,7 +2403,9 @@ function auditDeck(forExport) {
   // sans navigation libre, chaque page visible doit offrir une sortie
   // la version animateur n'a jamais de navigation libre : à l'export on
   // vérifie donc toujours que chaque page offre une sortie
-  if ((forExport || !META.view.arrows) && !(META.nav || []).length && !masterExit.all) {
+  // en défilement, le scroll atteint toutes les pages : personne n'est bloqué
+  if (!META.scroll &&
+      (forExport || !META.view.arrows) && !(META.nav || []).length && !masterExit.all) {
     SLIDES.forEach(function (sl, i) {
       if (sl.hidden || masterExit[i]) return;
       var sortie = sl.elements.some(function (el) { return navigates(el.action); });
@@ -2691,6 +2833,7 @@ function setEdit(onOff) {
   if (onOff && SLIDES.some(function (s2) { return s2.objects && s2.objects.length; }))
     $('tObjects').classList.remove('hidden');
   buildThumbs();
+  applyMode();       // lecture en défilement si le pack l'a choisi
   refresh();
   renderProps();
   syncUndoButtons();
@@ -2855,6 +2998,23 @@ document.addEventListener('keydown', function (e) {
     renderElements();
     return;
   }
+  // en défilement, le clavier scrolle — c'est la navigation elle-même,
+  // disponible aussi dans la version animateur
+  if (scrollActive() && !editMode) {
+    var f2 = $('flow');
+    if (k === 'ArrowDown' || k === 'ArrowRight' || k === 'PageDown' || k === ' ') {
+      e.preventDefault();
+      f2.scrollBy({ top: f2.clientHeight * 0.85, behavior: 'smooth' });
+      return;
+    }
+    if (k === 'ArrowUp' || k === 'ArrowLeft' || k === 'PageUp') {
+      e.preventDefault();
+      f2.scrollBy({ top: -f2.clientHeight * 0.85, behavior: 'smooth' });
+      return;
+    }
+    if (k === 'Home') { e.preventDefault(); f2.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    if (k === 'End') { e.preventDefault(); f2.scrollTo({ top: f2.scrollHeight, behavior: 'smooth' }); return; }
+  }
   if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') {
     if (!freeNav()) return;
     e.preventDefault();
@@ -2925,7 +3085,8 @@ function fitFrame() {
   setFrameRatio();
   scaleText();
 }
-window.addEventListener('resize', function () { scaleText(); placeFloatbar(); });
+window.addEventListener('resize', function () { scaleText(); placeFloatbar(); spyFlow(); });
+$('flow').addEventListener('scroll', spyFlow, { passive: true });
 slideEl.addEventListener('load', fitFrame);
 window.addEventListener('hashchange', function () {
   var h = parseInt(location.hash.slice(1), 10) - 1;
@@ -2945,7 +3106,9 @@ applyViewChrome();
 buildThumbs();
 $('btnThumbs').classList.add('active');
 var start = parseInt(location.hash.slice(1), 10) - 1;
-go(isNaN(start) ? firstVisible() : clamp(start, 0, SLIDES.length - 1), { instant: true, noHist: true });
+cur = isNaN(start) ? firstVisible() : clamp(start, 0, SLIDES.length - 1);
+applyMode();
+go(cur, { instant: true, noHist: true });
 
 /* brouillon de secours : proposer de reprendre un travail non enregistré */
 (function () {

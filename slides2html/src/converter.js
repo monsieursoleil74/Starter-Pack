@@ -5,7 +5,7 @@
 (function () {
 'use strict';
 
-var APP_VERSION = '4.8.0';
+var APP_VERSION = '4.9.0';
 var $ = function (id) { return document.getElementById(id); };
 
 /* pdf.js a besoin d'un worker : on le sert depuis un blob, aucun fichier

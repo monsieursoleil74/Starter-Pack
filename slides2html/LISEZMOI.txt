@@ -140,6 +140,15 @@ DONNER VIE A LA PAGE
 - Le bouton ">" de la barre rejoue les apparitions sans quitter
   l'edition.
 
+MODE DEFILEMENT (profil "Defilement")
+-------------------------------------
+Toutes les pages en UNE SEULE, qui se scrolle comme un site vitrine :
+molette, fleches ou doigt. Le sommaire suit la position de lecture et y
+glisse en douceur, les apparitions se declenchent quand leur section
+arrive a l'ecran. Les diapos cachees ne sont pas dans le fil : un bouton
+les ouvre en grand par-dessus la page. Ideal pour un pack a lire dans
+l'ordre ; garde le mode Site pour un ecran de selection.
+
 SOMMAIRE
 --------
 Panneau de droite (rien de selectionne) -> section Sommaire ->

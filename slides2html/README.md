@@ -305,6 +305,7 @@ Trois profils dans le panneau de droite (rien de sélectionné), section
 | 🌐 **Site** *(par défaut)* | Rien autour de la page. On navigue par tes boutons et ton sommaire ; le clavier dépanne. |
 | 📄 **Diaporama** | Compteur, progression, vignettes, entête — le comportement d'un visionneur classique, si tu le veux. |
 | 🔒 **Kiosque** | Comme *Site*, mais **plus aucune navigation libre** : ni flèches, ni clavier, ni swipe. On n'avance que par tes boutons. |
+| 🌊 **Défilement** | **Toutes les pages en une seule, qui se scrolle** comme un site vitrine. Le sommaire suit la position de lecture et y glisse en douceur, les apparitions se déclenchent quand leur section arrive à l'écran, la barre de progression suit le scroll. Les **diapos cachées** ne sont pas dans le fil : un bouton les ouvre **en grand par-dessus la page**. Idéal pour un pack à lire dans l'ordre (présentation, pipeline, tutos). |
 
 Chaque repère reste réglable un par un en dessous, et **✓ Vérifier** te
 signalera toute page devenue sans issue.

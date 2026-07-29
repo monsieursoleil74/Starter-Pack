@@ -111,6 +111,21 @@ vendor/              pdf.min.js + pdf.worker.min.js (pdf.js 3.11, Apache-2.0),
   `applyViewChrome()` n'agit qu'en lecture ; `freeNav()` garde clavier et
   swipe. Trois profils dans l'éditeur : `#vSite`, `#vSlideshow`, `#vImmersive`
   (kiosque, seul à couper `arrows`).
+- **Mode défilement** (`meta.scroll`) : en lecture (et Test), toutes les pages
+  visibles s'empilent dans `#flow` (une `.sec` par page, largeur
+  `min(100%, 100vh*ar)`, images `loading:lazy`) et `#wrap` est masqué
+  (`body.scrolling`). `go()` route vers `scrollToSec()` ; une cible CACHÉE
+  s'ouvre via `openSlideOverlay` — c'est le contrat du mode. `spyFlow()`
+  (écouteur scroll) tient `cur`, le sommaire, le compteur, la barre de
+  progression et le hash (`history.replaceState`, jamais `location.hash` :
+  ça sauterait). Les apparitions sont différées : `buildingFlow` neutralise
+  l'ajout d'`an-*` dans `buildEl`, les éléments animés démarrent en
+  `opacity:0` et `animateSec()` (IntersectionObserver, `scrollSeen` par page)
+  les déclenche une seule fois. Les actions `panel`/galerie rebâtissent le
+  flux avec `buildFlow(true)` (scroll conservé) au lieu de
+  `renderElements()`. L'édition reste page par page : `applyMode()` bascule
+  aux changements de mode. L'audit saute la règle « page sans issue » quand
+  `meta.scroll` est posé. Les trois autres profils font `delete META.scroll`.
 - Pas d'infobulle `title` sur les éléments cliquables en lecture : le lecteur
   n'a pas à voir « Aller à la diapo 6 ».
 - `slides[i].objects` : formes relevées dans le .pptx (position seule), TOUJOURS
@@ -364,7 +379,11 @@ scénarios :
     couleur du texte au survol, retour au repos, réglage enregistré ;
 15. taille et police : poignée = taille du texte (Shift = largeur seule),
     champ au dixième synchronisé avec le curseur, polices du deck détectées,
-    proposées, appliquées aux textes comme aux boutons, et enregistrées.
+    proposées, appliquées aux textes comme aux boutons, et enregistrées ;
+16. défilement : pages visibles empilées (les cachées non), bouton qui glisse
+    jusqu'à sa section avec scrollspy (hash + sommaire), apparition jouée à
+    l'entrée à l'écran, page cachée en overlay sans bouger du fil, clavier
+    qui scrolle, et version animateur identique.
 Dans les deux cas : zéro erreur JS. Attention en écrivant des tests : la
 balise `#cfg` du document garde la config d'ORIGINE, l'état vivant est dans
 la fermeture JS — vérifier via le DOM, ou après un enregistrement.
