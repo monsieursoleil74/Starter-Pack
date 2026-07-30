@@ -72,6 +72,7 @@ button{font:inherit;cursor:pointer}
 #gal .hd{grid-column:1/-1;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
          color:var(--muted);margin:8px 0 0;padding-top:8px;border-top:1px solid var(--line)}
 #gal .hd:first-child{margin-top:0;padding-top:0;border-top:none}
+#ver{font-size:12px;font-weight:500;color:var(--muted);vertical-align:middle;margin-left:8px}
 #galInfo{color:var(--muted);font-size:12px;margin:2px 0 0}
 #besoins{background:#2b2413;border:1px solid rgba(255,193,87,.5);color:#ffe2b0;border-radius:9px;padding:9px 11px;font-size:12px;line-height:1.6;margin-top:10px}
 #besoins code{background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px}
@@ -138,7 +139,7 @@ button{font:inherit;cursor:pointer}
 
 <div id="home">
   <div id="homeIn">
-    <h1>Éditeur HTML local</h1>
+    <h1>Éditeur HTML local <span id="ver"></span></h1>
     <p>Tu as une maquette HTML qui te plaît ? Remplace ses <b>textes</b> et ses
        <b>images</b> sans toucher au code, et récupère un fichier prêt à diffuser.</p>
     <div id="drop">
@@ -247,7 +248,7 @@ button{font:inherit;cursor:pointer}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '1.0.0';
+var APP = '2026-07-30b';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1748,6 +1749,7 @@ function exportFile() {
 }
 
 /* ------------------------------------------------------------- branchements */
+$('ver').textContent = 'version ' + APP;
 $('drop').addEventListener('click', function () { $('pick').click(); });
 $('pick').addEventListener('change', function (e) { openFile(e.target.files[0]); });
 ['dragenter', 'dragover'].forEach(function (ev) {

@@ -8,6 +8,13 @@ toucher au code ? C'est cet outil.
 web que tu ouvres en double-cliquant. Tout se passe dans ton navigateur, aucun
 fichier n'est envoyé en ligne.
 
+## Quelle version ai-je ?
+
+Le numéro est affiché **à côté du titre**, sur l'écran d'accueil de l'outil
+(`version 2026-07-30b`). Si un comportement ne correspond pas à ce mode
+d'emploi, commence par retélécharger : le lien pointe toujours vers la
+dernière version.
+
 ## Utilisation
 
 1. **Ouvre `Editeur-HTML.html`** (double-clic) et **dépose ta maquette `.html`**
