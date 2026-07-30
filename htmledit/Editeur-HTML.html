@@ -267,7 +267,7 @@ button{font:inherit;cursor:pointer}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-07-30c';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-07-30d';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1263,12 +1263,84 @@ function dejaFait(node, sel) {
     return !!cur && p.after === cur;
   });
 }
+/* ------------------------------------------- la réserve comme table des matières
+   Quand la maquette range ses visuels dans une réserve, chaque entrée porte son
+   chemin : assets_nda/personnages/rex/rex_portrait.png. Le dossier dit à quoi
+   appartient l'image — on classe donc par dossier, et les cinq visuels de Rex
+   se retrouvent ensemble sous son nom. */
+function estReserve(n) {
+  return n.tagName === 'IMG' && !!cheminDe(n) &&
+         n.offsetParent === null && !n.getClientRects().length;
+}
+function entreesReserve() {
+  if (!doc) return [];
+  var out = [];
+  Array.prototype.forEach.call(doc.querySelectorAll('img[loading],img'), function (n) {
+    if (estReserve(n) && out.indexOf(n) < 0) out.push(n);
+  });
+  return out;
+}
+/* « assets_nda/personnages/rex/rex_portrait.png » → dossier « personnages/rex »,
+   affiché « Rex ». Les fichiers rangés à la racine sont regroupés par famille
+   de nom (ph_decor_01, ph_decor_02… → « Decor »). */
+/* quelques noms de dossiers parlent mieux en français */
+var LEXIQUE = { banner: 'Bannière', decor: 'Décors', decors: 'Décors', logo: 'Logos',
+                head: 'En-tête', colorscript: 'Color script', tutos: 'Tutoriels',
+                personnages: 'Personnages', perso: 'Personnages' };
+function joliMot(t) {
+  var k = t.toLowerCase().replace(/^ph[_-]/, '');
+  if (LEXIQUE[k]) return LEXIQUE[k];
+  k = k.replace(/[_-]+/g, ' ').replace(/concept2d/i, 'concept 2D').trim();
+  return k.charAt(0).toUpperCase() + k.slice(1);
+}
+/* le nom de la tuile : ce que le fichier ajoute au nom de sa famille
+   (rex_planche_01.jpg dans « Rex » → « Planche 01 ») */
+function nomFichier(ch, famille) {
+  var f = (ch.split('/').pop() || '').replace(/\.[a-z0-9]+$/i, '');
+  var pref = famille.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  var court = f.replace(new RegExp('^' + pref + '[_-]?', 'i'), '');
+  return joliMot(court || f);
+}
+function familleDe(ch) {
+  var parts = ch.split('/');
+  var fichier = parts.pop() || '';
+  var dossier = parts.join('/');
+  var nom = parts.length ? parts[parts.length - 1] : '';
+  if (!nom || parts.length <= 1) {
+    // pas de sous-dossier : on regroupe par premier mot du nom de fichier, pour
+    // que ph_logo, ph_logo_sq et ph_logo_diffuseur tiennent dans « Logos »
+    nom = fichier.replace(/\.[a-z0-9]+$/i, '').replace(/^ph[_-]/i, '').split(/[_-]/)[0];
+    dossier = dossier + '/' + nom;
+  }
+  return { grp: dossier, nom: joliMot(nom) || 'Autres', brut: nom };
+}
 function collectMedia() {
   if (!doc) return [];
-  var out = [], seen = {};
+  var out = [], seen = {}, srcReserve = {};
+
+  // 1) la réserve, s'il y en a une : une tuile par contenu, rangée par dossier
+  var res = entreesReserve();
+  if (res.length > 2) res.forEach(function (n) {
+    var sel = pathOf(n);
+    if (seen[sel]) return;
+    seen[sel] = 1;
+    var ch = cheminDe(n), f = familleDe(ch);
+    var src = n.getAttribute('src') || '';
+    if (src) srcReserve[src] = 1;
+    // le nom que la page donne à ce visuel vaut mieux que son nom de fichier
+    var vu = null;
+    try { vu = doc.querySelector('img[src="' + src + '"]:not([data-k])'); } catch (e) {}
+    var alt = vu ? (vu.getAttribute('alt') || '').trim() : '';
+    out.push({ sel: sel, kind: 'img', node: n, thumb: '',
+               name: alt || nomFichier(ch, f.brut), fichier: ch,
+               grp: f.grp, grpName: f.nom });
+  });
+
+  // 2) les images de la page qui ne viennent pas de la réserve
   Array.prototype.forEach.call(doc.querySelectorAll('img'), function (im) {
     var sel = pathOf(im);
     if (seen[sel]) return;
+    if (srcReserve[im.getAttribute('src') || '']) return;   // déjà listée par la réserve
     seen[sel] = 1;
     var g = groupeDe(im);
     out.push({ sel: sel, kind: 'img', node: im, name: nameOf(im), thumb: thumbOf(im),
@@ -1290,16 +1362,22 @@ function renderGallery() {
   var box = $('gal');
   box.innerHTML = '';
   var media = collectMedia();
-  $('galInfo').textContent = media.length
-    ? media.length + ' image(s) trouvée(s), carrousels compris — clique pour remplacer'
-    : 'Aucune image détectée sur cette page.';
-  // un « groupe » d'une seule image n'en est pas un
+  var nbF = media.filter(function (m) { return m.fichier; }).length;
+  $('galInfo').textContent = !media.length ? 'Aucune image détectée sur cette page.'
+    : nbF ? media.length + ' visuels, rangés par personnage et par section — clique pour remplacer'
+          : media.length + ' image(s) trouvée(s), carrousels compris — clique pour remplacer';
+  // une pile d'une seule image n'en est pas une ; une famille de la réserve,
+  // si — « Bannière, 1 visuel » reste une information utile
   media.forEach(function (m) {
-    if (m.grp && media.filter(function (o) { return o.grp === m.grp; }).length < 2) m.grp = '';
+    if (m.grp && !m.fichier &&
+        media.filter(function (o) { return o.grp === m.grp; }).length < 2) m.grp = '';
   });
-  // les images d'un même carrousel se suivent, sous leur titre ; les autres après
+  // rangées par famille, dans l'ordre alphabétique ; le reste à la fin
   var grp = media.filter(function (m) { return m.grp; });
-  grp.sort(function (a, b) { return a.grp < b.grp ? -1 : a.grp > b.grp ? 1 : 0; });
+  var parent = function (m) { return (m.grp || '').split('/').slice(0, -1).join('/'); };
+  grp.sort(function (a, b) {
+    return (parent(a) + '|' + (a.grpName || '')).localeCompare(parent(b) + '|' + (b.grpName || ''), 'fr');
+  });
   media = grp.concat(media.filter(function (m) { return !m.grp; }));
   var grpVu = '';
   media.forEach(function (m, i) {
@@ -1308,7 +1386,8 @@ function renderGallery() {
       var hd = document.createElement('div');
       hd.className = 'hd';
       var nb = media.filter(function (o) { return o.grp === m.grp; }).length;
-      hd.textContent = (m.grpName || 'Images superposées') + ' — ' + nb + ' images au même endroit';
+      hd.textContent = (m.grpName || 'Images superposées') + ' — ' + nb +
+        (m.fichier ? (nb > 1 ? ' visuels' : ' visuel') : ' images au même endroit');
       box.appendChild(hd);
     } else if (!m.grp && grpVu !== 'seules') {
       grpVu = 'seules';
@@ -1330,7 +1409,7 @@ function renderGallery() {
     nm.className = 'nm';
     nm.textContent = (done ? '✓ ' : '') + (m.name || 'Image ' + (i + 1));
     b.appendChild(vis); b.appendChild(nm);
-    b.title = m.name || ('Image ' + (i + 1));
+    b.title = (m.name || ('Image ' + (i + 1))) + (m.fichier ? '\n' + m.fichier : '');
     b.addEventListener('click', function () {
       flash(m.node);
       pickImageFor(m.node, m.kind === 'img');
@@ -1450,7 +1529,7 @@ function poser(data, nom, el, isImg, hide, ar) {
   var p = { kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
             hide: hide || undefined, ar: ar || undefined, label: short(nom, 34) };
   // le visuel vient-il d'une réserve ? alors c'est là qu'il faut le changer
-  var res = isImg ? reserveDe(jumeaux(el)) : null;
+  var res = isImg ? (estReserve(el) ? el : reserveDe(jumeaux(el))) : null;
   if (res) {
     var ch = cheminDe(res);
     p.sel = pathOf(res);

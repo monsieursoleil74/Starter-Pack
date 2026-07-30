@@ -11,7 +11,7 @@ fichier n'est envoyé en ligne.
 ## Quelle version ai-je ?
 
 Le numéro est affiché **à côté du titre**, sur l'écran d'accueil de l'outil
-(`version 2026-07-30c`). Si un comportement ne correspond pas à ce mode
+(`version 2026-07-30d`). Si un comportement ne correspond pas à ce mode
 d'emploi, commence par retélécharger : le lien pointe toujours vers la
 dernière version.
 
@@ -69,8 +69,29 @@ ce moment** — dans un carrousel, celle que tu remplaces n'est pas forcément
 celle que tu vois ; elle apparaîtra quand le carrousel la fera défiler.
 
 Le panneau de droite, lui, garde la vue d'ensemble : **toutes les images de la
-page**, désormais **groupées par bloc** (« Planche proto — 2 images au même
-endroit »), y compris celles qui sont hors écran ou pas encore chargées.
+page**, y compris celles qui sont hors écran ou pas encore chargées.
+
+### Rangées par personnage et par section
+
+Si la maquette range ses visuels dans une réserve (une balise par fichier, avec
+son chemin), l'outil **s'en sert comme table des matières**. Le dossier dit à
+quoi appartient l'image, et la liste se range toute seule :
+
+```
+Rex — 5 visuels
+  Portrait · Planche 01 · Planche 02 · Concept 2D 01 · Concept 2D 02
+Color script — 14 visuels
+Décors — 10 visuels
+Logos — 3 visuels
+```
+
+Chaque vignette porte le nom que la page donne au visuel (« Color script SQ03 —
+La catastrophe ») quand il y en a un, sinon un nom tiré du fichier ; le chemin
+complet s'affiche au survol. Un clic remplace **ce contenu-là**, chez ce
+personnage-là.
+
+Sans réserve, la liste reste groupée par bloc de la page (« Planche proto —
+2 images au même endroit »).
 
 ### Un visuel caché sous un texte ou un dégradé
 
