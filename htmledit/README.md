@@ -11,7 +11,7 @@ fichier n'est envoyé en ligne.
 ## Quelle version ai-je ?
 
 Le numéro est affiché **à côté du titre**, sur l'écran d'accueil de l'outil
-(`version 2026-07-30b`). Si un comportement ne correspond pas à ce mode
+(`version 2026-07-30c`). Si un comportement ne correspond pas à ce mode
 d'emploi, commence par retélécharger : le lien pointe toujours vers la
 dernière version.
 
@@ -101,6 +101,31 @@ mode **🖼 Images** → clique la pastille (elle se cadre en orange pointillé)
 **« à la place du contenu »** → choisis le portrait. La lettre disparaît sous
 l'image, et le nom écrit *sous* la pastille reste en place. À refaire pour
 chaque personnage.
+
+## ✥ Recadrer : choisir ce qu'on garde de l'image
+
+Ton visuel n'a presque jamais le format exact du cadre où il va. La maquette
+le rogne donc — et jusqu'ici tu subissais ce rognage.
+
+Maintenant, dès qu'une image posée **déborde de son cadre**, la barre de
+recadrage s'ouvre toute seule :
+
+- **glisse l'image** dans son cadre pour choisir la partie visible — le geste
+  suit la souris, comme sur une carte ;
+- **zoome** à la molette ou avec le curseur, jusqu'à 4× ;
+- **Recentrer** annule le réglage, **Terminé** referme.
+
+Tu peux y revenir quand tu veux : chaque retouche d'image porte un bouton
+**✥** dans le panneau de droite.
+
+Le cadrage voyage avec l'image : il est rejoué à l'identique dans le fichier
+exporté, et il suit le visuel **partout où il sert** (la vignette du carrousel
+et son agrandissement, par exemple). Il est enregistré en **pourcentages**, pas
+en pixels : si la page est vue sur un écran plus large, le cadrage reste le
+même.
+
+Une image qui tient entière dans son cadre n'a rien à recadrer — l'outil te le
+dit, et il te reste le zoom si tu veux quand même resserrer.
 
 ## 🔗 Brancher les liens
 

@@ -80,6 +80,18 @@ button{font:inherit;cursor:pointer}
 #hint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(20,22,30,.94);
       border:1px solid var(--line);color:var(--fg);padding:8px 16px;border-radius:20px;font-size:13px;
       pointer-events:none;z-index:5;box-shadow:0 8px 26px rgba(0,0,0,.5)}
+/* barre de recadrage : glisser pour déplacer, molette ou curseur pour zoomer */
+#crop{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(20,22,30,.97);
+      border:1px solid var(--line);border-radius:14px;padding:10px 14px;z-index:8;display:flex;
+      align-items:center;gap:14px;box-shadow:0 14px 40px rgba(0,0,0,.6);font-size:13px}
+#crop b{font-weight:600}
+#crop .z{display:flex;align-items:center;gap:8px;color:var(--muted)}
+#crop input[type=range]{width:150px;accent-color:var(--accent)}
+#crop button{border:1px solid var(--line);background:var(--panel2);color:var(--fg);
+             border-radius:9px;padding:6px 11px;font:inherit;font-size:12.5px;cursor:pointer}
+#crop button:hover{border-color:var(--ok)}
+#crop #cropOk{border-color:var(--ok);background:var(--panel3)}
+#crop .qui{color:var(--muted);max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--panel3);
        color:var(--fg);padding:10px 18px;border-radius:12px;opacity:0;transition:.25s;z-index:60;
        box-shadow:0 10px 30px rgba(0,0,0,.55);pointer-events:none;max-width:80vw;text-align:center}
@@ -175,6 +187,13 @@ button{font:inherit;cursor:pointer}
   <div id="stage">
     <iframe id="frame" title="aperçu"></iframe>
     <div id="hint" class="hidden"></div>
+    <div id="crop" class="hidden">
+      <b>✥ Recadrage</b>
+      <span class="qui" id="cropQui"></span>
+      <span class="z">Zoom <input type="range" id="cropZ" min="100" max="400" value="100"></span>
+      <button id="cropReset">Recentrer</button>
+      <button id="cropOk">Terminé</button>
+    </div>
   </div>
   <aside id="side">
     <div id="galBox" class="hidden">
@@ -248,7 +267,7 @@ button{font:inherit;cursor:pointer}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-07-30b';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-07-30c';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -347,6 +366,11 @@ function render(keepScroll) {
     }
     doc = fr.contentDocument;
     apercuUrls = {};                 // le document a changé : adresses à refaire
+    // les vignettes tenaient des adresses temporaires sur l'ancien document
+    Object.keys(vign).forEach(function (k) {
+      if (vign[k]) { try { URL.revokeObjectURL(vign[k]); } catch (e) {} }
+      delete vign[k];
+    });
     applyAll();
     injectUi();
     watchDoc();
@@ -462,6 +486,7 @@ function injectUi() {
   injectCss();
   doc.addEventListener('click', onClick, true);
   doc.addEventListener('click', navigation, false);
+  brancherRecadrage();
   doc.addEventListener('mousemove', onMove, true);
   doc.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && editing) { editing.blur(); }
@@ -1384,6 +1409,7 @@ function propagerReserve() {
       [].forEach.call(doc.querySelectorAll('img[src="' + p.old + '"]'), function (m) {
         m.removeAttribute('srcset');
         m.setAttribute('src', vu);
+        if (p.fit) cadrer(m, p);
       });
       [].forEach.call(doc.querySelectorAll('video[src="' + p.old + '"]'), function (m) {
         m.setAttribute('src', vu);
@@ -1393,6 +1419,12 @@ function propagerReserve() {
       });
       [].forEach.call(doc.querySelectorAll('[style*="' + p.old + '"]'), function (m) {
         m.setAttribute('style', m.getAttribute('style').split(p.old).join(vu));
+      });
+      // la page a pu lire la réserve APRÈS nous : le visuel est alors déjà en
+      // place sans être passé par la boucle ci-dessus. Le cadrage vaut aussi
+      // pour celles-là.
+      if (p.fit) [].forEach.call(doc.querySelectorAll('img'), function (m) {
+        if (m.getAttribute('src') === vu) cadrer(m, p);
       });
     } catch (e) {}
   });
@@ -1406,25 +1438,30 @@ $('pickImg').addEventListener('change', function (e) {
     var data = String(r.result);
     var el = imgTarget, isImg = imgIsImg, hide = imgHide;
     imgTarget = null;
-    var p = { kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
-              hide: hide || undefined, label: short(f.name, 34) };
-    // le visuel vient-il d'une réserve ? alors c'est là qu'il faut le changer
-    var res = isImg ? reserveDe(jumeaux(el)) : null;
-    if (res) {
-      var srcAv = el.getAttribute('src');
-      var ch = cheminDe(res);
-      p.sel = pathOf(res);
-      p.label = short(f.name, 26) + ' → ' + short((ch.split('/').pop() || 'réserve'), 24);
-      p.src = 'reserve';
-      p.old = srcAv;
-      applyOne(p, res);
-      addPatch(p);
-      propagerReserve();
-      if (mode === 'img') renderGallery();
-      if (!$('askg').classList.contains('hidden')) renderChoix();
-      toast('Remplacé dans la réserve d’images — ce visuel suit partout où il est utilisé');
-      return;
-    }
+    var im = new Image();
+    im.onload = im.onerror = function () {
+      poser(data, f.name, el, isImg, hide, im.width && im.height ? im.width / im.height : 0);
+    };
+    im.src = data;
+  };
+  r.readAsDataURL(f);
+});
+function poser(data, nom, el, isImg, hide, ar) {
+  var p = { kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
+            hide: hide || undefined, ar: ar || undefined, label: short(nom, 34) };
+  // le visuel vient-il d'une réserve ? alors c'est là qu'il faut le changer
+  var res = isImg ? reserveDe(jumeaux(el)) : null;
+  if (res) {
+    var ch = cheminDe(res);
+    p.sel = pathOf(res);
+    p.label = short(nom, 26) + ' → ' + short((ch.split('/').pop() || 'réserve'), 24);
+    p.src = 'reserve';
+    p.old = el.getAttribute('src');
+    applyOne(p, res);
+    addPatch(p);
+    propagerReserve();
+    toast('Remplacé dans la réserve d’images — ce visuel suit partout où il est utilisé');
+  } else {
     // Une maquette réutilise souvent la MÊME balise pour plusieurs contenus
     // (la fiche de Pipo puis celle de Bruno) en ne changeant que le alt :
     // on s'y accroche, sinon la retouche déborderait sur les autres.
@@ -1434,18 +1471,67 @@ $('pickImg').addEventListener('change', function (e) {
     }
     applyOne(p, el);
     addPatch(p);
-    if (mode === 'img') renderGallery();
-    if (!$('askg').classList.contains('hidden')) {
-      renderChoix();
-      // dans un carrousel, le visuel remplacé n'est pas forcément celui affiché
-      if (isImg && estCachee(el))
-        toast('Remplacée — elle apparaîtra quand le carrousel l’affichera');
-    }
-  };
-  r.readAsDataURL(f);
-});
+    if (isImg && estCachee(el))
+      toast('Remplacée — elle apparaîtra quand le carrousel l’affichera');
+  }
+  if (mode === 'img') renderGallery();
+  if (!$('askg').classList.contains('hidden')) renderChoix();
+
+  // rognée par son cadre ? on ouvre tout de suite le recadrage : c'est LÀ que
+  // se joue ce qu'on garde de l'image
+  var vu = noeudVisible(p);
+  if (vu) {
+    var d = debordement(vu, p);
+    if (d && (d.dx > 3 || d.dy > 3)) ouvrirRecadrage(p);
+  }
+}
 
 /* Applique une retouche à un élément déjà trouvé. */
+/* ------------------------------------------------------------- recadrage
+   Une image posée dans un cadre plus étroit qu'elle est rognée : reste à
+   choisir CE QU'ON GARDE. On note la position (en % du débordement) et le
+   zoom, et on les rejoue tels quels dans le fichier exporté.
+   Le zoom est exprimé en pourcentage du cadre, jamais en pixels : la mise en
+   page peut changer de taille, le cadrage reste le même. */
+function fitDe(p) {
+  return { x: p.fit && p.fit.x != null ? p.fit.x : 50,
+           y: p.fit && p.fit.y != null ? p.fit.y : 50,
+           z: p.fit && p.fit.z ? p.fit.z : 1 };
+}
+function cadrer(n, p) {
+  var f = fitDe(p);
+  var pose = f.x + '% ' + f.y + '%';
+  if (p.kind === 'bg') {
+    // sans zoom, « couvrir » fait le travail et suit tous les changements de
+    // taille ; avec zoom, on l'exprime en % du cadre — jamais en pixels
+    if (f.z === 1) n.style.backgroundSize = 'cover';
+    else {
+      var rc = n.clientWidth && n.clientHeight ? n.clientWidth / n.clientHeight : 1;
+      n.style.backgroundSize = r2(100 * f.z * Math.max(1, (p.ar || rc) / rc)) + '% auto';
+    }
+    n.style.backgroundPosition = pose;
+    return;
+  }
+  if (p.cadre) {                       // cadre pincé : l'image se rogne au lieu
+    n.style.aspectRatio = String(p.cadre);   // de déformer la mise en page
+    n.style.height = 'auto';
+  }
+  n.style.objectFit = 'cover';
+  n.style.objectPosition = pose;
+  if (f.z !== 1) {
+    n.style.transform = 'scale(' + f.z + ')';
+    n.style.transformOrigin = pose;
+    var pa = n.parentElement;
+    if (pa && (n.ownerDocument.defaultView.getComputedStyle(pa).overflow === 'visible')) {
+      if (!pa.dataset.pkClip) pa.dataset.pkClip = '1';
+      pa.style.overflow = 'hidden';
+    }
+  } else if (n.style.transform.indexOf('scale') === 0) {
+    n.style.transform = '';
+  }
+}
+function r2(v) { return Math.round(v * 100) / 100; }
+
 function applyOne(p, n) {
   if (p.kind === 'text') {
     n.textContent = p.after;
@@ -1464,12 +1550,12 @@ function applyOne(p, n) {
     } else if (n.getAttribute('src') === p.after && n.pkOrig) {
       n.setAttribute('src', n.pkOrig);
     }
+    if (bon) cadrer(n, p);
   } else if (p.kind === 'bg') {
     n.style.backgroundImage = 'url("' + p.after + '")';
-    n.style.backgroundSize = 'cover';
-    n.style.backgroundPosition = 'center';
     n.style.backgroundRepeat = 'no-repeat';
     if (p.hide) n.setAttribute('data-pk-hide', '1');
+    cadrer(n, p);
   } else if (p.kind === 'vsrc' && n.tagName === 'VIDEO') {
     var srcV = apercu(p.sel) || p.after;
     if (n.getAttribute('src') !== srcV) {
@@ -1545,6 +1631,100 @@ function veilleVideo(v, p) {
   }, { once: true });
 }
 
+/* ------------------------------------------------ la poignée de recadrage
+   On glisse l'image dans son cadre, comme sur une carte : le déplacement est
+   rapporté à ce qui dépasse, pour que le geste suive le doigt. */
+var recadre = null;
+function debordement(n, p) {
+  var w = n.clientWidth, h = n.clientHeight;
+  if (!w || !h) return null;
+  var ar = p.ar || (n.tagName === 'IMG' && n.naturalHeight ? n.naturalWidth / n.naturalHeight : null);
+  if (!ar) return null;
+  var f = fitDe(p);
+  var s = Math.max(w / (h * ar), 1) * f.z;      // échelle « couvrir » × zoom
+  var cw = h * ar * s, ch = h * s;
+  if (cw < w) { ch = ch * w / cw; cw = w; }
+  return { dx: Math.max(0, cw - w), dy: Math.max(0, ch - h) };
+}
+/* Une entrée de réserve n'est pas affichée : on recadre là où l'image SE VOIT. */
+function noeudVisible(p) {
+  if (p.src === 'reserve') {
+    var vu = apercu(p.sel) || p.after;
+    var l = [];
+    try { l = [].slice.call(doc.querySelectorAll('img[src="' + vu + '"]')); } catch (e) {}
+    for (var i = 0; i < l.length; i++)
+      if (l[i].clientWidth > 20 && l[i].clientHeight > 20) return l[i];
+    return null;
+  }
+  return cibleDe(p);
+}
+function ouvrirRecadrage(p) {
+  var n = noeudVisible(p);
+  if (!n) { toast('Cette image n’est pas affichée en ce moment'); return; }
+  recadre = { p: p, n: n };
+  if (!p.fit) p.fit = { x: 50, y: 50, z: 1 };
+  flash(n);
+  n.style.cursor = 'move';
+  $('cropQui').textContent = short(p.label, 34);
+  $('cropZ').value = Math.round(fitDe(p).z * 100);
+  $('crop').classList.remove('hidden');
+  $('hint').classList.add('hidden');
+  var d = debordement(n, p);
+  toast(d && (d.dx > 2 || d.dy > 2)
+    ? 'Glisse l’image pour choisir ce qu’on garde'
+    : 'Cette image tient entière dans son cadre : zoome pour pouvoir la déplacer');
+}
+function fermerRecadrage() {
+  if (recadre) { try { recadre.n.style.cursor = ''; } catch (e) {} }
+  recadre = null;
+  $('crop').classList.add('hidden');
+  if (mode !== 'view') $('hint').classList.remove('hidden');
+  renderList();
+}
+$('cropOk').addEventListener('click', fermerRecadrage);
+$('cropReset').addEventListener('click', function () {
+  if (!recadre) return;
+  recadre.p.fit = { x: 50, y: 50, z: 1 };
+  $('cropZ').value = 100;
+  cadrer(recadre.n, recadre.p);
+});
+$('cropZ').addEventListener('input', function () {
+  if (!recadre) return;
+  recadre.p.fit.z = r2(parseInt(this.value, 10) / 100);
+  cadrer(recadre.n, recadre.p);
+});
+/* les gestes se passent DANS la page : on les branche à chaque chargement */
+function brancherRecadrage() {
+  var glisse = null;
+  doc.addEventListener('pointerdown', function (e) {
+    if (!recadre || e.target !== recadre.n) return;
+    e.preventDefault(); e.stopPropagation();
+    var f = fitDe(recadre.p);
+    glisse = { x: e.clientX, y: e.clientY, fx: f.x, fy: f.y };
+    try { recadre.n.setPointerCapture(e.pointerId); } catch (x) {}
+  }, true);
+  doc.addEventListener('pointermove', function (e) {
+    if (!glisse || !recadre) return;
+    e.preventDefault(); e.stopPropagation();
+    var d = debordement(recadre.n, recadre.p);
+    if (!d) return;
+    var f = recadre.p.fit;
+    if (d.dx > 1) f.x = Math.max(0, Math.min(100, glisse.fx - (e.clientX - glisse.x) / d.dx * 100));
+    if (d.dy > 1) f.y = Math.max(0, Math.min(100, glisse.fy - (e.clientY - glisse.y) / d.dy * 100));
+    f.x = r2(f.x); f.y = r2(f.y);
+    cadrer(recadre.n, recadre.p);
+  }, true);
+  doc.addEventListener('pointerup', function () { glisse = null; }, true);
+  doc.addEventListener('wheel', function (e) {
+    if (!recadre) return;
+    e.preventDefault(); e.stopPropagation();
+    var z = r2(Math.max(1, Math.min(4, fitDe(recadre.p).z * (e.deltaY < 0 ? 1.08 : 1 / 1.08))));
+    recadre.p.fit.z = z;
+    $('cropZ').value = Math.round(z * 100);
+    cadrer(recadre.n, recadre.p);
+  }, { capture: true, passive: false });
+}
+
 /* --------------------------------------------------------------- retouches */
 function addPatch(p) {
   p.id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -1571,6 +1751,13 @@ function renderList() {
     var d = document.createElement('div');
     d.className = 'it';
     d.innerHTML = '<i>' + (p.kind === 'text' ? '✏️' : '🖼') + '</i><span>' + esc(p.label) + '</span>';
+    if (p.kind === 'img' || p.kind === 'bg') {
+      var rc = document.createElement('button');
+      rc.textContent = '✥';
+      rc.title = 'Recadrer : déplacer et zoomer l’image dans son cadre';
+      rc.addEventListener('click', function () { ouvrirRecadrage(p); });
+      d.appendChild(rc);
+    }
     var b = document.createElement('button');
     b.textContent = '✕';
     b.title = 'Annuler cette retouche';
@@ -1606,7 +1793,7 @@ function setMode(m) {
   var h = $('hint');
   h.classList.toggle('hidden', m === 'view');
   if (m === 'text') h.textContent = '✏️ Clique un texte pour le réécrire — Échap pour valider';
-  if (m === 'img') h.textContent = '🖼 Clique une image — s’il y en a plusieurs au même endroit, l’outil te les montre';
+  if (m === 'img') h.textContent = '🖼 Clique une image pour la remplacer — ensuite, glisse-la pour la recadrer';
   if (m === 'vid') h.textContent = '🎬 Clique le bouton qui ouvre la vidéo — l’outil ouvre la fenêtre et vise le lecteur';
   if (m === 'link') h.textContent = '🔗 Clique un bouton ou un lien pour choisir où il mène';
   $('galBox').classList.toggle('hidden', m !== 'img');
@@ -1659,6 +1846,18 @@ function exportFile() {
     "for(i=0;i<(p.when.up||0)&&a.parentElement;i++)a=a.parentElement;" +
     "var c=a;if(p.when.down){try{c=a.querySelector(p.when.down)}catch(e){return null}}" +
     "if(c&&p.when.tag&&c.tagName!==p.when.tag)return null;return c}" +
+    /* le cadrage choisi dans l'éditeur : position en % de ce qui dépasse, zoom
+       en % du cadre — jamais de pixels, pour survivre à un changement de taille */
+    "function cad(n,p){if(!p.fit&&!p.cadre)return;var f=p.fit||{},x=f.x==null?50:f.x," +
+    "y=f.y==null?50:f.y,z=f.z||1,po=x+'% '+y+'%';" +
+    "if(p.kind==='bg'){if(z===1)n.style.backgroundSize='cover';else{" +
+    "var rc=n.clientWidth&&n.clientHeight?n.clientWidth/n.clientHeight:1;" +
+    "n.style.backgroundSize=Math.round(100*z*Math.max(1,(p.ar||rc)/rc)*100)/100+'% auto'}" +
+    "n.style.backgroundPosition=po;return}" +
+    "if(p.cadre){n.style.aspectRatio=String(p.cadre);n.style.height='auto'}" +
+    "n.style.objectFit='cover';n.style.objectPosition=po;" +
+    "if(z!==1){n.style.transform='scale('+z+')';n.style.transformOrigin=po;" +
+    "var pa=n.parentElement;if(pa&&getComputedStyle(pa).overflow==='visible')pa.style.overflow='hidden'}}" +
     "function net(p){[].forEach.call(document.querySelectorAll('video.pk-vid'),function(v){" +
     "if(v.getAttribute('src')!==p.after||v.pkTour===tours)return;var pa=v.parentElement;v.remove();" +
     "if(pa&&!pa.querySelector(':scope > video.pk-vid'))pa.removeAttribute('data-pk-hide')})}" +
@@ -1674,19 +1873,22 @@ function exportFile() {
     "var o=n.getAttribute('src');if(o&&o!==p.after){if(!p.old)p.old=o;" +
     "n.removeAttribute('srcset');n.setAttribute('src',p.after)}" +
     "if(p.old){[].forEach.call(document.querySelectorAll('img[src=\"'+p.old+'\"]'),function(m){" +
-    "m.removeAttribute('srcset');m.setAttribute('src',p.after)});" +
+    "m.removeAttribute('srcset');m.setAttribute('src',p.after);cad(m,p)});" +
     "[].forEach.call(document.querySelectorAll('video[src=\"'+p.old+'\"]'),function(m){" +
     "m.setAttribute('src',p.after);m.controls=true;m.load()});" +
     "[].forEach.call(document.querySelectorAll('[style*=\"'+p.old+'\"]'),function(m){" +
-    "m.setAttribute('style',m.getAttribute('style').split(p.old).join(p.after))})}}" +
+    "m.setAttribute('style',m.getAttribute('style').split(p.old).join(p.after))})}" +
+    "if(p.fit)[].forEach.call(document.querySelectorAll('img'),function(m){" +
+    "if(m.getAttribute('src')===p.after)cad(m,p)})}" +
     "else if(p.kind==='img'&&n.tagName==='IMG'){" +
     "var bon=!p.alt||(n.getAttribute('alt')||'').trim()===p.alt;" +
     "if(bon){if(n.getAttribute('src')!==p.after){if(!n.pkOrig)n.pkOrig=n.getAttribute('src');" +
-    "n.removeAttribute('srcset');n.setAttribute('src',p.after)}}" +
+    "n.removeAttribute('srcset');n.setAttribute('src',p.after)}cad(n,p)}" +
     "else if(n.getAttribute('src')===p.after&&n.pkOrig){n.setAttribute('src',n.pkOrig)}}" +
     "else if(p.kind==='bg'){var u='url(\"'+p.after+'\")';if(n.style.backgroundImage!==u){" +
     "n.style.backgroundImage=u;n.style.backgroundSize='cover';n.style.backgroundPosition='center';" +
-    "n.style.backgroundRepeat='no-repeat'}if(p.hide&&!n.hasAttribute('data-pk-hide'))n.setAttribute('data-pk-hide','1')}" +
+    "n.style.backgroundRepeat='no-repeat'}cad(n,p);" +
+    "if(p.hide&&!n.hasAttribute('data-pk-hide'))n.setAttribute('data-pk-hide','1')}" +
     "else if(p.kind==='vsrc'&&n.tagName==='VIDEO'){if(n.getAttribute('src')!==p.after){" +
     "[].slice.call(n.querySelectorAll('source')).forEach(function(s){s.remove()});" +
     "n.setAttribute('src',p.after);n.controls=true;n.load()}}" +
