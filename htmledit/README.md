@@ -234,6 +234,18 @@ cadre et n'a pas encore d'adresse à elle :
   fichier est seulement annoncé — l'aperçu ne le suit pas, pour ne pas perdre
   ton travail en cours.
 
+## Quand c'est la maquette qui coince
+
+L'éditeur remplit ce qui existe : il ne peut pas inventer un emplacement qui
+n'est pas dans la page. Si un visuel est **le même fichier pour deux contenus**,
+si un agrandissement se fabrique son image de son côté, ou si un encadré vidéo
+n'est qu'un décor sans lecteur, aucun outil ne pourra les distinguer.
+
+Dans ce cas, c'est la maquette qu'il faut faire évoluer — et
+[`POUR-CLAUDE-DESIGN.md`](POUR-CLAUDE-DESIGN.md) contient un texte prêt à
+copier-coller à l'outil qui l'a fabriquée : six règles simples, sans effet sur
+le rendu, qui rendent une page remplissable.
+
 ## Bon à savoir
 
 - Les images que tu déposes sont **embarquées dans le fichier** (en base64) :
