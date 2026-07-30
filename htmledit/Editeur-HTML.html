@@ -946,22 +946,34 @@ $('pickVid').addEventListener('change', function (e) {
   if (['mp4', 'webm', 'ogg', 'ogv', 'm4v', 'mov'].indexOf(ext) < 0 &&
       !confirm('Les navigateurs lisent le MP4 (H.264), le WebM et l’Ogg.\n« .' + ext +
                ' » ne se lira sans doute pas. Continuer quand même ?')) { vidEl = null; return; }
+  // La vidéo vient-elle d'une réserve ? Alors c'est là qu'il faut la changer :
+  // chaque tuto, chaque personnage a la sienne, et elle suit partout.
+  var res = kind === 'vsrc' ? reserveDe(jumeaux(el)) : null;
+  var chRes = res ? cheminDe(res) : '';
+
   var finish = function (src, label) {
-    var p = { kind: kind === 'vsrc' ? 'vsrc' : 'video', sel: pathOf(el), before: '',
-              after: src, label: label, when: quand || undefined };
-    if (quand) p.label += ' — ' + short(quand.txt, 22);
-    applyOne(p, el);
+    var cible = res || el;
+    var p = { kind: res ? 'vsrc' : (kind === 'vsrc' ? 'vsrc' : 'video'),
+              sel: pathOf(cible), before: '', after: src, label: label,
+              when: res ? undefined : (quand || undefined) };
+    if (res) { p.src = 'reserve'; p.old = el.getAttribute('src'); }
+    else if (quand) p.label += ' — ' + short(quand.txt, 22);
+    applyOne(p, cible);
     addPatch(p);
+    if (res) propagerReserve();
     renderList();
   };
   if (!embed) {
-    // fichier posé à côté : la page reste légère, on rappelle quoi copier
-    var rel = 'videos/' + f.name.replace(/[^\w.\- ]/g, '_');
-    apercuFichiers[pathOf(el)] = f;
-    finish(rel, '🎬 ' + rel);
+    // La maquette annonce elle-même le fichier qu'elle attend : on garde SON
+    // chemin, il n'y a plus qu'à déposer la vidéo au bon endroit.
+    var rel = chRes || ('videos/' + f.name.replace(/[^\w.\- ]/g, '_'));
+    apercuFichiers[pathOf(res || el)] = f;
+    finish(rel, '🎬 ' + short(rel, 34));
     besoins[rel] = f.name;
     renderList();
-    toast('Lecture possible ici ; pense à copier « ' + f.name + ' » dans un dossier videos/ à côté de ton HTML');
+    toast(chRes
+      ? 'Lecture possible ici ; à l’arrivée, la vidéo doit s’appeler « ' + chRes + ' »'
+      : 'Lecture possible ici ; pense à copier « ' + f.name + ' » dans un dossier videos/ à côté de ton HTML');
     return;
   }
   if (f.size > 60 * 1024 * 1024 &&
@@ -1321,7 +1333,7 @@ function jumeaux(el) {
   if (!s) return [];
   var out = [];
   try {
-    out = [].slice.call(doc.querySelectorAll('img[src="' + s + '"]'))
+    out = [].slice.call(doc.querySelectorAll('img[src="' + s + '"],video[src="' + s + '"]'))
       .filter(function (o) { return o !== el; });
   } catch (e) {}
   return out;
@@ -1329,7 +1341,8 @@ function jumeaux(el) {
 function cheminDe(n) {
   var a = n.attributes;
   for (var i = 0; i < a.length; i++)
-    if (/^data-/.test(a[i].name) && /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(a[i].value))
+    if (/^data-/.test(a[i].name) &&
+        /\.(png|jpe?g|gif|webp|svg|avif|mp4|webm|ogv|mov|m4v)$/i.test(a[i].value))
       return a[i].value;
   return '';
 }
@@ -1353,11 +1366,13 @@ function propagerReserve() {
   if (!doc) return;
   patches.forEach(function (p) {
     if (p.src !== 'reserve') return;
+    // à l'écran on lit le fichier choisi ; le fichier exporté garde le chemin
+    var vu = apercu(p.sel) || p.after;
     var n;
     try { n = doc.querySelector(p.sel); } catch (e) { return; }
     if (n) {
       var o = n.getAttribute('src');
-      if (o && o !== p.after) {
+      if (o && o !== p.after && o !== vu) {
         if (!p.old) p.old = o;
         n.removeAttribute('srcset');
         n.setAttribute('src', p.after);
@@ -1367,10 +1382,16 @@ function propagerReserve() {
     try {
       [].forEach.call(doc.querySelectorAll('img[src="' + p.old + '"]'), function (m) {
         m.removeAttribute('srcset');
-        m.setAttribute('src', p.after);
+        m.setAttribute('src', vu);
+      });
+      [].forEach.call(doc.querySelectorAll('video[src="' + p.old + '"]'), function (m) {
+        m.setAttribute('src', vu);
+        m.controls = true;
+        m.load();
+        veilleVideo(m, p);
       });
       [].forEach.call(doc.querySelectorAll('[style*="' + p.old + '"]'), function (m) {
-        m.setAttribute('style', m.getAttribute('style').split(p.old).join(p.after));
+        m.setAttribute('style', m.getAttribute('style').split(p.old).join(vu));
       });
     } catch (e) {}
   });
@@ -1648,11 +1669,13 @@ function exportFile() {
     /* entrée d'une réserve d'images : on la retouche, puis on remplace le
        visuel partout où sa source d'origine sert encore — l'appli a pu lire
        sa réserve avant nous */
-    "else if(p.kind==='img'&&p.src==='reserve'&&n.tagName==='IMG'){" +
+    "else if(p.src==='reserve'&&(n.tagName==='IMG'||n.tagName==='VIDEO')){" +
     "var o=n.getAttribute('src');if(o&&o!==p.after){if(!p.old)p.old=o;" +
     "n.removeAttribute('srcset');n.setAttribute('src',p.after)}" +
     "if(p.old){[].forEach.call(document.querySelectorAll('img[src=\"'+p.old+'\"]'),function(m){" +
     "m.removeAttribute('srcset');m.setAttribute('src',p.after)});" +
+    "[].forEach.call(document.querySelectorAll('video[src=\"'+p.old+'\"]'),function(m){" +
+    "m.setAttribute('src',p.after);m.controls=true;m.load()});" +
     "[].forEach.call(document.querySelectorAll('[style*=\"'+p.old+'\"]'),function(m){" +
     "m.setAttribute('style',m.getAttribute('style').split(p.old).join(p.after))})}}" +
     "else if(p.kind==='img'&&n.tagName==='IMG'){" +

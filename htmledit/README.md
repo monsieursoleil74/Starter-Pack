@@ -143,6 +143,14 @@ L'embarqué est parfait pour un clip court qu'on veut pouvoir envoyer seul.
 Un lecteur **déjà présent** dans la maquette se traite pareil : clique-le, et
 tu changes juste la vidéo qu'il lit.
 
+**Si la maquette range ses vidéos dans une réserve** (une balise par fichier,
+avec son chemin), c'est là que l'outil branche la tienne : chaque tuto, chaque
+personnage garde la sienne, et elle suit partout où ce fichier sert. Mieux : en
+« posée à côté », l'outil **reprend le chemin que la maquette attend** — le
+panneau de droite t'indique alors le nom exact à donner à ta vidéo
+(`ma-video.mp4 → assets_nda/tutos/rig.mp4`). Tu déposes le fichier au bon
+endroit, et le pack est complet.
+
 **Une seule fenêtre, plusieurs boutons.** La plupart des maquettes n'ont qu'UNE
 fenêtre vidéo, remplie au clic selon le bouton : RIG, TOOLS et les autres
 partagent le même emplacement. Sans repère, la deuxième vidéo écraserait la
