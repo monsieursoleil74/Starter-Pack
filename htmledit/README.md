@@ -143,6 +143,14 @@ L'embarqué est parfait pour un clip court qu'on veut pouvoir envoyer seul.
 Un lecteur **déjà présent** dans la maquette se traite pareil : clique-le, et
 tu changes juste la vidéo qu'il lit.
 
+**Une seule fenêtre, plusieurs boutons.** La plupart des maquettes n'ont qu'UNE
+fenêtre vidéo, remplie au clic selon le bouton : RIG, TOOLS et les autres
+partagent le même emplacement. Sans repère, la deuxième vidéo écraserait la
+première. L'outil retient donc **le titre que la fenêtre affiche** quand tu
+poses la vidéo, et te le dit : *« la vidéo ne sera montrée que pour
+« Présentation générale du rig » »*. Chaque bouton garde ainsi la sienne, dans
+l'éditeur comme dans le fichier exporté.
+
 **Tu la vois tout de suite.** Même en « posée à côté » — où le fichier n'est
 pas encore dans `videos/` — le lecteur lit ta vidéo depuis ton disque pendant
 que tu travailles. Le HTML exporté, lui, garde bien le chemin propre
@@ -213,6 +221,18 @@ images**. Dix visuels de 500 Ko, c'est ~7 Mo de HTML. Deux conseils :
 Les images que tu **ne touches pas** restent exactement comme elles étaient
 dans ta maquette : embarquées si elles l'étaient, dans leur dossier si elles
 l'étaient. L'outil n'y touche pas.
+
+## Ce que l'aperçu sait faire (et ce qu'il ne fait pas)
+
+En **👁 Aperçu**, ta page se comporte normalement : boutons, onglets,
+carrousels, fenêtres. Deux exceptions, parce que la page est affichée dans un
+cadre et n'a pas encore d'adresse à elle :
+
+- un lien de menu (`#tutoriels`) **fait défiler** jusqu'à la section, comme il
+  le fera dans le fichier final ;
+- un lien vers l'extérieur **s'ouvre dans un onglet**, et un lien vers un autre
+  fichier est seulement annoncé — l'aperçu ne le suit pas, pour ne pas perdre
+  ton travail en cours.
 
 ## Bon à savoir
 

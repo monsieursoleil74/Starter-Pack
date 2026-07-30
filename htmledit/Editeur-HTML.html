@@ -336,6 +336,14 @@ function render(keepScroll) {
   try { sc = keepScroll && fr.contentWindow ? fr.contentWindow.scrollY : 0; } catch (e) {}
   $('busy').classList.remove('hidden');
   fr.onload = function () {
+    // filet : si quelque chose a fait quitter la page au cadre, on la remet
+    var perdu = false;
+    try { perdu = !fr.contentDocument || !fr.contentDocument.body; } catch (e) { perdu = true; }
+    if (perdu) {
+      toast('Ce lien faisait quitter l’aperçu — ta page est remise');
+      setTimeout(function () { render(true); }, 30);
+      return;
+    }
     doc = fr.contentDocument;
     apercuUrls = {};                 // le document a changé : adresses à refaire
     applyAll();
@@ -367,7 +375,9 @@ function watchDoc() {
     moTimer = setTimeout(function () {
       if (!editing) { dernier = new Date().getTime(); applyAll(); }
     }, 90);
-  }).observe(doc.documentElement, { childList: true, subtree: true, attributes: true,
+    // on surveille le DOCUMENT, pas le <html> : certaines maquettes remplacent
+    // la balise racine, et la surveillance mourrait avec elle
+  }).observe(doc, { childList: true, subtree: true, attributes: true,
     attributeFilter: ['src', 'alt', 'href', 'style', 'class'] });
 }
 
@@ -376,15 +386,22 @@ function applyAll() {
   if (!doc || applying) return;
   applying = true;
   ensureCss();
+  cacheTemoin = null;
+  tour++;
+  var orphelins = [];
   patches.forEach(function (p) {
-    var n;
-    try { n = doc.querySelector(p.sel); } catch (e) { return; }
-    if (!n) return;
+    var n = cibleDe(p);
+    if (!n) {
+      // fenêtre partagée refermée ou passée à un autre contenu
+      if (p.kind === 'video' && p.when) orphelins.push(p);
+      return;
+    }
     if (p.kind === 'text') {
       if (n.dataset.pkEdited === p.id || !p.before || n.textContent.trim() === p.before.trim())
         applyOne(p, n);
     } else applyOne(p, n);
   });
+  orphelins.forEach(nettoyerLecteurs);
   propagerReserve();
   applying = false;
 }
@@ -412,10 +429,38 @@ function injectCss() {
   (doc.head || doc.documentElement).appendChild(st);
 }
 
+/* Ta page est affichée sans adresse à elle : un lien « #tutoriels » se
+   résoudrait contre l'adresse de l'outil et rechargerait l'OUTIL dans le
+   cadre. On fait donc défiler nous-mêmes, et on retient les liens qui
+   feraient quitter l'aperçu — dans le fichier exporté, ils marchent seuls. */
+function navigation(e) {
+  if (e.defaultPrevented) return;
+  var a = e.target.closest ? e.target.closest('a[href]') : null;
+  if (!a) return;
+  var h = a.getAttribute('href') || '';
+  if (!h || /^javascript:/i.test(h)) return;
+  if (h.charAt(0) === '#') {
+    e.preventDefault();
+    var id = h.slice(1);
+    var t = null;
+    try { t = id ? (doc.getElementById(id) || doc.querySelector('[name="' + id + '"]')) : doc.documentElement; } catch (x) {}
+    if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  e.preventDefault();
+  if (/^(https?|mailto|tel):/i.test(h)) {
+    window.open(h, '_blank', 'noopener');
+    toast('Lien ouvert dans un onglet');
+  } else {
+    toast('Ce lien mène à « ' + short(h, 40) + ' » — il marchera depuis le fichier exporté');
+  }
+}
+
 /* Surbrillance + capture des clics dans la page, selon le mode. */
 function injectUi() {
   injectCss();
   doc.addEventListener('click', onClick, true);
+  doc.addEventListener('click', navigation, false);
   doc.addEventListener('mousemove', onMove, true);
   doc.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && editing) { editing.blur(); }
@@ -547,9 +592,19 @@ function onMove(e) {
   if (n) n.classList.add(t.kind === 'zone' ? 'pk-hi-zone' : 'pk-hi-img');
 }
 
+/* Une croix de fermeture n'est pas un emplacement à retoucher : on la laisse
+   faire son travail, sinon la fenêtre ne se referme jamais. */
+function estFermeture(n) {
+  var b = n && n.closest ? n.closest('a,button,[role=button]') : null;
+  if (!b) return false;
+  var t = (b.textContent || '').trim();
+  var l = (b.getAttribute('aria-label') || '') + ' ' + (b.getAttribute('title') || '');
+  return (t.length <= 3 && /[×✕✖xX✗]/.test(t)) || /ferm|close/i.test(l);
+}
 function onClick(e) {
   if (mode === 'view' || laisserPasser) return;
   var t = e.target;
+  if (mode !== 'text' && estFermeture(t)) return;
   if (mode === 'text') {
     var n = t;
     while (n && !textish(n)) n = n.parentElement;
@@ -674,7 +729,7 @@ function renderLinks() {
    Une maquette a souvent un simple encadré « VIDÉO » sans lecteur : on pose
    donc un vrai lecteur dans la zone, soit vers un fichier posé à côté du
    HTML (léger), soit embarqué dans le fichier (autonome mais lourd). */
-var vidEl = null, vidKind = '', vidEmbed = false, laisserPasser = false;
+var vidEl = null, vidKind = '', vidEmbed = false, laisserPasser = false, vidQuand = null;
 
 /* Ce qui est visible en ce moment, pour repérer ce qui apparaîtra après le clic */
 function blocsVisibles() {
@@ -728,6 +783,124 @@ function emplacementVideo(avant) {
   });
   return { el: lot[0].n, kind: 'vzone' };
 }
+/* Beaucoup de maquettes n'ont QU'UNE fenêtre vidéo, remplie au clic selon le
+   bouton : même emplacement pour RIG, pour TOOLS… Sans repère, la deuxième
+   vidéo écraserait la première. On note donc ce que la fenêtre affiche du
+   bouton qui l'a ouverte — son titre — et la retouche ne vaut que pour ce
+   titre-là. Chaque bouton garde ainsi sa vidéo. */
+/* le texte propre d'une balise : le sien, pas celui de ses enfants */
+function texteDe(n) {
+  var t = '';
+  for (var i = 0; i < n.childNodes.length; i++)
+    if (n.childNodes[i].nodeType === 3) t += n.childNodes[i].nodeValue;
+  return t.trim().replace(/\s+/g, ' ');
+}
+function temoin(zone, bt) {
+  if (!zone || !bt) return null;
+  // ce qui identifie le bouton : son texte entier, et chacune de ses lignes
+  var labels = [];
+  var push = function (t) {
+    t = (t || '').trim().replace(/\s+/g, ' ');
+    if (t.length >= 3 && t.length <= 90 && labels.indexOf(t) < 0) labels.push(t);
+  };
+  Array.prototype.forEach.call(bt.querySelectorAll('*'), function (n) {
+    if (!n.children.length) push(n.textContent);
+  });
+  push(bt.textContent);
+  if (!labels.length) return null;
+
+  var fen = zone, fx = 0;
+  for (var d = 0; fen.parentElement && d < 6; d++) {
+    if (doc.defaultView.getComputedStyle(fen).position === 'fixed') { fx = 1; break; }
+    fen = fen.parentElement;
+  }
+  var best = null;
+  Array.prototype.forEach.call(fen.querySelectorAll('*'), function (n) {
+    var own = texteDe(n);
+    if (own.length < 3 || own.length > 120) return;
+    for (var k = 0; k < labels.length; k++) {
+      if (own.indexOf(labels[k]) < 0) continue;
+      // le repère le plus précis : celui qui reprend le plus long libellé
+      if (!best || labels[k].length > best.score ||
+          (labels[k].length === best.score && own.length < best.txt.length))
+        best = { el: n, txt: own, score: labels[k].length };
+      return;
+    }
+  });
+  if (!best) return null;
+  var c = communAvec(best.el, zone);
+  if (!c) return null;
+  return { sel: pathOf(best.el), txt: best.txt, up: c.up, down: pathRel(zone, c.anc),
+           fx: fx || undefined, tag: zone.tagName };
+}
+/* Une fenêtre n'existe que le temps qu'elle est ouverte : son chemin, une fois
+   refermée, désignerait un tout autre bloc de la page. La cible est donc
+   repérée PAR RAPPORT au témoin — pas de témoin, pas de cible. */
+function pathRel(n, stop) {
+  var parts = [];
+  while (n && n !== stop && n.nodeType === 1) {
+    var i = 1, s = n.previousElementSibling;
+    while (s) { if (s.tagName === n.tagName) i++; s = s.previousElementSibling; }
+    parts.unshift(n.tagName.toLowerCase() + ':nth-of-type(' + i + ')');
+    n = n.parentElement;
+  }
+  return parts.join('>');
+}
+function communAvec(a, b) {
+  var up = 0, x = a;
+  while (x) {
+    if (x.contains(b)) return { anc: x, up: up };
+    x = x.parentElement; up++;
+  }
+  return null;
+}
+/* Le même titre figure aussi sur la carte qui ouvre la fenêtre : sans ce
+   garde-fou, on prendrait la carte pour la fenêtre. */
+function dansFenetre(n) {
+  for (var i = 0; n && i < 8; i++, n = n.parentElement)
+    if (doc.defaultView.getComputedStyle(n).position === 'fixed') return true;
+  return false;
+}
+var cacheTemoin = null;
+function bonTemoin(n, w) {
+  return !!n && texteDe(n) === w.txt && (!w.fx || dansFenetre(n));
+}
+function trouveTemoin(w) {
+  var n = null;
+  try { n = doc.querySelector(w.sel); } catch (e) {}
+  if (bonTemoin(n, w)) return n;
+  if (!cacheTemoin) cacheTemoin = {};
+  if (cacheTemoin[w.txt] !== undefined) return cacheTemoin[w.txt];
+  var found = null, all = doc.querySelectorAll('*');
+  for (var i = 0; i < all.length; i++)
+    if (bonTemoin(all[i], w)) { found = all[i]; break; }
+  cacheTemoin[w.txt] = found;
+  return found;
+}
+function cibleDe(p) {
+  if (!p.when) { try { return doc.querySelector(p.sel); } catch (e) { return null; } }
+  var t = trouveTemoin(p.when);
+  if (!t) return null;
+  var a = t;
+  for (var i = 0; i < (p.when.up || 0) && a.parentElement; i++) a = a.parentElement;
+  var c = a;
+  if (p.when.down) { try { c = a.querySelector(p.when.down); } catch (e) { return null; } }
+  if (c && p.when.tag && c.tagName !== p.when.tag) return null;
+  return c;
+}
+/* La fenêtre est repartie sur un autre contenu : notre lecteur n'y est plus
+   chez lui, on le retire où qu'il soit. */
+var tour = 0;
+function nettoyerLecteurs(p) {
+  var s = apercu(p.sel) || p.after;
+  Array.prototype.forEach.call(doc.querySelectorAll('video.pk-vid'), function (v) {
+    if (v.getAttribute('src') !== s) return;
+    if (v.pkTour === tour) return;      // celui qu'une autre retouche vient de poser
+    var par = v.parentElement;
+    v.remove();
+    if (par && !par.querySelector(':scope > video.pk-vid')) par.removeAttribute('data-pk-hide');
+  });
+}
 function ouvrirPuisPlacer(bt) {
   // un vrai lien vers une autre page : on ne le suit pas dans l'aperçu
   var href = bt.getAttribute && bt.getAttribute('href');
@@ -742,20 +915,22 @@ function ouvrirPuisPlacer(bt) {
   toast('Ouverture de la fenêtre…');
   setTimeout(function () {
     var cible = emplacementVideo(avant);
-    if (cible) { flash(cible.el); askForVideo(cible.el, cible.kind); }
+    if (cible) { flash(cible.el); askForVideo(cible.el, cible.kind, temoin(cible.el, bt)); }
     else toast('Rien ne s’est ouvert — passe en 👁 Aperçu, ouvre la fenêtre, puis reviens cliquer son encadré');
   }, 800);
 }
-function askForVideo(el, kind) {
-  vidEl = el; vidKind = kind;
+function askForVideo(el, kind, tm) {
+  vidEl = el; vidKind = kind; vidQuand = tm || null;
   var r = el.getBoundingClientRect();
-  $('askvWhat').textContent = kind === 'vsrc'
+  $('askvWhat').textContent = (kind === 'vsrc'
     ? 'Lecteur vidéo déjà présent : tu vas juste changer la vidéo qu’il lit.'
     : 'Zone visée : <' + el.tagName.toLowerCase() + '>, ' +
-      Math.round(r.width) + '×' + Math.round(r.height) + ' px. Un lecteur y sera posé.';
+      Math.round(r.width) + '×' + Math.round(r.height) + ' px. Un lecteur y sera posé.') +
+    (vidQuand ? ' Cette fenêtre sert à plusieurs boutons : la vidéo ne sera montrée que pour « ' +
+      short(vidQuand.txt, 40) + ' ».' : '');
   $('askv').classList.remove('hidden');
 }
-function closeAskv() { $('askv').classList.add('hidden'); vidEl = null; }
+function closeAskv() { $('askv').classList.add('hidden'); vidEl = null; vidQuand = null; }
 $('askvNo').addEventListener('click', closeAskv);
 $('askv').addEventListener('click', function (e) { if (e.target === $('askv')) closeAskv(); });
 $('askvFile').addEventListener('click', function () { vidEmbed = false; $('askv').classList.add('hidden'); pickVideo(); });
@@ -765,7 +940,7 @@ function pickVideo() { $('pickVid').value = ''; $('pickVid').click(); }
 $('pickVid').addEventListener('change', function (e) {
   var f = e.target.files[0];
   if (!f || !vidEl) return;
-  var el = vidEl, kind = vidKind, embed = vidEmbed;
+  var el = vidEl, kind = vidKind, embed = vidEmbed, quand = vidQuand;
   vidEl = null;
   var ext = (f.name.split('.').pop() || '').toLowerCase();
   if (['mp4', 'webm', 'ogg', 'ogv', 'm4v', 'mov'].indexOf(ext) < 0 &&
@@ -773,7 +948,8 @@ $('pickVid').addEventListener('change', function (e) {
                ' » ne se lira sans doute pas. Continuer quand même ?')) { vidEl = null; return; }
   var finish = function (src, label) {
     var p = { kind: kind === 'vsrc' ? 'vsrc' : 'video', sel: pathOf(el), before: '',
-              after: src, label: label };
+              after: src, label: label, when: quand || undefined };
+    if (quand) p.label += ' — ' + short(quand.txt, 22);
     applyOne(p, el);
     addPatch(p);
     renderList();
@@ -1326,8 +1502,8 @@ function putVideo(n, p, d) {
   }
   var src = apercu(p.sel) || p.after;
   if (v.getAttribute('src') !== src) { v.setAttribute('src', src); veilleVideo(v, p); }
+  v.pkTour = tour;
 }
-
 /* Si le lecteur n'arrive pas à lire, on dit pourquoi au lieu d'un écran noir. */
 function veilleVideo(v, p) {
   v.addEventListener('error', function () {
@@ -1350,8 +1526,13 @@ function veilleVideo(v, p) {
 /* --------------------------------------------------------------- retouches */
 function addPatch(p) {
   p.id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  // une nouvelle retouche au même endroit remplace la précédente
-  patches = patches.filter(function (o) { return !(o.sel === p.sel && o.kind === p.kind); });
+  // une nouvelle retouche au même endroit remplace la précédente — sauf si
+  // elles visent deux contenus différents du même emplacement partagé
+  patches = patches.filter(function (o) {
+    if (o.sel !== p.sel || o.kind !== p.kind) return true;
+    var a = o.when ? o.when.txt : '', b = p.when ? p.when.txt : '';
+    return a !== b;
+  });
   patches.push(p);
   renderList();
   toast('Retouche enregistrée — pense à 💾 Exporter');
@@ -1435,9 +1616,33 @@ function exportFile() {
     .replace(/<\//g, '<\\/');
   var run = "(function(){var D=document.getElementById('" + MARK + "-data');if(!D)return;" +
     "var P=[];try{P=JSON.parse(D.textContent)||[]}catch(e){return}" +
-    "var busy=false;" +
-    "function ap(){if(busy)return;busy=true;P.forEach(function(p){var n;try{n=document.querySelector(p.sel)}catch(e){return}" +
-    "if(!n)return;" +
+    "var busy=false,tours=0;" +
+    /* une fenêtre partagée (RIG, TOOLS…) : la retouche ne vaut que quand la
+       fenêtre affiche le titre pour lequel elle a été faite */
+    /* Une fenêtre partagée (RIG, TOOLS…) n'existe que le temps qu'elle est
+       ouverte : la cible est repérée par rapport au texte qui l'identifie.
+       Pas de témoin affiché = rien à appliquer. */
+    "function tx(n){var t='',i;for(i=0;i<n.childNodes.length;i++)" +
+    "if(n.childNodes[i].nodeType===3)t+=n.childNodes[i].nodeValue;return t.trim().replace(/\\s+/g,' ')}" +
+    "var CT=null;" +
+    "function df(n){for(var i=0;n&&i<8;i++,n=n.parentElement)" +
+    "if(getComputedStyle(n).position==='fixed')return true;return false}" +
+    "function bt(n,w){return !!n&&tx(n)===w.txt&&(!w.fx||df(n))}" +
+    "function tem(w){var n=null;try{n=document.querySelector(w.sel)}catch(e){}" +
+    "if(bt(n,w))return n;if(!CT)CT={};if(CT[w.txt]!==undefined)return CT[w.txt];" +
+    "var f=null,a=document.querySelectorAll('*'),i;" +
+    "for(i=0;i<a.length;i++)if(bt(a[i],w)){f=a[i];break}CT[w.txt]=f;return f}" +
+    "function cible(p){if(!p.when){try{return document.querySelector(p.sel)}catch(e){return null}}" +
+    "var t=tem(p.when);if(!t)return null;var a=t,i;" +
+    "for(i=0;i<(p.when.up||0)&&a.parentElement;i++)a=a.parentElement;" +
+    "var c=a;if(p.when.down){try{c=a.querySelector(p.when.down)}catch(e){return null}}" +
+    "if(c&&p.when.tag&&c.tagName!==p.when.tag)return null;return c}" +
+    "function net(p){[].forEach.call(document.querySelectorAll('video.pk-vid'),function(v){" +
+    "if(v.getAttribute('src')!==p.after||v.pkTour===tours)return;var pa=v.parentElement;v.remove();" +
+    "if(pa&&!pa.querySelector(':scope > video.pk-vid'))pa.removeAttribute('data-pk-hide')})}" +
+    "function ap(){if(busy)return;busy=true;CT=null;tours++;var orph=[];" +
+    "P.forEach(function(p){var n=cible(p);" +
+    "if(!n){if(p.kind==='video'&&p.when)orph.push(p);return}" +
     "if(p.kind==='text'){if(n.dataset.pkEdited===p.id||!p.before||n.textContent.trim()===p.before.trim()){" +
     "n.textContent=p.after;n.dataset.pkEdited=p.id}}" +
     /* entrée d'une réserve d'images : on la retouche, puis on remplace le
@@ -1467,13 +1672,16 @@ function exportFile() {
     "height:100%;object-fit:contain;background:#000;z-index:9');" +
     "if(getComputedStyle(n).position==='static')n.style.position='relative';" +
     "n.setAttribute('data-pk-hide','1');n.appendChild(v)}" +
-    "if(v.getAttribute('src')!==p.after)v.setAttribute('src',p.after)}" +
+    "if(v.getAttribute('src')!==p.after)v.setAttribute('src',p.after);v.pkTour=tours}" +
     "else if(p.kind==='link'){if(n.tagName==='A'){if(n.getAttribute('href')!==p.after){" +
     "n.setAttribute('href',p.after)}if(p.blank!==false){n.setAttribute('target','_blank');" +
     "n.setAttribute('rel','noopener')}}else{if(n.dataset.pkLink!==p.after)n.dataset.pkLink=p.after;" +
     "if(!n.pkLinked){n.pkLinked=true;n.style.cursor='pointer';n.addEventListener('click',function(ev){" +
     "var u=n.dataset.pkLink;if(!u)return;ev.preventDefault();ev.stopPropagation();" +
     "window.open(u,p.blank===false?'_self':'_blank','noopener')},true)}}}});" +
+    "orph.forEach(net);" +
+    /* trace discrète : « le correctif a bien tourné N fois » */
+    "try{document.documentElement.setAttribute('data-pack-edit',tours)}catch(e){}" +
     "busy=false}" +
     /* la règle de masquage est vérifiée à CHAQUE passage : une page qui se
        reconstruit toute seule vide son head et l'emporterait sinon */
@@ -1487,9 +1695,13 @@ function exportFile() {
        au démarrage (réserve d'images) doit y trouver la version retouchée */
     "var t=null,last=0;new MutationObserver(function(){var w=new Date().getTime();" +
     "if(w-last>30){last=w;ap()}clearTimeout(t);t=setTimeout(function(){last=new Date().getTime();ap()},60)})" +
-    ".observe(document.documentElement,{childList:true,subtree:true,attributes:true," +
+    ".observe(document,{childList:true,subtree:true,attributes:true," +
     "attributeFilter:['src','style','class','alt','href']});" +
-    "[120,400,1200,3000].forEach(function(d){setTimeout(ap,d)})})();";
+    "[120,400,1200,3000].forEach(function(d){setTimeout(ap,d)});" +
+    /* Une fenêtre s'ouvre au clic : on repasse juste après. Et un filet lent,
+       pour les maquettes qui reconstruisent tout sans qu'on le voie. */
+    "document.addEventListener('click',function(){setTimeout(ap,60);setTimeout(ap,320)},true);" +
+    "setInterval(ap,1000)})();";
 
   var block = '\n<!--' + MARK + '-->\n' +
     '<script id="' + MARK + '-data" type="application/json">' + data + '<\/script>\n' +
