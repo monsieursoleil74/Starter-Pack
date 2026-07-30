@@ -354,13 +354,19 @@ function render(keepScroll) {
 /* La page peut se remettre à jour toute seule (changement d'onglet, de
    personnage…) : on rejoue alors les retouches, exactement comme le fera le
    fichier exporté. Jamais pendant une saisie, pour ne pas écraser la frappe. */
-var moTimer = null, applying = false;
+var moTimer = null, applying = false, dernier = 0;
 function watchDoc() {
   if (!doc || !window.MutationObserver) return;
   new MutationObserver(function () {
     if (applying || editing) return;
+    // tout de suite : certaines maquettes LISENT le DOM au démarrage (réserve
+    // d'images) — attendre, c'est leur laisser lire l'ancienne version
+    var t = new Date().getTime();
+    if (t - dernier > 30) { dernier = t; applyAll(); }
     clearTimeout(moTimer);
-    moTimer = setTimeout(function () { if (!editing) applyAll(); }, 90);
+    moTimer = setTimeout(function () {
+      if (!editing) { dernier = new Date().getTime(); applyAll(); }
+    }, 90);
   }).observe(doc.documentElement, { childList: true, subtree: true, attributes: true,
     attributeFilter: ['src', 'alt', 'href', 'style', 'class'] });
 }
@@ -379,6 +385,7 @@ function applyAll() {
         applyOne(p, n);
     } else applyOne(p, n);
   });
+  propagerReserve();
   applying = false;
 }
 
@@ -866,11 +873,8 @@ function renderChoix() {
   $('askgWhat').textContent = pileSel.length + ' images sont superposées ici — carrousel, ' +
     'visuel posé sous un texte… Clique celle que tu veux remplacer.';
   pileSel.forEach(function (c, i) {
-    var sel = pathOf(c.el);
     var alt = (c.el.getAttribute('alt') || '').trim();
-    var fait = patches.some(function (p) {
-      return p.sel === sel && (p.kind === 'img' || p.kind === 'bg') && (!p.alt || p.alt === alt);
-    });
+    var fait = dejaFait(c.el);
     var b = document.createElement('button');
     b.className = 'gi' + (fait ? ' done' : '');
     var v = document.createElement('div');
@@ -1034,6 +1038,17 @@ function nomGroupe(g) {
   }
   return t;
 }
+/* Déjà remplacée ? Soit la retouche vise cette balise, soit elle vise l'entrée
+   de réserve qui l'alimente — dans ce cas, l'image affichée est déjà la bonne. */
+function dejaFait(node, sel) {
+  var alt = (node.getAttribute('alt') || '').trim();
+  var cur = node.getAttribute && node.getAttribute('src');
+  return patches.some(function (p) {
+    if (p.kind !== 'img' && p.kind !== 'bg') return false;
+    if (p.sel === (sel || pathOf(node)) && (!p.alt || p.alt === alt)) return true;
+    return !!cur && p.after === cur;
+  });
+}
 function collectMedia() {
   if (!doc) return [];
   var out = [], seen = {};
@@ -1088,9 +1103,7 @@ function renderGallery() {
       hd2.textContent = 'Images isolées';
       box.appendChild(hd2);
     }
-    var done = patches.some(function (p) {
-      return p.sel === m.sel && (!p.alt || p.alt === (m.node.getAttribute('alt') || '').trim());
-    });
+    var done = dejaFait(m.node, m.sel);
     var b = document.createElement('button');
     b.className = 'g' + (done ? ' done' : '');
     var vis = document.createElement('div');
@@ -1121,6 +1134,72 @@ function flash(n) {
     setTimeout(function () { n.style.outline = old; n.style.opacity = oldO; }, 1200);
   } catch (e) {}
 }
+/* ------------------------------------------------- la réserve d'images
+   Une maquette bien faite range ses visuels dans une réserve cachée — une
+   image par fichier, avec son chemin — et se contente d'y piocher. Le même
+   cadre affiche alors tour à tour la planche de Pipo puis celle de Bruno.
+   Remplacer le visuel affiché déborderait sur tout le monde ; on remplace
+   donc l'entrée de la réserve, et chaque personnage garde la sienne. */
+function jumeaux(el) {
+  var s = el.getAttribute && el.getAttribute('src');
+  if (!s) return [];
+  var out = [];
+  try {
+    out = [].slice.call(doc.querySelectorAll('img[src="' + s + '"]'))
+      .filter(function (o) { return o !== el; });
+  } catch (e) {}
+  return out;
+}
+function cheminDe(n) {
+  var a = n.attributes;
+  for (var i = 0; i < a.length; i++)
+    if (/^data-/.test(a[i].name) && /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(a[i].value))
+      return a[i].value;
+  return '';
+}
+function reserveDe(list) {
+  for (var i = 0; i < list.length; i++) {
+    var o = list[i];
+    if (o.offsetParent !== null || o.getClientRects().length) continue;   // celle-là est affichée
+    if (cheminDe(o)) return o;
+    var pa = o.parentElement;
+    if (pa && pa.children.length > 2 &&
+        pa.querySelectorAll('img').length === pa.children.length) return o;
+  }
+  return null;
+}
+/* L'appli lit sa réserve au démarrage : retoucher la réserve ne change pas
+   toujours ce qui est DÉJÀ affiché. On note donc la source d'origine de
+   l'entrée retouchée, et on remplace le visuel partout où cette source-là
+   sert encore. Les autres personnages, qui ont la leur, ne bougent pas.
+   (`old` est propre à l'ouverture en cours : il n'est jamais exporté.) */
+function propagerReserve() {
+  if (!doc) return;
+  patches.forEach(function (p) {
+    if (p.src !== 'reserve') return;
+    var n;
+    try { n = doc.querySelector(p.sel); } catch (e) { return; }
+    if (n) {
+      var o = n.getAttribute('src');
+      if (o && o !== p.after) {
+        if (!p.old) p.old = o;
+        n.removeAttribute('srcset');
+        n.setAttribute('src', p.after);
+      }
+    }
+    if (!p.old) return;
+    try {
+      [].forEach.call(doc.querySelectorAll('img[src="' + p.old + '"]'), function (m) {
+        m.removeAttribute('srcset');
+        m.setAttribute('src', p.after);
+      });
+      [].forEach.call(doc.querySelectorAll('[style*="' + p.old + '"]'), function (m) {
+        m.setAttribute('style', m.getAttribute('style').split(p.old).join(p.after));
+      });
+    } catch (e) {}
+  });
+}
+
 $('pickImg').addEventListener('change', function (e) {
   var f = e.target.files[0];
   if (!f || !imgTarget) return;
@@ -1131,6 +1210,23 @@ $('pickImg').addEventListener('change', function (e) {
     imgTarget = null;
     var p = { kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
               hide: hide || undefined, label: short(f.name, 34) };
+    // le visuel vient-il d'une réserve ? alors c'est là qu'il faut le changer
+    var res = isImg ? reserveDe(jumeaux(el)) : null;
+    if (res) {
+      var srcAv = el.getAttribute('src');
+      var ch = cheminDe(res);
+      p.sel = pathOf(res);
+      p.label = short(f.name, 26) + ' → ' + short((ch.split('/').pop() || 'réserve'), 24);
+      p.src = 'reserve';
+      p.old = srcAv;
+      applyOne(p, res);
+      addPatch(p);
+      propagerReserve();
+      if (mode === 'img') renderGallery();
+      if (!$('askg').classList.contains('hidden')) renderChoix();
+      toast('Remplacé dans la réserve d’images — ce visuel suit partout où il est utilisé');
+      return;
+    }
     // Une maquette réutilise souvent la MÊME balise pour plusieurs contenus
     // (la fiche de Pipo puis celle de Bruno) en ne changeant que le alt :
     // on s'y accroche, sinon la retouche déborderait sur les autres.
@@ -1333,7 +1429,10 @@ function setMode(m) {
 
 /* ------------------------------------------------------------------ export */
 function exportFile() {
-  var data = JSON.stringify(patches).replace(/<\//g, '<\\/');
+  // « old » est la source de cette ouverture-ci (une URL blob recréée à chaque
+  // chargement) : l'exporter figerait une valeur périmée
+  var data = JSON.stringify(patches, function (k, v) { return k === 'old' ? undefined : v; })
+    .replace(/<\//g, '<\\/');
   var run = "(function(){var D=document.getElementById('" + MARK + "-data');if(!D)return;" +
     "var P=[];try{P=JSON.parse(D.textContent)||[]}catch(e){return}" +
     "var busy=false;" +
@@ -1341,6 +1440,16 @@ function exportFile() {
     "if(!n)return;" +
     "if(p.kind==='text'){if(n.dataset.pkEdited===p.id||!p.before||n.textContent.trim()===p.before.trim()){" +
     "n.textContent=p.after;n.dataset.pkEdited=p.id}}" +
+    /* entrée d'une réserve d'images : on la retouche, puis on remplace le
+       visuel partout où sa source d'origine sert encore — l'appli a pu lire
+       sa réserve avant nous */
+    "else if(p.kind==='img'&&p.src==='reserve'&&n.tagName==='IMG'){" +
+    "var o=n.getAttribute('src');if(o&&o!==p.after){if(!p.old)p.old=o;" +
+    "n.removeAttribute('srcset');n.setAttribute('src',p.after)}" +
+    "if(p.old){[].forEach.call(document.querySelectorAll('img[src=\"'+p.old+'\"]'),function(m){" +
+    "m.removeAttribute('srcset');m.setAttribute('src',p.after)});" +
+    "[].forEach.call(document.querySelectorAll('[style*=\"'+p.old+'\"]'),function(m){" +
+    "m.setAttribute('style',m.getAttribute('style').split(p.old).join(p.after))})}}" +
     "else if(p.kind==='img'&&n.tagName==='IMG'){" +
     "var bon=!p.alt||(n.getAttribute('alt')||'').trim()===p.alt;" +
     "if(bon){if(n.getAttribute('src')!==p.after){if(!n.pkOrig)n.pkOrig=n.getAttribute('src');" +
@@ -1374,8 +1483,12 @@ function exportFile() {
     "(document.head||document.documentElement).appendChild(s)}" +
     "var ap0=ap;ap=function(){css();ap0()};" +
     "ap();if(document.readyState!=='complete')window.addEventListener('load',ap);" +
-    "var t=null;new MutationObserver(function(){clearTimeout(t);t=setTimeout(ap,60)})" +
-    ".observe(document.documentElement,{childList:true,subtree:true});" +
+    /* tout de suite, pas seulement après la pause : une maquette qui LIT le DOM
+       au démarrage (réserve d'images) doit y trouver la version retouchée */
+    "var t=null,last=0;new MutationObserver(function(){var w=new Date().getTime();" +
+    "if(w-last>30){last=w;ap()}clearTimeout(t);t=setTimeout(function(){last=new Date().getTime();ap()},60)})" +
+    ".observe(document.documentElement,{childList:true,subtree:true,attributes:true," +
+    "attributeFilter:['src','style','class','alt','href']});" +
     "[120,400,1200,3000].forEach(function(d){setTimeout(ap,d)})})();";
 
   var block = '\n<!--' + MARK + '-->\n' +
