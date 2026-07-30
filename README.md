@@ -1,37 +1,14 @@
-# Starter Pack — outils
+# Éditeur HTML local
 
-## 🎬 Google Slides → HTML interactif
-
-Transforme un export PDF de Google Slides en **page web qui se navigue avec des
-boutons** : diapos accessibles uniquement via un bouton, vidéos incrustées,
-retour arrière. Rien à installer — c'est une page web, pas un programme.
-
-### ⬇ [Télécharger l'outil (Convertisseur.html)](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Convertisseur.html)
-
-Un seul fichier, ~1,6 Mo. Le lien télécharge directement et pointe toujours
-vers la dernière version.
-
-**Ensuite, en trois étapes :**
-
-1. Dans Google Slides : `Fichier → Télécharger → Document PDF (.pdf)`
-2. Double-clic sur `Convertisseur.html`, dépose le PDF dedans → le HTML se
-   télécharge
-3. Ouvre ce HTML et appuie sur `E` : ajoute des boutons, des images, du texte,
-   des formes et des vidéos par-dessus tes diapos, cache celles qui ne doivent
-   être accessibles que par un bouton, puis 💾 Enregistrer
-
-Tout se passe dans le navigateur : aucun fichier n'est envoyé en ligne.
-
-📖 [Mode d'emploi complet](slides2html/README.md) · 📄 [Version courte](slides2html/LISEZMOI.txt)
-
----
-
-## ✏️ Éditeur HTML local
-
-Tu as déjà une **maquette HTML** qui te plaît ? Remplace ses **textes** et ses
-**images** sans toucher au code, et récupère un fichier prêt à diffuser.
+Tu as déjà une **maquette HTML** qui te plaît ? Remplace ses **textes**, ses
+**images**, ses **vidéos** et ses **liens** sans toucher au code, et récupère un
+fichier prêt à diffuser. Rien à installer — c'est une page web, pas un
+programme.
 
 ### ⬇ [Télécharger l'outil (Editeur-HTML.html)](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html)
+
+Un seul fichier. Le lien télécharge directement et pointe toujours vers la
+dernière version.
 
 **En trois étapes :**
 
@@ -41,6 +18,8 @@ Tu as déjà une **maquette HTML** qui te plaît ? Remplace ses **textes** et se
    **🎬 Vidéos** : branche une vidéo locale sur un encadré ou un lecteur ·
    **🔗 Liens** : donne sa destination à chaque bouton
 3. 💾 Exporter → `ta-maquette - modifie.html`
+
+Tout se passe dans le navigateur : aucun fichier n'est envoyé en ligne.
 
 Ta page n'est jamais réécrite : le fichier exporté est ton original **plus un
 petit correctif** qui rejoue tes remplacements. Même une maquette dont le

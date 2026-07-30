@@ -168,11 +168,24 @@ peux donc donner une image différente à chacun, en les faisant défiler.
 Ça vaut aussi dans l'éditeur : la page s'y comporte comme le fichier final,
 onglets et sélecteurs compris.
 
+### La réserve d'images : un visuel par personnage
+
+Une maquette bien faite range ses visuels dans une **réserve cachée** — une
+balise par fichier, avec son chemin (`personnages/pipo/pipo_planche_01.png`) —
+et les cadres viennent y piocher selon le personnage affiché.
+
+Quand c'est le cas, l'outil le voit et **retouche l'entrée de la réserve**, pas
+l'image affichée. Concrètement : tu cliques la planche de Pipo, tu la
+remplaces, et **seul Pipo change** — Bruno garde la sienne. Le nouveau visuel
+suit partout où ce fichier servait (le carrousel, la visionneuse en grand). La
+retouche est nommée d'après le fichier concerné :
+`planche_pipo.png → pipo_planche_01.png`.
+
 **La limite à connaître :** si la maquette affiche *littéralement* la même
-image pour tout le monde — c'est le cas d'un carrousel de planches partagé —
-il n'y a **qu'un seul emplacement** et l'outil ne peut pas en inventer
-d'autres. Là, c'est la maquette qu'il faut faire évoluer (un carrousel par
-personnage) ; l'éditeur ne peut que remplir ce qui existe.
+image pour tout le monde, sans réserve ni `alt` distinct, il n'y a **qu'un seul
+emplacement** et l'outil ne peut pas en inventer d'autres. Là, c'est la
+maquette qu'il faut faire évoluer ; l'éditeur ne peut que remplir ce qui
+existe.
 
 ## Le texte collé prend le style du site
 
@@ -206,11 +219,9 @@ l'étaient. L'outil n'y touche pas.
 - Les images que tu déposes sont **embarquées dans le fichier** (en base64) :
   le HTML exporté reste autonome, lisible hors ligne, sans dossier d'images à
   côté.
-- L'outil retouche **textes et images**. Il ne déplace pas les blocs et ne
-  change pas la mise en page — c'est un remplaçeur de contenu, pas un
-  constructeur de site.
-- Pour un pack monté à partir de Google Slides, c'est l'autre outil qu'il te
-  faut : [`slides2html`](../slides2html/README.md).
+- L'outil retouche **textes, images, vidéos et liens**. Il ne déplace pas les
+  blocs et ne change pas la mise en page — c'est un remplaçeur de contenu, pas
+  un constructeur de site.
 
 ## Fichiers
 

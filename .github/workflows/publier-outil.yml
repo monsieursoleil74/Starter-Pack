@@ -1,16 +1,15 @@
-name: Publier le convertisseur
+name: Publier l'outil
 
-# Publie slides2html/Convertisseur.html comme fichier téléchargeable, sur une
+# Publie htmledit/Editeur-HTML.html comme fichier téléchargeable, sur une
 # release au tag fixe « outil ». Le lien ci-dessous ne change donc jamais et
 # télécharge toujours la dernière version :
-#   https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Convertisseur.html
+#   https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html
 
 on:
   push:
     branches:
       - claude/git-github-publish-5u5ayq   # branche par défaut du dépôt
     paths:
-      - 'slides2html/Convertisseur.html'
       - 'htmledit/Editeur-HTML.html'
       - '.github/workflows/publier-outil.yml'
   workflow_dispatch:
@@ -24,26 +23,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # l'artefact livré doit correspondre à ses sources
-      - run: python3 slides2html/build.py --check
+      # Ménage des anciennes versions (convertisseur de slides, .exe Windows).
+      # Sans effet une fois fait : le workflow reste propre à relancer.
+      - name: Retirer ce qui ne sert plus
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete exe-latest --yes --cleanup-tag || true
+          gh release delete-asset outil Convertisseur.html --yes || true
 
       - name: Publier la release « outil »
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
-          NOTES="Deux outils, deux besoins — rien à installer, ce sont des pages web qu'on ouvre en double-cliquant. Tout se passe dans le navigateur, aucun fichier n'est envoyé en ligne.
+          NOTES="**Editeur-HTML.html** — remplace les textes, les images, les vidéos et les liens d'une maquette HTML que tu as déjà, sans toucher au code.
 
-          **Convertisseur.html** — transforme un PDF exporté de Google Slides en pack HTML interactif (boutons, panneaux, pages cachées, vidéos). [Mode d'emploi](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/slides2html/README.md)
+          Rien à installer : c'est une page web qu'on ouvre en double-cliquant. Tout se passe dans le navigateur, aucun fichier n'est envoyé en ligne.
 
-          **Editeur-HTML.html** — remplace les textes et les images d'une maquette HTML que tu as déjà, sans toucher au code. [Mode d'emploi](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/htmledit/README.md)
+          [Mode d'emploi](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/htmledit/README.md)
 
           Version publiée depuis le commit ${{ github.sha }}."
           if gh release view outil >/dev/null 2>&1; then
-            gh release edit outil --notes "$NOTES" --latest
-            gh release upload outil slides2html/Convertisseur.html htmledit/Editeur-HTML.html --clobber
+            gh release edit outil --title "L'éditeur — dernière version" --notes "$NOTES" --latest
+            gh release upload outil htmledit/Editeur-HTML.html --clobber
           else
-            gh release create outil slides2html/Convertisseur.html htmledit/Editeur-HTML.html \
-              --title "Les outils — dernière version" \
+            gh release create outil htmledit/Editeur-HTML.html \
+              --title "L'éditeur — dernière version" \
               --notes "$NOTES" --latest
           fi
