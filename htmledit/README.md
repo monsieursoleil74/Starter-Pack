@@ -11,7 +11,7 @@ fichier n'est envoyé en ligne.
 ## Quelle version ai-je ?
 
 Le numéro est affiché **à côté du nom**, sur l'écran d'accueil de l'outil
-(`2026-07-31d`). Si un comportement ne correspond pas à ce mode
+(`2026-07-31e`). Si un comportement ne correspond pas à ce mode
 d'emploi, commence par retélécharger : le lien pointe toujours vers la
 dernière version.
 
@@ -299,6 +299,34 @@ Coller depuis Word, Google Docs ou une page web apporte normalement toute la
 mise en forme d'origine (police énorme, couleurs, interlignes). L'outil ne
 garde **que le texte** : il prend automatiquement la police et la taille de ta
 maquette. Rien à nettoyer.
+
+## Reprendre le travail : trois situations
+
+**Le fichier exporté EST ta sauvegarde.** Il contient ta maquette et toutes tes
+retouches. Redépose-le dans l'outil, sur n'importe quelle machine, et tu
+continues là où tu t'étais arrêté.
+
+| Tu veux… | Ce que tu fais |
+|---|---|
+| continuer plus tard, même machine | rien : l'outil propose de reprendre (voir plus bas) |
+| continuer sur **un autre ordinateur** | emporte le **fichier exporté** et dépose-le dans l'outil |
+| appliquer ton travail à une **nouvelle version de la maquette** | ouvre la nouvelle maquette, puis **« Reprendre les retouches d'un autre fichier… »** et désigne ton ancien export |
+
+### Quand la maquette change
+
+C'est le cas le plus délicat : ta maquette a été régénérée, des sections ont
+bougé, des personnages ont été ajoutés. L'outil s'accroche donc au **chemin du
+fichier** (`personnages/rex/rex_planche_01.jpg`), pas à la position dans la
+page : ta planche de Rex reste celle de Rex même si dix personnages ont été
+insérés avant lui.
+
+À la reprise, l'outil ne reprend **que ce qu'il peut replacer sans doute
+possible** : une entrée de réserve retrouvée par son chemin, un texte dont
+l'original est toujours là, une image accrochée à sa description, une vidéo
+accrochée au titre de sa fenêtre. Le reste est **laissé de côté et annoncé** —
+mieux vaut refaire trois retouches que d'en poser une au mauvais endroit.
+
+Ce qui a disparu de la nouvelle maquette est simplement ignoré.
 
 ## Sauvegarde de secours
 

@@ -198,6 +198,9 @@ header .sp{flex:1}
   padding:6px 9px;font-size:12px;color:var(--muted);transition:border-color .13s,color .13s}
 #onglet button:hover{border-color:var(--line2);color:var(--fg)}
 #ongletAide{margin-top:8px}
+.lien{background:none;border:none;color:var(--muted);font-size:12px;text-align:left;
+  padding:6px 0;text-decoration:underline;text-underline-offset:3px}
+.lien:hover{color:var(--accent)}
 
 /* ------------------------------------------------------------------ flottants */
 #hint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
@@ -350,6 +353,7 @@ header .sp{flex:1}
     <h3>Mes retouches</h3>
     <div id="list"></div>
     <p id="besoins" class="hidden"></p>
+    <button id="importer" class="lien">Reprendre les retouches d’un autre fichier…</button>
     <div id="ongletBox" class="hidden">
       <h3>Onglet du navigateur</h3>
       <div id="onglet">
@@ -417,13 +421,14 @@ header .sp{flex:1}
 <input type="file" id="pickImg" accept="image/*" class="hidden">
 <input type="file" id="pickVid" accept="video/*" class="hidden">
 <input type="file" id="pickIco" accept="image/*" class="hidden">
+<input type="file" id="pickImp" accept=".html,.htm" class="hidden">
 
 <script>
 (function () {
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-07-31d';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-07-31e';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1084,7 +1089,15 @@ function trouveTemoin(w) {
   cacheTemoin[w.txt] = found;
   return found;
 }
+/* Une maquette qui évolue décale les positions : un personnage ajouté, et le
+   « troisième img » n'est plus le même. On retrouve donc l'entrée par SON
+   CHEMIN, qui ne bouge pas ; la position ne sert que de repli. */
+function parChemin(k) {
+  if (!k) return null;
+  try { return doc.querySelector('[data-k="' + k.replace(/"/g, '\\"') + '"]'); } catch (e) { return null; }
+}
 function cibleDe(p) {
+  if (p.k) { var d = parChemin(p.k); if (d) return d; }
   if (!p.when) { try { return doc.querySelector(p.sel); } catch (e) { return null; } }
   var t = trouveTemoin(p.when);
   if (!t) return null;
@@ -1163,7 +1176,7 @@ $('pickVid').addEventListener('change', function (e) {
     var p = { kind: res ? 'vsrc' : (kind === 'vsrc' ? 'vsrc' : 'video'),
               sel: pathOf(cible), before: '', after: src, label: label,
               when: res ? undefined : (quand || undefined) };
-    if (res) { p.src = 'reserve'; p.old = el.getAttribute('src'); }
+    if (res) { p.src = 'reserve'; p.k = chRes || undefined; p.old = el.getAttribute('src'); }
     else if (quand) p.label += ' — ' + short(quand.txt, 22);
     applyOne(p, cible);
     addPatch(p);
@@ -1715,8 +1728,8 @@ function propagerReserve() {
     if (p.src !== 'reserve') return;
     // à l'écran on lit le fichier choisi ; le fichier exporté garde le chemin
     var vu = apercu(p.sel) || p.after;
-    var n;
-    try { n = doc.querySelector(p.sel); } catch (e) { return; }
+    var n = p.k ? parChemin(p.k) : null;
+    if (!n) { try { n = doc.querySelector(p.sel); } catch (e) { return; } }
     if (n) {
       var o = n.getAttribute('src');
       if (o && o !== p.after && o !== vu) {
@@ -1775,6 +1788,7 @@ function poser(data, nom, el, isImg, hide, ar) {
   if (res) {
     var ch = cheminDe(res);
     p.sel = pathOf(res);
+    p.k = ch || undefined;        // le chemin du fichier : ne bouge pas, lui
     p.label = short(nom, 26) + ' → ' + short((ch.split('/').pop() || 'réserve'), 24);
     p.src = 'reserve';
     p.old = el.getAttribute('src');
@@ -2363,7 +2377,9 @@ function exportFile() {
     "if(bt(n,w))return n;if(!CT)CT={};if(CT[w.txt]!==undefined)return CT[w.txt];" +
     "var f=null,a=document.querySelectorAll('*'),i;" +
     "for(i=0;i<a.length;i++)if(bt(a[i],w)){f=a[i];break}CT[w.txt]=f;return f}" +
-    "function cible(p){if(!p.when){try{return document.querySelector(p.sel)}catch(e){return null}}" +
+    "function pk(k){if(!k)return null;try{return document.querySelector('[data-k=\"'+k.replace(/\"/g,'\\\\\"')+'\"]')}catch(e){return null}}" +
+    "function cible(p){if(p.k){var d=pk(p.k);if(d)return d}" +
+    "if(!p.when){try{return document.querySelector(p.sel)}catch(e){return null}}" +
     "var t=tem(p.when);if(!t)return null;var a=t,i;" +
     "for(i=0;i<(p.when.up||0)&&a.parentElement;i++)a=a.parentElement;" +
     "var c=a;if(p.when.down){try{c=a.querySelector(p.when.down)}catch(e){return null}}" +
@@ -2479,6 +2495,63 @@ function exportFile() {
   setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   toast('Fichier exporté — tu peux le redéposer ici plus tard pour continuer');
 }
+
+/* --------------------------------- reprendre les retouches d'un autre fichier
+   La maquette évolue : Claude Design en sort une nouvelle version, et le
+   travail déjà fait est dans l'ancien export. On va le rechercher là-bas.
+   On ne reprend que ce qui peut être replacé SANS DOUTE : une entrée de
+   réserve (identifiée par son chemin), un texte dont l'original est toujours
+   là, une image accrochée à sa description, une vidéo accrochée à son titre.
+   Le reste est laissé de côté et annoncé — mieux vaut refaire trois retouches
+   que d'en poser une au mauvais endroit. */
+function reprenable(p) {
+  if (p.kind === 'head') return true;
+  if (p.k) return !!parChemin(p.k);
+  if (p.kind === 'text') {
+    var n = null;
+    try { n = doc.querySelector(p.sel); } catch (e) {}
+    return !!n && (!p.before || n.textContent.trim() === p.before.trim());
+  }
+  if (p.when) return !!cibleDe(p);
+  if (p.alt) {
+    var m = null;
+    try { m = doc.querySelector(p.sel); } catch (e) {}
+    return !!m && (m.getAttribute('alt') || '').trim() === p.alt;
+  }
+  return false;
+}
+$('importer').addEventListener('click', function () { $('pickImp').value = ''; $('pickImp').click(); });
+$('pickImp').addEventListener('change', function (e) {
+  var f = e.target.files[0];
+  if (!f) return;
+  var r = new FileReader();
+  r.onload = function () {
+    var venus = extractPatch(String(r.result)).patches || [];
+    if (!venus.length) { alert('Ce fichier ne contient aucune retouche.'); return; }
+    var pris = 0, laisses = [];
+    venus.forEach(function (p) {
+      if (!reprenable(p)) { laisses.push(p.label || p.kind); return; }
+      delete p.old;
+      patches = patches.filter(function (o) {
+        return !(o.kind === p.kind && ((p.k && o.k === p.k) || (!p.k && o.sel === p.sel &&
+                 (o.when ? o.when.txt : '') === (p.when ? p.when.txt : ''))));
+      });
+      patches.push(p);
+      pris++;
+    });
+    renderList();
+    applyAll();
+    if (mode === 'img') renderGallery();
+    majOnglet();
+    var msg = pris + ' retouche(s) reprise(s)';
+    if (laisses.length) msg += ' — ' + laisses.length + ' laissée(s) de côté : ' +
+      laisses.slice(0, 3).join(', ') + (laisses.length > 3 ? '…' : '') +
+      '. Ce contenu n’existe plus dans cette maquette, ou a changé.';
+    toast(msg);
+    if (laisses.length) alert(msg);
+  };
+  r.readAsText(f);
+});
 
 /* ------------------------------------------------------------- branchements */
 /* ------------------------------------------------------------------ icônes
