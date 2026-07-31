@@ -67,6 +67,20 @@ h1{font-size:25px;line-height:1.2;letter-spacing:-.02em;margin:0 0 8px;font-weig
   border-top:1px solid var(--line);padding-top:16px}
 .note b{color:var(--fg);font-weight:600}
 
+/* reprise d'un travail interrompu */
+#reprise{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--accent);
+  border-radius:14px;padding:12px 14px;margin-bottom:14px}
+#reprise .ic{width:20px;height:20px;color:var(--accent);flex:none}
+#reprise .txt{flex:1;min-width:0}
+#reprise b{display:block;font-size:13.5px;font-weight:600}
+#reprise span{color:var(--muted);font-size:12px}
+#reprise button{border:1px solid var(--line);background:var(--panel2);border-radius:9px;
+  padding:7px 12px;font-size:12.5px}
+#reprise #repriseOui{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+#reprise button:hover{filter:brightness(1.08)}
+#etat{color:var(--muted);font-size:11.5px;white-space:nowrap;display:flex;align-items:center;gap:5px}
+#etat .ic{width:13px;height:13px}
+
 /* ------------------------------------------------------------------ barre du haut */
 header{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--panel);
   border-bottom:1px solid var(--line);flex-shrink:0}
@@ -265,6 +279,12 @@ header .sp{flex:1}
     <h1>Remplace le contenu, pas le code.</h1>
     <p>Ta maquette HTML te plaît ? Change ses textes, ses images, ses vidéos et ses
        liens, puis récupère un fichier prêt à diffuser.</p>
+    <div id="reprise" class="hidden">
+      <span id="repriseIco"></span>
+      <span class="txt"><b id="repriseQuoi"></b><span id="repriseQuand"></span></span>
+      <button id="repriseNon">Oublier</button>
+      <button id="repriseOui">Reprendre</button>
+    </div>
     <div id="drop">
       <b>Dépose ton fichier .html ici</b>
       <span>ou clique pour le choisir — tout se passe sur ta machine, rien n’est envoyé en ligne</span>
@@ -284,6 +304,7 @@ header .sp{flex:1}
   <span class="sep"></span>
   <span id="fname"></span>
   <span id="count"></span>
+  <span id="etat"></span>
   <span class="sp"></span>
   <div id="modes">
     <button class="tool" id="mText">Textes</button>
@@ -402,7 +423,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-07-31c';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-07-31d';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -443,6 +464,17 @@ function pathOf(n) {
 }
 
 /* ------------------------------------------------- chargement d'un fichier */
+/* passe de l'accueil à l'éditeur, avec ce qu'on a en mémoire */
+function demarrer() {
+  $('home').classList.add('hidden');
+  $('bar').classList.remove('hidden');
+  $('main').classList.remove('hidden');
+  $('fname').textContent = fileName;
+  document.title = fileName + ' — Éditeur HTML';
+  renderList();
+  render();
+  setMode('text');
+}
 function openFile(file) {
   if (!file) return;
   fileName = file.name;
@@ -453,15 +485,25 @@ function openFile(file) {
     var found = extractPatch(txt);
     src = found.src;
     patches = found.patches;
-    $('home').classList.add('hidden');
-    $('bar').classList.remove('hidden');
-    $('main').classList.remove('hidden');
-    $('fname').textContent = fileName;
-    document.title = fileName + ' — Éditeur HTML';
-    renderList();
-    render();
-    setMode('text');
+    demarrer();
     if (patches.length) toast(patches.length + ' retouche(s) déjà dans ce fichier — tu peux continuer');
+    // un travail en cours sur CE fichier ? on propose de le reprendre
+    var cle = cleDoc();
+    lireBrouillons(function (l) {
+      var b = null;
+      for (var i = 0; i < l.length; i++) if (l[i].cle === cle) b = l[i];
+      var n = 0;
+      try { n = b ? (JSON.parse(b.patches) || []).length : 0; } catch (e) {}
+      if (!b || n <= patches.length) return;
+      if (confirm('Un travail en cours sur ce fichier a été retrouvé : ' + n +
+                  ' retouche(s), ' + ilYA(b.quand) + '.\n\nLe reprendre ?')) {
+        try { patches = JSON.parse(b.patches) || []; } catch (e) {}
+        dernierEcrit = b.patches;
+        renderList();
+        render();
+        toast('Travail repris — ' + patches.length + ' retouche(s)');
+      } else oublierBrouillon(cle);
+    });
   };
   r.onerror = function () {
     $('busy').classList.add('hidden');
@@ -2093,6 +2135,111 @@ $('pickIco').addEventListener('change', function (e) {
   r.readAsDataURL(f);
 });
 
+/* --------------------------------------------------- sauvegarde de secours
+   Un pack de cent visuels, c'est plusieurs heures de travail : si le
+   navigateur ferme, plus rien. On garde donc en réserve, sur la machine, la
+   page d'origine ET les retouches. Rien ne sort de l'ordinateur.
+   IndexedDB et pas localStorage : ce dernier plafonne à cinq mégaoctets,
+   soit deux images. */
+var BASE = null, baseKO = false;
+function base(cb) {
+  if (BASE) return cb(BASE);
+  if (baseKO) return cb(null);
+  try {
+    var q = indexedDB.open('editeur-html', 1);
+    q.onupgradeneeded = function () { q.result.createObjectStore('brouillons'); };
+    q.onsuccess = function () { BASE = q.result; cb(BASE); };
+    q.onerror = function () { baseKO = true; cb(null); };
+  } catch (e) { baseKO = true; cb(null); }
+}
+function cleDoc() { return fileName + '|' + src.length; }
+var brouillonT = null, dernierEcrit = '';
+function planifierBrouillon() {
+  clearTimeout(brouillonT);
+  brouillonT = setTimeout(ecrireBrouillon, 1200);
+}
+function ecrireBrouillon() {
+  if (!src) return;
+  var data = JSON.stringify(patches, function (k, v) { return k === 'old' ? undefined : v; });
+  if (data === dernierEcrit) return;
+  base(function (b) {
+    if (!b) { majEtat('secours indisponible'); return; }
+    try {
+      var t = b.transaction('brouillons', 'readwrite');
+      t.objectStore('brouillons').put(
+        { nom: fileName, quand: Date.now(), n: patches.length, src: src, patches: data },
+        cleDoc());
+      t.oncomplete = function () { dernierEcrit = data; majEtat('sauvegardé'); };
+      t.onerror = function () {
+        majEtat('secours impossible (place manquante)');
+        if (!ecrireBrouillon.dit) { ecrireBrouillon.dit = 1;
+          toast('Sauvegarde de secours impossible : il n’y a plus de place sur le disque'); }
+      };
+    } catch (e) { majEtat('secours indisponible'); }
+  });
+}
+function oublierBrouillon(cle) {
+  base(function (b) {
+    if (!b) return;
+    try { b.transaction('brouillons', 'readwrite').objectStore('brouillons').delete(cle || cleDoc()); }
+    catch (e) {}
+  });
+}
+function lireBrouillons(cb) {
+  base(function (b) {
+    if (!b) return cb([]);
+    try {
+      var t = b.transaction('brouillons', 'readonly').objectStore('brouillons');
+      var out = [], q = t.openCursor();
+      q.onsuccess = function () {
+        var c = q.result;
+        if (!c) { out.sort(function (a, z) { return z.quand - a.quand; }); return cb(out); }
+        var v = c.value; v.cle = c.key; out.push(v);
+        c.continue();
+      };
+      q.onerror = function () { cb([]); };
+    } catch (e) { cb([]); }
+  });
+}
+function ilYA(t) {
+  var s = Math.round((Date.now() - t) / 1000);
+  if (s < 60) return 'à l’instant';
+  if (s < 3600) return 'il y a ' + Math.round(s / 60) + ' min';
+  if (s < 86400) return 'il y a ' + Math.round(s / 3600) + ' h';
+  return 'il y a ' + Math.round(s / 86400) + ' j';
+}
+function majEtat(txt) {
+  $('etat').innerHTML = txt === 'sauvegardé'
+    ? ico('secours') + '<span>sauvegardé</span>'
+    : '<span>' + esc(txt) + '</span>';
+}
+/* à l'ouverture de l'outil : proposer de reprendre le dernier travail */
+function proposerReprise() {
+  lireBrouillons(function (l) {
+    var b = l[0];
+    if (!b || !b.src) return;
+    var n = 0;
+    try { n = (JSON.parse(b.patches) || []).length; } catch (e) {}
+    if (!n) return;
+    $('repriseQuoi').textContent = 'Reprendre « ' + short(b.nom, 40) + ' »';
+    $('repriseQuand').textContent = n + ' retouche(s), ' + ilYA(b.quand);
+    $('reprise').classList.remove('hidden');
+    $('repriseOui').onclick = function () {
+      src = b.src;
+      fileName = b.nom;
+      try { patches = JSON.parse(b.patches) || []; } catch (e) { patches = []; }
+      dernierEcrit = b.patches;
+      $('reprise').classList.add('hidden');
+      demarrer();
+      toast('Travail repris — ' + patches.length + ' retouche(s)');
+    };
+    $('repriseNon').onclick = function () {
+      oublierBrouillon(b.cle);
+      $('reprise').classList.add('hidden');
+    };
+  });
+}
+
 /* --------------------------------------------------------------- retouches */
 function addPatch(p) {
   p.id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -2147,6 +2294,7 @@ function renderList() {
       noms.map(function (rel) { return '• ' + esc(besoins[rel]) + ' → <code>' + esc(rel) + '</code>'; }).join('<br>');
   } else av.classList.add('hidden');
   $('count').textContent = patches.length ? patches.length + ' retouche(s)' : 'aucune retouche';
+  planifierBrouillon();
   $('undo').disabled = !patches.length;
   $('save').disabled = false;
 }
@@ -2352,7 +2500,8 @@ var ICONES = {
   fermer: '<path d="M6 6l12 12M18 6L6 18"/>',
   fond:   '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 15l5-4 4 3 3-2 6 5"/>',
   chevron:'<path d="M6 9l6 6 6-6"/>',
-  loupe:  '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'
+  loupe:  '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+  secours:'<path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M12 7.5V12l3 2"/>'
 };
 function ico(nom, cls) {
   return '<svg class="ic' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" fill="none" ' +
@@ -2376,6 +2525,7 @@ function habiller() {
 
 $('ver').textContent = APP;
 habiller();
+proposerReprise();
 $('drop').addEventListener('click', function () { $('pick').click(); });
 $('pick').addEventListener('change', function (e) { openFile(e.target.files[0]); });
 ['dragenter', 'dragover'].forEach(function (ev) {

@@ -11,7 +11,7 @@ fichier n'est envoyé en ligne.
 ## Quelle version ai-je ?
 
 Le numéro est affiché **à côté du nom**, sur l'écran d'accueil de l'outil
-(`2026-07-31c`). Si un comportement ne correspond pas à ce mode
+(`2026-07-31d`). Si un comportement ne correspond pas à ce mode
 d'emploi, commence par retélécharger : le lien pointe toujours vers la
 dernière version.
 
@@ -299,6 +299,26 @@ Coller depuis Word, Google Docs ou une page web apporte normalement toute la
 mise en forme d'origine (police énorme, couleurs, interlignes). L'outil ne
 garde **que le texte** : il prend automatiquement la police et la taille de ta
 maquette. Rien à nettoyer.
+
+## Sauvegarde de secours
+
+Un pack de cent visuels, c'est plusieurs heures. Si le navigateur ferme, si la
+machine redémarre, **rien n'est perdu** : l'outil garde en réserve, sur ta
+machine, la page d'origine **et** tes retouches, mises à jour à chaque
+changement. Un repère dans la barre du haut indique « sauvegardé ».
+
+À la réouverture de l'outil, une bande propose : *« Reprendre
+« ma-maquette.html » — 34 retouches, il y a 12 min »*. Tu reprends **sans avoir
+à redéposer le fichier** : la page et les images reviennent telles quelles.
+« Oublier » efface la sauvegarde.
+
+Si tu redéposes le même fichier alors qu'un travail plus avancé est en réserve,
+l'outil te le signale et te laisse choisir.
+
+Le stockage utilisé est celui du navigateur (IndexedDB), sur ton disque : rien
+ne sort de la machine, comme le reste de l'outil. Il est vaste (plusieurs
+centaines de mégaoctets) mais pas infini — si le disque est plein, l'outil te
+prévient au lieu de faire semblant.
 
 ## Où vont les images ? (et le poids du fichier)
 
