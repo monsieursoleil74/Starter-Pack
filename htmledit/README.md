@@ -10,22 +10,32 @@ fichier n'est envoyé en ligne.
 
 ## Quelle version ai-je ?
 
-Le numéro est affiché **à côté du titre**, sur l'écran d'accueil de l'outil
-(`version 2026-07-30d`). Si un comportement ne correspond pas à ce mode
+Le numéro est affiché **à côté du nom**, sur l'écran d'accueil de l'outil
+(`2026-07-31`). Si un comportement ne correspond pas à ce mode
 d'emploi, commence par retélécharger : le lien pointe toujours vers la
 dernière version.
+
+## L'interface
+
+Une barre en haut : la marque et le nom du fichier à gauche, les **cinq modes**
+au centre (Textes, Images, Vidéos, Liens, Aperçu), les actions à droite —
+annuler, recharger, **Exporter**. Un panneau à droite pour ce que le mode en
+cours donne à voir : les visuels de la page, les liens, tes retouches. Le reste
+de l'écran, c'est ta page.
+
+Icônes dessinées au trait, une seule couleur d'accent, rien qui clignote.
 
 ## Utilisation
 
 1. **Ouvre `Editeur-HTML.html`** (double-clic) et **dépose ta maquette `.html`**
    dedans.
-2. **✏️ Textes** : clique n'importe quel texte de la page et réécris-le. Un clic
+2. **Textes** : clique n'importe quel texte de la page et réécris-le. Un clic
    ailleurs (ou `Échap`) valide.
-3. **🖼 Images** : clique une image pour la remplacer par un fichier de ton
+3. **Images** : clique une image pour la remplacer par un fichier de ton
    disque. Les fonds en image se remplacent aussi.
-4. **👁 Aperçu** : la page redevient normale, tu peux cliquer ses boutons et
+4. **Aperçu** : la page redevient normale, tu peux cliquer ses boutons et
    vérifier ton travail.
-5. **💾 Exporter** : tu récupères `ta-maquette - modifie.html`, prêt à diffuser.
+5. **Exporter** : tu récupères `ta-maquette - modifie.html`, prêt à diffuser.
 
 ## Le principe : on n'écrase jamais ta maquette
 
@@ -41,7 +51,7 @@ Ce choix a trois conséquences très pratiques :
   fonctionne : le correctif attend que la page soit construite, et se
   réapplique si elle se reconstruit (changement d'onglet, filtre…).
 - **C'est réversible.** Chaque retouche est listée dans le panneau de droite
-  avec un ✕ pour l'annuler. `Ctrl+Z` annule la dernière.
+  avec une croix pour l'annuler. `Ctrl+Z` annule la dernière.
 - **C'est reprenable.** Redépose le fichier exporté dans l'outil : tes
   retouches sont retrouvées et tu continues. Pas d'empilement : le correctif
   est régénéré à chaque export.
@@ -103,7 +113,7 @@ sur le dégradé, jamais sur l'image. Maintenant l'outil voit ce qu'il y a
 ## Poser une image là où il n'y en a pas
 
 Certaines zones n'ont **aucune image à remplacer** : une pastille de personnage,
-c'est souvent juste une lettre sur un fond de couleur. En mode **🖼 Images**, la
+c'est souvent juste une lettre sur un fond de couleur. En mode **Images**, la
 surbrillance te dit ce que tu vises :
 
 - **cadre vert plein** → une image : clic = la remplacer ;
@@ -118,12 +128,12 @@ surbrillance te dit ce que tu vises :
 L'image est cadrée en *cover* (elle remplit sans se déformer, quitte à rogner).
 
 **Exemple concret — mettre les portraits dans les pastilles de personnages :**
-mode **🖼 Images** → clique la pastille (elle se cadre en orange pointillé) →
+mode **Images** → clique la pastille (elle se cadre en orange pointillé) →
 **« à la place du contenu »** → choisis le portrait. La lettre disparaît sous
 l'image, et le nom écrit *sous* la pastille reste en place. À refaire pour
 chaque personnage.
 
-## ✥ Recadrer : choisir ce qu'on garde de l'image
+## Recadrer : choisir ce qu'on garde de l'image
 
 Ton visuel n'a presque jamais le format exact du cadre où il va. La maquette
 le rogne donc — et jusqu'ici tu subissais ce rognage.
@@ -137,7 +147,7 @@ recadrage s'ouvre toute seule :
 - **Recentrer** annule le réglage, **Terminé** referme.
 
 Tu peux y revenir quand tu veux : chaque retouche d'image porte un bouton
-**✥** dans le panneau de droite.
+**de recadrage** dans le panneau de droite.
 
 Le cadrage voyage avec l'image : il est rejoué à l'identique dans le fichier
 exporté, et il suit le visuel **partout où il sert** (la vignette du carrousel
@@ -148,10 +158,10 @@ même.
 Une image qui tient entière dans son cadre n'a rien à recadrer — l'outil te le
 dit, et il te reste le zoom si tu veux quand même resserrer.
 
-## 🔗 Brancher les liens
+## Brancher les liens
 
 Les boutons d'une maquette pointent souvent vers `#` — nulle part. Le mode
-**🔗 Liens** liste **tous les liens de la page** avec leur destination
+**Liens** liste **tous les liens de la page** avec leur destination
 actuelle, et **signale en orange ceux qui n'ont pas d'adresse**. Clique une
 ligne (ou le bouton dans la page), tape l'adresse, valide.
 
@@ -167,13 +177,13 @@ les navigateurs refusent le plus souvent de les ouvrir depuis une page web,
 par sécurité. L'outil te prévient. Si le pack est lu depuis le même partage,
 un chemin **relatif** (`../rigs/pipo/`) est bien plus fiable.
 
-## 🎬 Brancher les vidéos
+## Brancher les vidéos
 
 Beaucoup de maquettes ont un encadré « VIDÉO » qui ne contient **aucun
-lecteur** — c'est un décor. Le mode **🎬 Vidéos** en pose un vrai.
+lecteur** — c'est un décor. Le mode **Vidéos** en pose un vrai.
 
 Si la vidéo s'ouvre **dans une fenêtre** (clic sur un bouton *RIG*, *TOOLS*…),
-**clique simplement ce bouton** en mode 🎬 Vidéos : l'outil ouvre la fenêtre
+**clique simplement ce bouton** en mode Vidéos : l'outil ouvre la fenêtre
 pour toi et vise l'emplacement du lecteur à l'intérieur — pas le bouton. Il
 te reste à choisir comment brancher la vidéo.
 
@@ -285,7 +295,7 @@ l'étaient. L'outil n'y touche pas.
 
 ## Ce que l'aperçu sait faire (et ce qu'il ne fait pas)
 
-En **👁 Aperçu**, ta page se comporte normalement : boutons, onglets,
+En **Aperçu**, ta page se comporte normalement : boutons, onglets,
 carrousels, fenêtres. Deux exceptions, parce que la page est affichée dans un
 cadre et n'a pas encore d'adresse à elle :
 
