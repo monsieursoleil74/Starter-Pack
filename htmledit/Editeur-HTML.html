@@ -170,6 +170,21 @@ header .sp{flex:1}
 #lnks .lk.vide span{color:var(--warn)}
 #lnks .lk.done{border-color:var(--ok)}
 
+/* l'identité de l'onglet : icône + titre */
+#onglet{display:flex;gap:10px;align-items:flex-start;margin:8px 0 0}
+#onglet .ico{width:46px;height:46px;border-radius:10px;flex:none;background:var(--panel2) center/cover no-repeat;
+  border:1px solid var(--line);display:grid;place-items:center;color:var(--muted)}
+#onglet .ico .ic{width:18px;height:18px}
+#onglet .ch{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+#onglet input{width:100%;background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+  border-radius:8px;padding:7px 9px;font:inherit;font-size:12.5px}
+#onglet input:focus{outline:none;border-color:var(--accent)}
+#onglet .bs{display:flex;gap:6px}
+#onglet button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+  padding:6px 9px;font-size:12px;color:var(--muted);transition:border-color .13s,color .13s}
+#onglet button:hover{border-color:var(--line2);color:var(--fg)}
+#ongletAide{margin-top:8px}
+
 /* ------------------------------------------------------------------ flottants */
 #hint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
   background:rgba(18,21,27,.92);backdrop-filter:blur(10px);border:1px solid var(--line);
@@ -314,6 +329,20 @@ header .sp{flex:1}
     <h3>Mes retouches</h3>
     <div id="list"></div>
     <p id="besoins" class="hidden"></p>
+    <div id="ongletBox" class="hidden">
+      <h3>Onglet du navigateur</h3>
+      <div id="onglet">
+        <div class="ico" id="ongletVu"></div>
+        <div class="ch">
+          <input type="text" id="ongletTitre" placeholder="Titre de l’onglet" spellcheck="false">
+          <div class="bs">
+            <button id="ongletPick">Choisir une icône</button>
+            <button id="ongletDel" class="hidden">Retirer</button>
+          </div>
+        </div>
+      </div>
+      <p class="help" id="ongletAide"></p>
+    </div>
     <p class="help" id="help"></p>
   </aside>
 </div>
@@ -366,13 +395,14 @@ header .sp{flex:1}
 <input type="file" id="pick" accept=".html,.htm" class="hidden">
 <input type="file" id="pickImg" accept="image/*" class="hidden">
 <input type="file" id="pickVid" accept="video/*" class="hidden">
+<input type="file" id="pickIco" accept="image/*" class="hidden">
 
 <script>
 (function () {
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-07-31b';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-07-31c';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -480,9 +510,12 @@ function render(keepScroll) {
     injectUi();
     watchDoc();
     setMode(mode);
+    $('ongletBox').classList.remove('hidden');
+    majOnglet();
     if (sc) try { fr.contentWindow.scrollTo(0, sc); } catch (e) {}
     setTimeout(function () {
       applyAll();                    // la page peut se construire après coup
+      majOnglet();                   // …y compris son titre
       $('busy').classList.add('hidden');
     }, 700);
   };
@@ -520,6 +553,7 @@ function applyAll() {
   tour++;
   var orphelins = [];
   patches.forEach(function (p) {
+    if (p.kind === 'head') { poserOnglet(doc, p); return; }
     var n = cibleDe(p);
     if (!n) {
       // fenêtre partagée refermée ou passée à un autre contenu
@@ -1171,7 +1205,8 @@ var pileSel = null, pileZone = null;
 function estCachee(n) {
   try {
     var s = doc.defaultView.getComputedStyle(n);
-    return parseFloat(s.opacity) < .05 || s.visibility === 'hidden';
+    // pendant un fondu, celle qui s'efface compte déjà comme « pas affichée »
+    return parseFloat(s.opacity) < .5 || s.visibility === 'hidden';
   } catch (e) { return false; }
 }
 function fondUrl(n) {
@@ -1969,6 +2004,95 @@ function brancherRecadrage() {
   }, { capture: true, passive: false });
 }
 
+/* ------------------------------------------------- l'onglet du navigateur
+   Un pack posé sur le serveur s'ouvre avec l'icône blanche par défaut et le
+   titre qu'avait la maquette. On donne donc les deux : une petite icône, un
+   titre. L'icône est ramenée à 128 px et recadrée au carré — un favicon plus
+   gros ne sert à rien et alourdirait le fichier. */
+function patchOnglet() {
+  for (var i = 0; i < patches.length; i++) if (patches[i].kind === 'head') return patches[i];
+  return null;
+}
+function poserOnglet(d, p) {
+  try {
+    if (p.titre && d.title !== p.titre) d.title = p.titre;
+    if (!p.icon) return;
+    var l = d.querySelector('link[data-pk-ico]');
+    if (!l) {
+      Array.prototype.forEach.call(
+        d.querySelectorAll('link[rel~="icon"],link[rel="shortcut icon"],link[rel="apple-touch-icon"]'),
+        function (x) { x.remove(); });
+      l = d.createElement('link');
+      l.setAttribute('rel', 'icon');
+      l.setAttribute('data-pk-ico', '1');
+      (d.head || d.documentElement).appendChild(l);
+    }
+    if (l.getAttribute('href') !== p.icon) l.setAttribute('href', p.icon);
+  } catch (e) {}
+}
+function majOnglet() {
+  var p = patchOnglet();
+  var titre = p && p.titre ? p.titre : (doc ? doc.title : '');
+  if ($('ongletTitre') !== document.activeElement) $('ongletTitre').value = titre || '';
+  var vu = $('ongletVu');
+  if (p && p.icon) {
+    vu.style.backgroundImage = 'url("' + p.icon + '")';
+    vu.innerHTML = '';
+    $('ongletDel').classList.remove('hidden');
+  } else {
+    vu.style.backgroundImage = '';
+    vu.innerHTML = ico('image');
+    $('ongletDel').classList.add('hidden');
+  }
+  $('ongletAide').textContent =
+    p && (p.icon || p.titre) ? 'Cette icône et ce titre partent avec le fichier exporté.'
+    : !titre ? 'Ta maquette n’a pas de titre : l’onglet affiche le nom du fichier. Donne-lui un titre et une icône.'
+    : 'Sans icône, le navigateur affiche une page blanche dans l’onglet.';
+}
+function majPatchOnglet(champs) {
+  var p = patchOnglet();
+  if (!p) {
+    p = { kind: 'head', icon: '', titre: '', label: 'Onglet du navigateur' };
+    patches.push(p);
+  }
+  if (champs.icon !== undefined) p.icon = champs.icon;
+  if (champs.titre !== undefined) p.titre = champs.titre;
+  if (!p.icon && !p.titre) patches = patches.filter(function (o) { return o !== p; });
+  else poserOnglet(doc, p);
+  renderList();
+  majOnglet();
+}
+$('ongletPick').addEventListener('click', function () { $('pickIco').value = ''; $('pickIco').click(); });
+$('ongletDel').addEventListener('click', function () { majPatchOnglet({ icon: '' }); });
+$('ongletTitre').addEventListener('input', function () {
+  clearTimeout(this.pkT);
+  var v = this.value;
+  this.pkT = setTimeout(function () { majPatchOnglet({ titre: v.trim() }); }, 350);
+});
+$('pickIco').addEventListener('change', function (e) {
+  var f = e.target.files[0];
+  if (!f) return;
+  var r = new FileReader();
+  r.onload = function () {
+    var im = new Image();
+    im.onload = function () {
+      var d = 128, c = document.createElement('canvas');
+      c.width = c.height = d;
+      var g = c.getContext('2d');
+      var s = Math.max(d / im.width, d / im.height);
+      var w = im.width * s, h = im.height * s;
+      try {
+        g.drawImage(im, (d - w) / 2, (d - h) / 2, w, h);
+        majPatchOnglet({ icon: c.toDataURL('image/png') });
+        toast('Icône de l’onglet enregistrée');
+      } catch (x) { majPatchOnglet({ icon: String(r.result) }); }
+    };
+    im.onerror = function () { alert('Cette image ne peut pas servir d’icône.'); };
+    im.src = String(r.result);
+  };
+  r.readAsDataURL(f);
+});
+
 /* --------------------------------------------------------------- retouches */
 function addPatch(p) {
   p.id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -1994,7 +2118,7 @@ function renderList() {
   patches.forEach(function (p, i) {
     var d = document.createElement('div');
     d.className = 'it';
-    var quoi = p.kind === 'text' ? 'texte' : p.kind === 'link' ? 'lien'
+    var quoi = p.kind === 'head' ? 'marque' : p.kind === 'text' ? 'texte' : p.kind === 'link' ? 'lien'
              : (p.kind === 'video' || p.kind === 'vsrc') ? 'video'
              : p.kind === 'bg' ? 'fond' : 'image';
     d.innerHTML = '<i>' + ico(quoi) + '</i><span>' + esc(p.label) + '</span>';
@@ -2111,8 +2235,16 @@ function exportFile() {
     "function net(p){[].forEach.call(document.querySelectorAll('video.pk-vid'),function(v){" +
     "if(v.getAttribute('src')!==p.after||v.pkTour===tours)return;var pa=v.parentElement;v.remove();" +
     "if(pa&&!pa.querySelector(':scope > video.pk-vid'))pa.removeAttribute('data-pk-hide')})}" +
+    /* l'onglet : icône et titre, remis à chaque passage — une page qui
+       reconstruit son head les emporterait sinon */
+    "function tete(p){try{if(p.titre&&document.title!==p.titre)document.title=p.titre;" +
+    "if(!p.icon)return;var l=document.querySelector('link[data-pk-ico]');if(!l){" +
+    "[].forEach.call(document.querySelectorAll('link[rel~=\"icon\"],link[rel=\"shortcut icon\"],link[rel=\"apple-touch-icon\"]')," +
+    "function(x){x.remove()});l=document.createElement('link');l.setAttribute('rel','icon');" +
+    "l.setAttribute('data-pk-ico','1');(document.head||document.documentElement).appendChild(l)}" +
+    "if(l.getAttribute('href')!==p.icon)l.setAttribute('href',p.icon)}catch(e){}}" +
     "function ap(){if(busy)return;busy=true;CT=null;tours++;var orph=[];" +
-    "P.forEach(function(p){var n=cible(p);" +
+    "P.forEach(function(p){if(p.kind==='head'){tete(p);return}var n=cible(p);" +
     "if(!n){if(p.kind==='video'&&p.when)orph.push(p);return}" +
     "if(p.kind==='text'){if(n.dataset.pkEdited===p.id||!p.before||n.textContent.trim()===p.before.trim()){" +
     "n.textContent=p.after;n.dataset.pkEdited=p.id}}" +

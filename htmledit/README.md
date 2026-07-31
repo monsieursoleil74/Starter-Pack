@@ -11,7 +11,7 @@ fichier n'est envoyé en ligne.
 ## Quelle version ai-je ?
 
 Le numéro est affiché **à côté du nom**, sur l'écran d'accueil de l'outil
-(`2026-07-31b`). Si un comportement ne correspond pas à ce mode
+(`2026-07-31c`). Si un comportement ne correspond pas à ce mode
 d'emploi, commence par retélécharger : le lien pointe toujours vers la
 dernière version.
 
@@ -167,6 +167,23 @@ même.
 
 Une image qui tient entière dans son cadre n'a rien à recadrer — l'outil te le
 dit, et il te reste le zoom si tu veux quand même resserrer.
+
+## L'onglet du navigateur : icône et titre
+
+Un pack posé sur le serveur s'ouvre avec **l'icône blanche par défaut**, et le
+titre que portait la maquette — souvent aucun, auquel cas l'onglet affiche le
+nom du fichier. Pour un pack qu'on diffuse, ça se voit.
+
+En bas du panneau de droite, **Onglet du navigateur** :
+
+- **Choisir une icône** — n'importe quelle image de ton disque. Elle est
+  ramenée à 128 px et recadrée au carré : quelques kilo-octets, pas plus.
+  Un logo carré, ou un détail bien lisible en tout petit, marchent mieux
+  qu'une bannière.
+- **Le titre** — ce qui s'écrit dans l'onglet, à côté de l'icône.
+
+Les deux partent avec le fichier exporté, et sont retrouvés si tu le redéposes
+dans l'outil plus tard. **Retirer** rend la main à la maquette.
 
 ## Brancher les liens
 
