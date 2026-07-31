@@ -118,6 +118,18 @@ header .sp{flex:1}
 #list .it i{font-style:normal;color:var(--muted);display:inline-flex}
 #list .it i .ic{width:15px;height:15px}
 
+/* recherche dans les visuels */
+#galQ{position:relative;margin:8px 0 2px}
+#galQ .ic{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--muted);
+  width:15px;height:15px;pointer-events:none}
+#galQ input{width:100%;background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+  border-radius:9px;padding:8px 28px 8px 30px;font:inherit;font-size:12.5px}
+#galQ input:focus{outline:none;border-color:var(--accent)}
+#galQ button{position:absolute;right:5px;top:50%;transform:translateY(-50%);background:none;
+  border:none;color:var(--muted);padding:4px;border-radius:6px;display:inline-flex}
+#galQ button:hover{color:var(--fg);background:var(--panel3)}
+#galVide{color:var(--muted);font-size:12.5px;padding:10px 2px}
+
 /* galerie des visuels */
 #gal{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0 2px}
 #gal .g{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px;
@@ -130,9 +142,17 @@ header .sp{flex:1}
   text-overflow:ellipsis;white-space:nowrap}
 #gal .g.done{border-color:var(--ok)}
 #gal .g.done .nm{color:var(--ok)}
-#gal .hd{grid-column:1/-1;font-size:11px;font-weight:600;color:var(--fg);
-  margin:10px 0 0;padding-top:10px;border-top:1px solid var(--line)}
-#gal .hd:first-child{margin-top:0;padding-top:0;border-top:none}
+/* en-tête de famille : repliable, avec le compte et une flèche */
+#gal .hd{grid-column:1/-1;display:flex;align-items:center;gap:7px;width:100%;
+  background:none;border:none;border-top:1px solid var(--line);color:var(--fg);
+  font:inherit;font-size:11.5px;font-weight:600;text-align:left;
+  margin:8px 0 0;padding:9px 4px 5px;cursor:pointer;border-radius:0}
+#gal .hd:first-child{margin-top:0;border-top:none;padding-top:2px}
+#gal .hd:hover{color:var(--accent)}
+#gal .hd .ic{width:13px;height:13px;color:var(--muted);transition:transform .16s}
+#gal .hd.plie .ic{transform:rotate(-90deg)}
+#gal .hd .nb{margin-left:auto;color:var(--muted);font-weight:500;font-variant-numeric:tabular-nums}
+#gal .hd .pastille{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
 #galInfo,#lnkInfo{color:var(--muted);font-size:12px;margin:0}
 #besoins{background:rgba(243,189,92,.09);border:1px solid rgba(243,189,92,.32);color:#f6d69b;
   border-radius:10px;padding:10px 11px;font-size:12px;line-height:1.65;margin-top:12px}
@@ -279,6 +299,11 @@ header .sp{flex:1}
     <div id="galBox" class="hidden">
       <h3>Images de la page</h3>
       <p id="galInfo"></p>
+      <div id="galQ">
+        <input type="search" id="galQi" placeholder="Chercher un visuel…" spellcheck="false">
+        <button id="galQx" class="hidden" title="Effacer la recherche"></button>
+      </div>
+      <p id="galVide" class="hidden"></p>
       <div id="gal"></div>
     </div>
     <div id="lnkBox" class="hidden">
@@ -347,7 +372,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-07-31';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-07-31b';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1438,6 +1463,15 @@ function collectMedia() {
   }
   return out;
 }
+/* Avec 144 visuels, tout dérouler n'aide personne : les familles se replient,
+   et un champ de recherche va droit au but. « rex », « color script », un nom
+   de fichier — la recherche regarde le libellé, le chemin et la famille. */
+var replies = {}, replisFaits = false;
+function sansAccent(t) {
+  return (t || '').toLowerCase()
+    .normalize ? (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+               : (t || '').toLowerCase();
+}
 function renderGallery() {
   var box = $('gal');
   box.innerHTML = '';
@@ -1446,6 +1480,8 @@ function renderGallery() {
   $('galInfo').textContent = !media.length ? 'Aucune image détectée sur cette page.'
     : nbF ? media.length + ' visuels, rangés par personnage et par section — clique pour remplacer'
           : media.length + ' image(s) trouvée(s), carrousels compris — clique pour remplacer';
+  $('galQ').classList.toggle('hidden', media.length < 8);
+
   // une pile d'une seule image n'en est pas une ; une famille de la réserve,
   // si — « Bannière, 1 visuel » reste une information utile
   media.forEach(function (m) {
@@ -1453,43 +1489,82 @@ function renderGallery() {
         media.filter(function (o) { return o.grp === m.grp; }).length < 2) m.grp = '';
   });
   // rangées par famille, dans l'ordre alphabétique ; le reste à la fin
-  var grp = media.filter(function (m) { return m.grp; });
   var parent = function (m) { return (m.grp || '').split('/').slice(0, -1).join('/'); };
+  var grp = media.filter(function (m) { return m.grp; });
   grp.sort(function (a, b) {
     return (parent(a) + '|' + (a.grpName || '')).localeCompare(parent(b) + '|' + (b.grpName || ''), 'fr');
   });
   media = grp.concat(media.filter(function (m) { return !m.grp; }));
-  var grpVu = '';
-  media.forEach(function (m, i) {
+
+  // recherche : sur le libellé, le fichier et le nom de famille
+  var q = sansAccent(($('galQi').value || '').trim());
+  $('galQx').classList.toggle('hidden', !q);
+  if (q) media = media.filter(function (m) {
+    return sansAccent((m.name || '') + ' ' + (m.fichier || '') + ' ' + (m.grpName || '')).indexOf(q) >= 0;
+  });
+
+  // au premier affichage, on replie si la liste est longue
+  var familles = {};
+  media.forEach(function (m) { if (m.grp) familles[m.grp] = m.grpName || ''; });
+  var nbFam = Object.keys(familles).length;
+  if (!replisFaits && nbFam > 6) {
+    Object.keys(familles).forEach(function (g) { replies[g] = 1; });
+  }
+  replisFaits = true;
+
+  if (!media.length) {
+    $('galVide').classList.remove('hidden');
+    $('galVide').textContent = q ? 'Rien qui corresponde à « ' + q + ' ».' : '';
+    return;
+  }
+  $('galVide').classList.add('hidden');
+
+  var grpVu = '', i = 0;
+  media.forEach(function (m) {
     if (m.grp && m.grp !== grpVu) {
       grpVu = m.grp;
-      var hd = document.createElement('div');
-      hd.className = 'hd';
-      var nb = media.filter(function (o) { return o.grp === m.grp; }).length;
-      hd.textContent = (m.grpName || 'Images superposées') + ' — ' + nb +
-        (m.fichier ? (nb > 1 ? ' visuels' : ' visuel') : ' images au même endroit');
+      var lot = media.filter(function (o) { return o.grp === m.grp; });
+      var plie = !q && !!replies[m.grp];      // une recherche ouvre ce qu'elle trouve
+      var faits = lot.filter(function (o) { return dejaFait(o.node, o.sel); }).length;
+      var hd = document.createElement('button');
+      hd.className = 'hd' + (plie ? ' plie' : '');
+      hd.innerHTML = ico('chevron') +
+        '<span>' + esc(m.grpName || 'Images superposées') + '</span>' +
+        (faits ? '<span class="pastille" title="' + faits + ' déjà remplacé(s)"></span>' : '') +
+        '<span class="nb">' + lot.length + (m.fichier ? '' : ' empilées') + '</span>';
+      hd.title = (m.grpName || 'Images superposées') + ' — ' + lot.length +
+        (m.fichier ? (lot.length > 1 ? ' visuels' : ' visuel') : ' images au même endroit');
+      hd.addEventListener('click', function () {
+        replies[m.grp] = replies[m.grp] ? 0 : 1;
+        renderGallery();
+      });
       box.appendChild(hd);
+      if (plie) return;
     } else if (!m.grp && grpVu !== 'seules') {
       grpVu = 'seules';
       var hd2 = document.createElement('div');
       hd2.className = 'hd';
-      hd2.textContent = 'Images isolées';
+      hd2.style.cursor = 'default';
+      hd2.innerHTML = '<span>Images isolées</span>';
       box.appendChild(hd2);
     }
+    if (m.grp && !q && replies[m.grp]) return;    // famille repliée : pas de tuile
+
+    i++;
     var done = dejaFait(m.node, m.sel);
     var b = document.createElement('button');
     b.className = 'g' + (done ? ' done' : '');
     var vis = document.createElement('div');
     vis.className = 'box';
-    vis.textContent = m.kind === 'bg' ? 'fond' : 'image ' + (i + 1);
+    vis.textContent = m.kind === 'bg' ? 'fond' : 'image ' + i;
     if (m.thumb) { vis.style.backgroundImage = 'url("' + m.thumb + '")'; vis.textContent = ''; }
     else if (m.kind === 'img')
       vignette(m.node, function (u) { if (u) { vis.style.backgroundImage = 'url("' + u + '")'; vis.textContent = ''; } });
     var nm = document.createElement('div');
     nm.className = 'nm';
-    nm.textContent = (done ? '✓ ' : '') + (m.name || 'Image ' + (i + 1));
+    nm.textContent = (done ? '✓ ' : '') + (m.name || 'Image ' + i);
     b.appendChild(vis); b.appendChild(nm);
-    b.title = (m.name || ('Image ' + (i + 1))) + (m.fichier ? '\n' + m.fichier : '');
+    b.title = (m.name || ('Image ' + i)) + (m.fichier ? '\n' + m.fichier : '');
     b.addEventListener('click', function () {
       flash(m.node);
       pickImageFor(m.node, m.kind === 'img');
@@ -1497,6 +1572,16 @@ function renderGallery() {
     box.appendChild(b);
   });
 }
+$('galQi').addEventListener('input', function () { renderGallery(); });
+$('galQi').addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') { this.value = ''; renderGallery(); }
+});
+$('galQx').addEventListener('click', function () {
+  $('galQi').value = '';
+  renderGallery();
+  $('galQi').focus();
+});
+
 /* montre où se trouve l'image dans la page avant de la remplacer */
 function flash(n) {
   try {
@@ -2133,7 +2218,9 @@ var ICONES = {
   depot:  '<path d="M12 16V4"/><path d="M8 8l4-4 4 4"/><path d="M4 16v3.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V16"/>',
   recadrer:'<path d="M12 3v18M3 12h18"/><path d="M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/>',
   fermer: '<path d="M6 6l12 12M18 6L6 18"/>',
-  fond:   '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 15l5-4 4 3 3-2 6 5"/>'
+  fond:   '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 15l5-4 4 3 3-2 6 5"/>',
+  chevron:'<path d="M6 9l6 6 6-6"/>',
+  loupe:  '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'
 };
 function ico(nom, cls) {
   return '<svg class="ic' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" fill="none" ' +
@@ -2150,6 +2237,8 @@ function habiller() {
   $('markBar').innerHTML = ico('marque');
   $('markHome').innerHTML = ico('marque');
   $('drop').insertAdjacentHTML('afterbegin', ico('depot'));
+  $('galQ').insertAdjacentHTML('afterbegin', ico('loupe'));
+  $('galQx').innerHTML = ico('fermer');
   $('cropTitre').innerHTML = ico('recadrer') + 'Recadrage';
 }
 

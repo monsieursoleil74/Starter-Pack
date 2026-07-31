@@ -11,7 +11,7 @@ fichier n'est envoyé en ligne.
 ## Quelle version ai-je ?
 
 Le numéro est affiché **à côté du nom**, sur l'écran d'accueil de l'outil
-(`2026-07-31`). Si un comportement ne correspond pas à ce mode
+(`2026-07-31b`). Si un comportement ne correspond pas à ce mode
 d'emploi, commence par retélécharger : le lien pointe toujours vers la
 dernière version.
 
@@ -99,6 +99,16 @@ Chaque vignette porte le nom que la page donne au visuel (« Color script SQ03 �
 La catastrophe ») quand il y en a un, sinon un nom tiré du fichier ; le chemin
 complet s'affiche au survol. Un clic remplace **ce contenu-là**, chez ce
 personnage-là.
+
+**Les familles sont repliées** quand il y en a beaucoup : tu vois d'un coup
+d'œil les 28 sections et leur nombre de visuels, et tu n'ouvres que celle sur
+laquelle tu travailles. Une pastille verte signale une famille où tu as déjà
+remplacé quelque chose.
+
+**Le champ de recherche** va droit au but : tape `rex`, `color script`, ou un
+bout de nom de fichier. Il regarde le libellé, le chemin et le nom de famille,
+ignore les accents, et **déplie ce qu'il trouve**. `Échap` ou la croix
+effacent.
 
 Sans réserve, la liste reste groupée par bloc de la page (« Planche proto —
 2 images au même endroit »).
