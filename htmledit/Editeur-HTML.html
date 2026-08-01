@@ -124,7 +124,8 @@ header .sp{flex:1}
 #list{display:flex;flex-direction:column;gap:4px;margin:6px 0 4px}
 #list .it{display:flex;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);
   border-radius:9px;padding:7px 8px;font-size:12.5px}
-#list .it span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#list .it span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+#list .it span:hover{color:var(--accent)}
 #list .it button{background:none;border:none;color:var(--muted);padding:2px;border-radius:6px;
   display:inline-flex;transition:color .12s,background .12s}
 #list .it button:hover{color:var(--fg);background:var(--panel3)}
@@ -201,6 +202,38 @@ header .sp{flex:1}
 .lien{background:none;border:none;color:var(--muted);font-size:12px;text-align:left;
   padding:6px 0;text-decoration:underline;text-underline-offset:3px}
 .lien:hover{color:var(--accent)}
+
+/* le mémo : ce que fait chaque mode, sans quitter l'outil */
+#aideBoite{position:fixed;inset:0;background:rgba(7,8,11,.72);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;z-index:90;padding:24px}
+#aideIn{background:var(--panel);border:1px solid var(--line2);border-radius:16px;
+  max-width:620px;width:100%;max-height:86vh;overflow:auto;box-shadow:var(--sh)}
+#aideIn header{position:sticky;top:0;background:var(--panel);border-bottom:1px solid var(--line);
+  padding:16px 20px;display:flex;align-items:center;gap:10px}
+#aideIn header b{font-size:15px;font-weight:600;flex:1}
+#aideIn .corps{padding:6px 20px 20px}
+#aideIn h4{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);
+  margin:18px 0 8px;font-weight:700}
+#aideIn .li{display:flex;gap:11px;align-items:flex-start;padding:7px 0;font-size:12.5px;
+  border-bottom:1px solid var(--line)}
+#aideIn .li:last-child{border-bottom:none}
+#aideIn .li .ic{margin-top:2px;color:var(--accent)}
+#aideIn .li b{display:block;font-weight:600;margin-bottom:1px}
+#aideIn .li span{color:var(--muted);line-height:1.5}
+#aideIn kbd{background:var(--panel3);border:1px solid var(--line2);border-radius:5px;
+  padding:1px 6px;font:inherit;font-size:11.5px;font-family:ui-monospace,monospace}
+#aideIn .tou{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:12.5px;
+  border-bottom:1px solid var(--line);color:var(--muted)}
+#aideIn .tou:last-child{border-bottom:none}
+#aideIn .tou b{color:var(--fg);font-weight:500}
+#aideIn .tip{color:var(--muted);font-size:12.5px;line-height:1.5;padding:6px 0 6px 14px;
+  position:relative}
+#aideIn .tip:before{content:'';position:absolute;left:2px;top:13px;width:4px;height:4px;
+  border-radius:50%;background:var(--accent)}
+#aideIn a{color:var(--accent)}
+#aideIn .fin{color:var(--muted);font-size:12px;margin:16px 0 0;line-height:1.6}
+#vide{color:var(--muted);font-size:12.5px;line-height:1.6;padding:10px 2px}
+#poids{color:var(--muted);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
 
 /* ------------------------------------------------------------------ flottants */
 #hint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
@@ -319,6 +352,7 @@ header .sp{flex:1}
   <span class="sp"></span>
   <button class="act" id="undo" title="Annuler la dernière retouche (Ctrl+Z)"></button>
   <button class="act" id="reload" title="Recharger la page d’origine et rejouer les retouches"></button>
+  <button class="act" id="aide" title="Aide et raccourcis (touche ?)"></button>
   <button class="act go" id="save">Exporter</button>
 </header>
 
@@ -350,7 +384,8 @@ header .sp{flex:1}
       <p id="lnkInfo"></p>
       <div id="lnks"></div>
     </div>
-    <h3>Mes retouches</h3>
+    <h3>Mes retouches <span id="poids"></span></h3>
+    <p id="vide" class="hidden"></p>
     <div id="list"></div>
     <p id="besoins" class="hidden"></p>
     <button id="importer" class="lien">Reprendre les retouches d’un autre fichier…</button>
@@ -416,6 +451,11 @@ header .sp{flex:1}
   </div>
   <button class="cancel" id="asklNo">Annuler</button>
 </div></div>
+<div id="aideBoite" class="hidden"><div id="aideIn">
+  <header><span id="aideIco"></span><b>Que peut-on faire ici ?</b>
+    <button class="act" id="aideNon">Fermer</button></header>
+  <div class="corps" id="aideCorps"></div>
+</div></div>
 <div id="busy" class="hidden">Chargement de ta page…</div>
 <input type="file" id="pick" accept=".html,.htm" class="hidden">
 <input type="file" id="pickImg" accept="image/*" class="hidden">
@@ -428,7 +468,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-07-31e';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-01a';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -674,8 +714,12 @@ function injectUi() {
   doc.addEventListener('click', navigation, false);
   brancherRecadrage();
   doc.addEventListener('mousemove', onMove, true);
+  doc.addEventListener('dragover', onDragOver, true);
+  doc.addEventListener('dragleave', onDragOut, true);
+  doc.addEventListener('drop', onDrop, true);
   doc.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && editing) { editing.blur(); }
+    if (e.key === 'Escape' && editing) { editing.blur(); return; }
+    raccourci(e);
   }, true);
 }
 
@@ -802,6 +846,53 @@ function onMove(e) {
   if (hiNode) hiNode.classList.remove('pk-hi-img', 'pk-hi-zone');
   hiNode = n;
   if (n) n.classList.add(t.kind === 'zone' ? 'pk-hi-zone' : 'pk-hi-img');
+}
+
+/* ------------------------------------------- glisser une image dans la page
+   Le geste naturel : prendre le fichier dans l'explorateur et le lâcher sur
+   l'image à remplacer. Sans ça, lâcher un fichier sur l'aperçu ferait quitter
+   la page — on retient donc le geste dans tous les cas. */
+function fichierGlisse(e) {
+  var t = e.dataTransfer && e.dataTransfer.types;
+  if (!t) return false;
+  for (var i = 0; i < t.length; i++) if (t[i] === 'Files') return true;
+  return false;
+}
+function onDragOver(e) {
+  if (!fichierGlisse(e)) return;
+  e.preventDefault();                       // sinon le navigateur ouvre le fichier
+  if (mode !== 'img') return;
+  try { e.dataTransfer.dropEffect = 'copy'; } catch (err) {}
+  var pile = imagesAt(e.clientX, e.clientY);
+  var t = pile.length ? pile[0] : targetAt(e.target);
+  var n = t ? t.el : null;
+  tip(pile.length > 1 ? 'Lâche ici — l’outil demandera laquelle des ' + pile.length + ' images'
+      : pile.length === 1 ? 'Lâche pour remplacer cette image'
+      : t ? 'Lâche pour poser l’image ici' : '', e.clientX, e.clientY);
+  if (n === hiNode) return;
+  if (hiNode) hiNode.classList.remove('pk-hi-img', 'pk-hi-zone');
+  hiNode = n;
+  if (n) n.classList.add(t.kind === 'zone' ? 'pk-hi-zone' : 'pk-hi-img');
+}
+function onDragOut(e) {
+  if (e.relatedTarget) return;              // on circule dans la page, pas de sortie
+  tip('');
+}
+function onDrop(e) {
+  if (!fichierGlisse(e)) return;
+  e.preventDefault(); e.stopPropagation();
+  tip('');
+  var f = e.dataTransfer.files[0];
+  if (mode !== 'img') { toast('Passe en mode Images pour déposer un visuel'); return; }
+  if (!f || !/^image\//.test(f.type)) { toast('Ce fichier n’est pas une image'); return; }
+  var pile = imagesAt(e.clientX, e.clientY);
+  var hit = targetAt(e.target);
+  if (!pile.length && !hit) { toast('Rien à remplacer à cet endroit'); return; }
+  fichierEnAttente = f;
+  if (pile.length > 1) choisirImage(pile, hit && hit.kind === 'zone' ? hit.el : null);
+  else if (pile.length === 1) pickImageFor(pile[0].el, pile[0].kind === 'img');
+  else if (hit.kind === 'zone') askForZone(hit.el);
+  else pickImageFor(hit.el, hit.kind === 'img');
 }
 
 /* Une croix de fermeture n'est pas un emplacement à retoucher : on la laisse
@@ -1241,7 +1332,7 @@ function askForZone(el) {
     ', ' + Math.round(r.width) + '×' + Math.round(r.height) + ' px.';
   $('ask').classList.remove('hidden');
 }
-function closeAsk() { $('ask').classList.add('hidden'); askEl = null; }
+function closeAsk() { $('ask').classList.add('hidden'); askEl = null; fichierEnAttente = null; }
 $('askNo').addEventListener('click', closeAsk);
 $('ask').addEventListener('click', function (e) { if (e.target === $('ask')) closeAsk(); });
 $('askBg').addEventListener('click', function () {
@@ -1274,7 +1365,7 @@ function choisirImage(l, zone) {
   renderChoix();
   $('askg').classList.remove('hidden');
 }
-function closeAskg() { $('askg').classList.add('hidden'); pileSel = null; pileZone = null; }
+function closeAskg() { $('askg').classList.add('hidden'); pileSel = null; pileZone = null; fichierEnAttente = null; }
 function renderChoix() {
   var g = $('askgGrid');
   g.innerHTML = '';
@@ -1361,8 +1452,18 @@ function startEdit(n) {
 
 /* ----------------------------------------------------------- remplacer image */
 var imgTarget = null, imgIsImg = false, imgHide = false;
+/* Un fichier lâché sur la page arrive AVANT qu'on sache où le poser (un
+   carrousel demande d'abord laquelle des images remplacer). On le met de côté :
+   dès que la cible est choisie, il part sans redemander le fichier. */
+var fichierEnAttente = null;
 function pickImageFor(el, isImg, hide) {
   imgTarget = el; imgIsImg = isImg; imgHide = !!hide;
+  if (fichierEnAttente) {
+    var f = fichierEnAttente;
+    fichierEnAttente = null;
+    lireImage(f);
+    return;
+  }
   $('pickImg').value = '';
   $('pickImg').click();
 }
@@ -1766,6 +1867,9 @@ function propagerReserve() {
 
 $('pickImg').addEventListener('change', function (e) {
   var f = e.target.files[0];
+  if (f) lireImage(f);
+});
+function lireImage(f) {
   if (!f || !imgTarget) return;
   var r = new FileReader();
   r.onload = function () {
@@ -1779,7 +1883,7 @@ $('pickImg').addEventListener('change', function (e) {
     im.src = data;
   };
   r.readAsDataURL(f);
-});
+}
 function poser(data, nom, el, isImg, hide, ar) {
   var p = { kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
             hide: hide || undefined, ar: ar || undefined, label: short(nom, 34) };
@@ -2283,6 +2387,10 @@ function renderList() {
              : (p.kind === 'video' || p.kind === 'vsrc') ? 'video'
              : p.kind === 'bg' ? 'fond' : 'image';
     d.innerHTML = '<i>' + ico(quoi) + '</i><span>' + esc(p.label) + '</span>';
+    // une liste de vingt retouches ne dit pas OÙ elles sont : un clic y emmène
+    var lb = d.querySelector('span');
+    lb.title = 'Aller voir cette retouche dans la page';
+    lb.addEventListener('click', function () { localiser(p); });
     if (p.kind === 'img' || p.kind === 'bg') {
       var rc = document.createElement('button');
       rc.innerHTML = ico('recadrer');
@@ -2308,9 +2416,29 @@ function renderList() {
       noms.map(function (rel) { return '• ' + esc(besoins[rel]) + ' → <code>' + esc(rel) + '</code>'; }).join('<br>');
   } else av.classList.add('hidden');
   $('count').textContent = patches.length ? patches.length + ' retouche(s)' : 'aucune retouche';
+  $('vide').classList.toggle('hidden', !!patches.length);
+  if (!patches.length) $('vide').textContent =
+    'Rien pour l’instant. Clique un texte ou une image dans la page — ou passe par la liste des visuels, à droite.';
+  var pe = poidsEstime();
+  $('poids').textContent = pe ? '≈ ' + joliPoids(pe) : '';
+  $('poids').title = pe ? 'Poids estimé du fichier exporté' : '';
   planifierBrouillon();
   $('undo').disabled = !patches.length;
   $('save').disabled = false;
+}
+
+/* Emmener à l'endroit d'une retouche. Ce qui vit dans une fenêtre fermée ou
+   dans un carrousel qui ne l'affiche pas n'est visible nulle part : on le dit
+   plutôt que de ne rien faire. */
+function localiser(p) {
+  if (p.kind === 'head') { toast('La marque de l’onglet se règle en bas du panneau'); return; }
+  var n = null;
+  try { n = noeudVisible(p) || cibleDe(p); } catch (e) {}
+  if (!n || !n.getBoundingClientRect || (!n.clientWidth && !n.clientHeight)) {
+    toast('Pas affiché en ce moment — ouvre la fenêtre ou le carrousel qui le montre');
+    return;
+  }
+  flash(n);
 }
 
 function aide(n, icone, txt) { n.innerHTML = ico(icone) + '<span>' + esc(txt) + '</span>'; }
@@ -2329,7 +2457,7 @@ function setMode(m) {
   var h = $('hint');
   h.classList.toggle('hidden', m === 'view');
   if (m === 'text') aide(h, 'texte', 'Clique un texte pour le réécrire — Échap pour valider');
-  if (m === 'img') aide(h, 'image', 'Clique une image pour la remplacer — ensuite, glisse-la pour la recadrer');
+  if (m === 'img') aide(h, 'image', 'Clique une image — ou lâche directement un fichier dessus');
   if (m === 'vid') aide(h, 'video', 'Clique le bouton qui ouvre la vidéo — l’outil ouvre la fenêtre et vise le lecteur');
   if (m === 'link') aide(h, 'lien', 'Clique un bouton ou un lien pour choisir où il mène');
   $('galBox').classList.toggle('hidden', m !== 'img');
@@ -2350,7 +2478,8 @@ function setMode(m) {
       : 'Cadre <b style="color:#3ecf8e">vert</b> : une image, clic = remplacer. ' +
         'Cadre <b style="color:#ffc157">orange pointillé</b> : une zone sans image ' +
         '(pastille, bloc) — clic = y poser une image. Dans un carrousel, les images ' +
-        'sont empilées : passe par la liste ci-dessus.');
+        'sont empilées : passe par la liste ci-dessus. Tu peux aussi <b>lâcher un ' +
+        'fichier image</b> directement sur la page.');
 }
 
 /* ------------------------------------------------------------------ export */
@@ -2553,6 +2682,86 @@ $('pickImp').addEventListener('change', function (e) {
   r.readAsText(f);
 });
 
+/* ------------------------------------------------------- le mémo intégré
+   L'outil s'ouvre en double-cliquant, souvent loin du mode d'emploi : il doit
+   pouvoir dire lui-même ce qu'il sait faire. Court, sinon personne ne le lit ;
+   le manuel complet est à côté. */
+var MEMO = [
+  ['texte', 'Textes', 'Clique un texte, réécris-le. Un collé depuis Word ou Docs prend le style du site.'],
+  ['image', 'Images', 'Clique une image pour la remplacer. Plusieurs superposées (carrousel) ? l’outil te les montre. Une zone sans image ? tu peux y en poser une.'],
+  ['depot', 'Glisser-déposer', 'En mode Images, prends le fichier dans ton explorateur et lâche-le sur l’image : pas de sélecteur à ouvrir.'],
+  ['recadrer', 'Recadrer', 'Une image qui déborde de son cadre s’ouvre en recadrage : glisse-la, zoome à la molette.'],
+  ['video', 'Vidéos', 'Clique le bouton qui ouvre la vidéo : l’outil ouvre la fenêtre et vise le lecteur. « Posée à côté » garde le fichier léger.'],
+  ['lien', 'Liens', 'La liste montre tous les liens et signale ceux qui ne mènent nulle part.'],
+  ['marque', 'Onglet', 'Donne une icône et un titre à l’onglet du navigateur, en bas du panneau.'],
+  ['oeil', 'Aperçu', 'La page redevient normale : clique ses boutons, vérifie ton travail.'],
+  ['export', 'Exporter', 'Tu récupères ton original + un correctif. Redépose ce fichier ici plus tard pour continuer.']
+];
+var ASTUCES = [
+  'Dans « Mes retouches », clique le nom d’une ligne : l’outil t’emmène à l’endroit dans la page.',
+  'Le poids affiché à côté de « Mes retouches » est celui du fichier que tu vas exporter.'
+];
+var TOUCHES = [
+  ['1 … 5', 'passer d’un mode à l’autre'],
+  ['Ctrl + Z', 'annuler la dernière retouche'],
+  ['Échap', 'valider un texte · fermer une fenêtre'],
+  ['?', 'ouvrir ce mémo']
+];
+function ouvrirAide() {
+  $('aideCorps').innerHTML =
+    '<h4>Les modes</h4>' +
+    MEMO.map(function (m) {
+      return '<div class="li">' + ico(m[0]) + '<span><b>' + m[1] + '</b><span>' + esc(m[2]) + '</span></span></div>';
+    }).join('') +
+    '<h4>Bon à savoir</h4>' +
+    ASTUCES.map(function (a) { return '<div class="tip">' + esc(a) + '</div>'; }).join('') +
+    '<h4>Raccourcis</h4>' +
+    TOUCHES.map(function (t) {
+      return '<div class="tou"><b>' + esc(t[1]) + '</b><kbd>' + esc(t[0]) + '</kbd></div>';
+    }).join('') +
+    '<p class="fin">Ton travail est gardé en réserve sur cette machine : si le navigateur ' +
+    'ferme, l’outil te proposera de reprendre. Le <b>fichier exporté</b>, lui, contient tout — ' +
+    'c’est lui qu’on emporte sur un autre poste.<br><br>Manuel complet : ' +
+    '<a href="https://github.com/monsieursoleil74/Starter-Pack/blob/claude/git-github-publish-5u5ayq/htmledit/README.md" ' +
+    'target="_blank" rel="noopener">README de l’outil</a> · version ' + APP + '</p>';
+  $('aideBoite').classList.remove('hidden');
+}
+function fermerAide() { $('aideBoite').classList.add('hidden'); }
+$('aide').addEventListener('click', ouvrirAide);
+$('aideNon').addEventListener('click', fermerAide);
+$('aideBoite').addEventListener('click', function (e) { if (e.target === $('aideBoite')) fermerAide(); });
+
+/* Raccourcis : jamais pendant une saisie, sinon on taperait des chiffres.
+   Le clavier va là où est le curseur — dans la page affichée le plus souvent :
+   on écoute donc des deux côtés. */
+function raccourci(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  var t = e.target, saisie = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' ||
+          t.isContentEditable);
+  if (e.key === 'Escape') { fermerAide(); return; }
+  if (saisie || editing) return;
+  if (e.key === '?' || (e.key === '/' && e.shiftKey)) { e.preventDefault(); ouvrirAide(); return; }
+  var i = '12345'.indexOf(e.key);
+  if (i >= 0 && !$('bar').classList.contains('hidden')) {
+    e.preventDefault();
+    setMode(['text', 'img', 'vid', 'link', 'view'][i]);
+  }
+}
+document.addEventListener('keydown', raccourci);
+
+/* poids estimé du fichier exporté : la question se pose AVANT d'exporter */
+function poidsEstime() {
+  if (!src) return 0;
+  var n = src.length;
+  patches.forEach(function (p) {
+    n += (p.after ? p.after.length : 0) + (p.icon ? p.icon.length : 0) + 260;
+  });
+  return n;
+}
+function joliPoids(n) {
+  return n > 1048576 ? Math.round(n / 1048576) + ' Mo' : Math.round(n / 1024) + ' Ko';
+}
+
 /* ------------------------------------------------------------- branchements */
 /* ------------------------------------------------------------------ icônes
    Dessinées au trait, une seule couleur : elles suivent le texte et restent
@@ -2574,7 +2783,9 @@ var ICONES = {
   fond:   '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 15l5-4 4 3 3-2 6 5"/>',
   chevron:'<path d="M6 9l6 6 6-6"/>',
   loupe:  '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
-  secours:'<path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M12 7.5V12l3 2"/>'
+  secours:'<path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M12 7.5V12l3 2"/>',
+  aide:   '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.2 3.1c-.6.2-.8.7-.8 1.3v.4"/>' +
+          '<circle cx="12" cy="17.2" r=".6" fill="currentColor"/>'
 };
 function ico(nom, cls) {
   return '<svg class="ic' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" fill="none" ' +
@@ -2590,6 +2801,8 @@ function habiller() {
   $('save').innerHTML = ico('export') + '<span>Exporter</span>';
   $('markBar').innerHTML = ico('marque');
   $('markHome').innerHTML = ico('marque');
+  $('aide').innerHTML = ico('aide');
+  $('aideIco').innerHTML = ico('aide');
   $('drop').insertAdjacentHTML('afterbegin', ico('depot'));
   $('galQ').insertAdjacentHTML('afterbegin', ico('loupe'));
   $('galQx').innerHTML = ico('fermer');

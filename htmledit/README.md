@@ -1,91 +1,167 @@
-# Éditeur HTML local
+# Éditeur HTML local — le manuel
 
-Tu as une **maquette HTML** qui te plaît (faite à la main, générée, exportée
-d'un outil…) et tu veux juste **remplacer ses textes et ses images** sans
-toucher au code ? C'est cet outil.
+Tu as une **maquette HTML** qui te plaît. Cet outil te permet d'en **remplacer
+le contenu** — textes, images, vidéos, liens — sans toucher au code, et de
+récupérer un fichier prêt à diffuser.
 
-**Rien à installer**, comme le convertisseur : `Editeur-HTML.html` est une page
-web que tu ouvres en double-cliquant. Tout se passe dans ton navigateur, aucun
-fichier n'est envoyé en ligne.
+**Rien à installer** : `Editeur-HTML.html` est une page web que tu ouvres en
+double-cliquant. Tout se passe dans ton navigateur, **aucun fichier n'est
+envoyé en ligne**.
 
-## Quelle version ai-je ?
+[⬇ Télécharger la dernière version](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html)
+— le numéro de version s'affiche à côté du nom, sur l'écran d'accueil
+(`2026-08-01a` au moment où ces lignes sont écrites). Si un comportement ne
+correspond pas à ce manuel, commence par retélécharger.
 
-Le numéro est affiché **à côté du nom**, sur l'écran d'accueil de l'outil
-(`2026-07-31e`). Si un comportement ne correspond pas à ce mode
-d'emploi, commence par retélécharger : le lien pointe toujours vers la
-dernière version.
+---
 
-## L'interface
+## Démarrage rapide
 
-Une barre en haut : la marque et le nom du fichier à gauche, les **cinq modes**
-au centre (Textes, Images, Vidéos, Liens, Aperçu), les actions à droite —
-annuler, recharger, **Exporter**. Un panneau à droite pour ce que le mode en
-cours donne à voir : les visuels de la page, les liens, tes retouches. Le reste
-de l'écran, c'est ta page.
+1. Double-clic sur `Editeur-HTML.html`.
+2. Dépose ta maquette `.html` dedans.
+3. Choisis un mode en haut : **Textes**, **Images**, **Vidéos**, **Liens**.
+4. Clique dans la page ce que tu veux changer.
+5. **Exporter** → tu récupères `ta-maquette - modifie.html`.
 
-Icônes dessinées au trait, une seule couleur d'accent, rien qui clignote.
+---
 
-## Utilisation
+## Sommaire
 
-1. **Ouvre `Editeur-HTML.html`** (double-clic) et **dépose ta maquette `.html`**
-   dedans.
-2. **Textes** : clique n'importe quel texte de la page et réécris-le. Un clic
-   ailleurs (ou `Échap`) valide.
-3. **Images** : clique une image pour la remplacer par un fichier de ton
-   disque. Les fonds en image se remplacent aussi.
-4. **Aperçu** : la page redevient normale, tu peux cliquer ses boutons et
-   vérifier ton travail.
-5. **Exporter** : tu récupères `ta-maquette - modifie.html`, prêt à diffuser.
+1. [L'interface](#1-linterface)
+2. [Textes](#2-textes)
+3. [Images](#3-images)
+4. [Vidéos](#4-vidéos)
+5. [Liens](#5-liens)
+6. [L'onglet du navigateur](#6-longlet-du-navigateur)
+7. [Enregistrer, reprendre, transférer](#7-enregistrer-reprendre-transférer)
+8. [Poids du fichier](#8-poids-du-fichier)
+9. [Dépannage](#9-dépannage)
+10. [Ce que l'outil ne peut pas faire](#10-ce-que-loutil-ne-peut-pas-faire)
 
-## Le principe : on n'écrase jamais ta maquette
+---
 
-Ta page est ouverte **telle quelle**, avec ses scripts, ses polices et ses
-animations. Tes retouches ne réécrivent pas le code : elles sont enregistrées
-**par-dessus**, et le fichier exporté est ton original **plus un petit
-correctif** qui rejoue les remplacements à l'ouverture.
+## 1. L'interface
 
-Ce choix a trois conséquences très pratiques :
+Une **barre en haut** : la marque et le nom du fichier à gauche, les **cinq
+modes** au centre, les actions à droite — annuler, recharger, **aide**,
+**Exporter**.
+
+Un **panneau à droite** qui montre ce que le mode en cours donne à voir : les
+visuels de la page, les liens, tes retouches, les réglages de l'onglet.
+
+Le reste de l'écran, c'est **ta page**, telle qu'elle sera.
+
+| Mode | Ce qu'il fait |
+|---|---|
+| **Textes** | clique un texte, réécris-le |
+| **Images** | remplace une image, ou pose-en une là où il n'y en a pas |
+| **Vidéos** | branche une vidéo locale sur un lecteur ou un encadré |
+| **Liens** | donne sa destination à chaque bouton |
+| **Aperçu** | la page redevient normale : tu cliques ses boutons et tu vérifies |
+
+**Le principe, une fois pour toutes.** Ta page est ouverte **telle quelle**,
+avec ses scripts, ses polices et ses animations. Tes retouches ne réécrivent
+pas le code : elles sont enregistrées **par-dessus**. Le fichier exporté est
+ton original **plus un petit correctif** qui rejoue les remplacements à
+l'ouverture.
+
+Trois conséquences très pratiques :
 
 - **Rien ne casse.** Même une page dont le contenu est construit par du
-  JavaScript au chargement (maquette exportée d'un outil, page « bundlée »)
-  fonctionne : le correctif attend que la page soit construite, et se
-  réapplique si elle se reconstruit (changement d'onglet, filtre…).
-- **C'est réversible.** Chaque retouche est listée dans le panneau de droite
-  avec une croix pour l'annuler. `Ctrl+Z` annule la dernière.
-- **C'est reprenable.** Redépose le fichier exporté dans l'outil : tes
-  retouches sont retrouvées et tu continues. Pas d'empilement : le correctif
-  est régénéré à chaque export.
+  JavaScript au chargement fonctionne : le correctif attend que la page soit
+  construite, et se réapplique si elle se reconstruit (onglet, filtre…).
+- **C'est réversible.** Chaque retouche est listée à droite avec une croix pour
+  l'annuler. `Ctrl+Z` annule la dernière.
+- **C'est reprenable.** Redépose le fichier exporté : tes retouches sont
+  retrouvées. Pas d'empilement, le correctif est régénéré à chaque export.
 
-Une retouche de texte ne s'applique que si le texte d'origine est encore là :
-si tu remplaces la maquette par une nouvelle version où ce texte a changé, la
-retouche est simplement ignorée au lieu d'écraser le nouveau contenu.
+### « Mes retouches », le journal de ton travail
 
-## Carrousels et images empilées
+Le bas du panneau liste tout ce que tu as changé, dans l'ordre.
 
-Dans un carrousel, les images sont **superposées au même endroit** et une seule
-est visible : un clic n'atteint normalement que celle du dessus.
+- **Clique le nom d'une ligne** : l'outil te ramène à l'endroit dans la page et
+  le fait clignoter. Si le visuel vit dans une fenêtre fermée ou dans un
+  carrousel qui ne l'affiche pas, il te le dit plutôt que de ne rien faire.
+- La **croix** annule cette retouche-là ; le **bouton de recadrage** rouvre le
+  cadrage d'une image.
+- Le **poids affiché à côté du titre** est celui du fichier que tu vas exporter,
+  remis à jour à chaque retouche (voir [§ 8](#8-poids-du-fichier)).
 
-**Clique simplement le carrousel.** L'outil regarde toute la pile sous ton
-curseur et t'ouvre **la liste de SES images** — pas celles de la page entière.
-Tu choisis celle que tu veux remplacer, et le panneau **reste ouvert** : tu
-enchaînes la deuxième, la troisième, sans re-viser la zone. Chacune est marquée
-✓ dès qu'elle est faite.
+### Aide et raccourcis
 
-Le survol te dit à l'avance ce qu'un clic va faire : *« 3 images ici — clique
-pour choisir »*, *« Remplacer cette image »* ou *« Poser une image ici »*.
+Le bouton **?** de la barre (ou la touche `?`) ouvre un mémo : ce que fait
+chaque mode, les astuces, les raccourcis. Il marche aussi quand le curseur est
+dans la page.
 
-Chaque image de la liste indique si elle est **affichée** ou **pas affichée en
-ce moment** — dans un carrousel, celle que tu remplaces n'est pas forcément
-celle que tu vois ; elle apparaîtra quand le carrousel la fera défiler.
+| Touche | Effet |
+|---|---|
+| `1` … `5` | passer d'un mode à l'autre |
+| `Ctrl+Z` | annuler la dernière retouche |
+| `Ctrl+S` | exporter |
+| `Échap` | valider un texte · fermer une fenêtre |
+| `?` | ouvrir le mémo |
 
-Le panneau de droite, lui, garde la vue d'ensemble : **toutes les images de la
-page**, y compris celles qui sont hors écran ou pas encore chargées.
+Les raccourcis ne se déclenchent jamais pendant que tu écris : taper `3` dans un
+texte écrit un `3`.
 
-### Rangées par personnage et par section
+---
 
-Si la maquette range ses visuels dans une réserve (une balise par fichier, avec
-son chemin), l'outil **s'en sert comme table des matières**. Le dossier dit à
-quoi appartient l'image, et la liste se range toute seule :
+## 2. Textes
+
+Clique n'importe quel texte de la page et réécris-le. Un clic ailleurs — ou
+`Échap` — valide.
+
+**Le texte collé prend le style du site.** Coller depuis Word, Google Docs ou
+une page web apporte normalement toute la mise en forme d'origine (police
+énorme, couleurs, interlignes). L'outil ne garde **que le texte** : il prend la
+police et la taille de ta maquette. Rien à nettoyer.
+
+**Une retouche de texte ne s'applique que si l'original est encore là.** Si tu
+changes de version de maquette et que ce texte a changé, la retouche est
+ignorée au lieu d'écraser le nouveau contenu.
+
+---
+
+## 3. Images
+
+### Remplacer une image
+
+Clique-la. Le survol te dit à l'avance ce qu'un clic va faire :
+
+- **cadre vert plein** → une image : clic = la remplacer ;
+- **cadre orange pointillé** → une zone sans image : clic = **y poser** une
+  image (voir plus bas) ;
+- *« 3 images ici — clique pour choisir »* → plusieurs images sont superposées.
+
+### Glisser-déposer
+
+Plus rapide que le sélecteur de fichier : en mode **Images**, prends ton fichier
+dans l'explorateur et **lâche-le sur l'image** — c'est tout. Sur une pile
+(carrousel), l'outil te demande d'abord laquelle remplacer, puis utilise le
+fichier que tu viens de lâcher : il ne te le redemande pas.
+
+Un fichier lâché ailleurs qu'en mode Images, ou qui n'est pas une image, est
+refusé et l'outil te le dit — l'aperçu ne quitte jamais ta page.
+
+### Carrousels et images empilées
+
+Dans un carrousel, les images sont **superposées** et une seule est visible :
+un clic n'atteindrait que celle du dessus. **Clique simplement le carrousel** :
+l'outil regarde toute la pile sous ton curseur et t'ouvre **la liste de SES
+images**. Le panneau **reste ouvert** — tu enchaînes la deuxième, la troisième,
+sans re-viser.
+
+Chaque image indique si elle est **affichée** ou **pas affichée en ce
+moment** : celle que tu remplaces n'est pas forcément celle que tu vois, elle
+apparaîtra quand le carrousel la fera défiler.
+
+Même mécanisme pour un visuel **caché sous un dégradé et du texte** (une carte
+dont l'image sert de fond) : l'outil voit ce qu'il y a dessous.
+
+### La liste des visuels, rangée
+
+Si la maquette range ses visuels dans une **réserve** (une balise par fichier,
+avec son chemin), l'outil s'en sert comme **table des matières** :
 
 ```
 Rex — 5 visuels
@@ -95,315 +171,243 @@ Décors — 10 visuels
 Logos — 3 visuels
 ```
 
-Chaque vignette porte le nom que la page donne au visuel (« Color script SQ03 —
-La catastrophe ») quand il y en a un, sinon un nom tiré du fichier ; le chemin
-complet s'affiche au survol. Un clic remplace **ce contenu-là**, chez ce
-personnage-là.
+- **Les familles sont repliées** au-delà de six : tu ouvres celle sur laquelle
+  tu travailles. Une **pastille verte** marque celles déjà retouchées.
+- **Le champ de recherche** filtre sur le libellé, le chemin et le nom de
+  famille, ignore les accents, et **déplie ce qu'il trouve**. `Échap` efface.
+- Le **chemin complet** s'affiche au survol d'une vignette.
 
-**Les familles sont repliées** quand il y en a beaucoup : tu vois d'un coup
-d'œil les 28 sections et leur nombre de visuels, et tu n'ouvres que celle sur
-laquelle tu travailles. Une pastille verte signale une famille où tu as déjà
-remplacé quelque chose.
+Sans réserve, la liste reste groupée par bloc de la page.
 
-**Le champ de recherche** va droit au but : tape `rex`, `color script`, ou un
-bout de nom de fichier. Il regarde le libellé, le chemin et le nom de famille,
-ignore les accents, et **déplie ce qu'il trouve**. `Échap` ou la croix
-effacent.
+### Un visuel par personnage
 
-Sans réserve, la liste reste groupée par bloc de la page (« Planche proto —
-2 images au même endroit »).
+Une maquette réutilise souvent **la même balise** pour afficher tour à tour la
+fiche de Pipo puis celle de Bruno. Deux mécanismes évitent que ta retouche
+déborde :
 
-### Un visuel caché sous un texte ou un dégradé
+- **la réserve** — l'outil retouche l'entrée du fichier
+  (`personnages/rex/rex_planche_01.jpg`), donc seul Rex change, et le visuel
+  suit partout où ce fichier sert (vignette **et** agrandissement) ;
+- **la description (`alt`)** quand il n'y a pas de réserve — la retouche est
+  liée à ce contenu-là, et le visuel d'origine revient pour les autres.
 
-Même mécanisme pour une carte dont l'image sert de fond, posée sous un dégradé
-et sous son texte (le bloc « Ton & intentions », par exemple) : le clic tombait
-sur le dégradé, jamais sur l'image. Maintenant l'outil voit ce qu'il y a
-**dessous** et te la propose directement.
+### Poser une image là où il n'y en a pas
 
-## Poser une image là où il n'y en a pas
+Une pastille de personnage, c'est souvent juste une lettre sur un fond de
+couleur. Clique-la (cadre orange pointillé), puis choisis :
 
-Certaines zones n'ont **aucune image à remplacer** : une pastille de personnage,
-c'est souvent juste une lettre sur un fond de couleur. En mode **Images**, la
-surbrillance te dit ce que tu vises :
+- **à la place du contenu** — l'image remplit la zone, la lettre est masquée ;
+- **en fond** — l'image se place derrière, le texte reste lisible par-dessus.
 
-- **cadre vert plein** → une image : clic = la remplacer ;
-- **cadre orange pointillé** → une zone sans image (pastille, bloc, bandeau) :
-  clic = **y poser une image**, avec deux façons au choix :
-  - **à la place du contenu** — l'image remplit la zone et ce qu'il y avait
-    dedans (la lettre « P ») est masqué. C'est le choix pour transformer une
-    pastille en portrait ;
-  - **en fond** — l'image se place derrière, le texte reste lisible par-dessus.
-    Pratique pour un bandeau ou une carte.
+L'image est cadrée en *cover* : elle remplit sans se déformer, quitte à rogner.
 
-L'image est cadrée en *cover* (elle remplit sans se déformer, quitte à rogner).
+### Recadrer
 
-**Exemple concret — mettre les portraits dans les pastilles de personnages :**
-mode **Images** → clique la pastille (elle se cadre en orange pointillé) →
-**« à la place du contenu »** → choisis le portrait. La lettre disparaît sous
-l'image, et le nom écrit *sous* la pastille reste en place. À refaire pour
-chaque personnage.
+Ton visuel n'a presque jamais le format du cadre. Dès qu'une image posée
+**déborde**, la barre de recadrage s'ouvre :
 
-## Recadrer : choisir ce qu'on garde de l'image
+- **glisse l'image** pour choisir ce qu'on garde ;
+- **zoome** à la molette ou au curseur, jusqu'à 4× ;
+- **Recentrer** annule, **Terminé** referme.
 
-Ton visuel n'a presque jamais le format exact du cadre où il va. La maquette
-le rogne donc — et jusqu'ici tu subissais ce rognage.
+Tu peux y revenir : chaque retouche d'image porte un bouton de recadrage dans
+le panneau. Le réglage est enregistré en **pourcentages**, pas en pixels — un
+écran plus large ne le décale pas — et il suit le visuel partout où il sert.
 
-Maintenant, dès qu'une image posée **déborde de son cadre**, la barre de
-recadrage s'ouvre toute seule :
+---
 
-- **glisse l'image** dans son cadre pour choisir la partie visible — le geste
-  suit la souris, comme sur une carte ;
-- **zoome** à la molette ou avec le curseur, jusqu'à 4× ;
-- **Recentrer** annule le réglage, **Terminé** referme.
-
-Tu peux y revenir quand tu veux : chaque retouche d'image porte un bouton
-**de recadrage** dans le panneau de droite.
-
-Le cadrage voyage avec l'image : il est rejoué à l'identique dans le fichier
-exporté, et il suit le visuel **partout où il sert** (la vignette du carrousel
-et son agrandissement, par exemple). Il est enregistré en **pourcentages**, pas
-en pixels : si la page est vue sur un écran plus large, le cadrage reste le
-même.
-
-Une image qui tient entière dans son cadre n'a rien à recadrer — l'outil te le
-dit, et il te reste le zoom si tu veux quand même resserrer.
-
-## L'onglet du navigateur : icône et titre
-
-Un pack posé sur le serveur s'ouvre avec **l'icône blanche par défaut**, et le
-titre que portait la maquette — souvent aucun, auquel cas l'onglet affiche le
-nom du fichier. Pour un pack qu'on diffuse, ça se voit.
-
-En bas du panneau de droite, **Onglet du navigateur** :
-
-- **Choisir une icône** — n'importe quelle image de ton disque. Elle est
-  ramenée à 128 px et recadrée au carré : quelques kilo-octets, pas plus.
-  Un logo carré, ou un détail bien lisible en tout petit, marchent mieux
-  qu'une bannière.
-- **Le titre** — ce qui s'écrit dans l'onglet, à côté de l'icône.
-
-Les deux partent avec le fichier exporté, et sont retrouvés si tu le redéposes
-dans l'outil plus tard. **Retirer** rend la main à la maquette.
-
-## Brancher les liens
-
-Les boutons d'une maquette pointent souvent vers `#` — nulle part. Le mode
-**Liens** liste **tous les liens de la page** avec leur destination
-actuelle, et **signale en orange ceux qui n'ont pas d'adresse**. Clique une
-ligne (ou le bouton dans la page), tape l'adresse, valide.
-
-- Le champ est pré-rempli avec l'adresse actuelle : tu peux corriger au lieu
-  de retaper.
-- Case **« Ouvrir dans un nouvel onglet »**, cochée par défaut — décoche-la
-  pour un lien interne à la page.
-- Sur un **bouton qui n'est pas un vrai lien**, l'outil pose un clic qui ouvre
-  l'adresse. Ça marche pareil à l'arrivée.
-
-**Chemins réseau** (`\\serveur\projet\…`) : tu peux les saisir, mais sache que
-les navigateurs refusent le plus souvent de les ouvrir depuis une page web,
-par sécurité. L'outil te prévient. Si le pack est lu depuis le même partage,
-un chemin **relatif** (`../rigs/pipo/`) est bien plus fiable.
-
-## Brancher les vidéos
+## 4. Vidéos
 
 Beaucoup de maquettes ont un encadré « VIDÉO » qui ne contient **aucun
-lecteur** — c'est un décor. Le mode **Vidéos** en pose un vrai.
+lecteur** : c'est un décor. Le mode Vidéos en pose un vrai.
 
-Si la vidéo s'ouvre **dans une fenêtre** (clic sur un bouton *RIG*, *TOOLS*…),
-**clique simplement ce bouton** en mode Vidéos : l'outil ouvre la fenêtre
-pour toi et vise l'emplacement du lecteur à l'intérieur — pas le bouton. Il
-te reste à choisir comment brancher la vidéo.
+Si la vidéo s'ouvre **dans une fenêtre** (bouton *RIG*, *Sa présentation*…),
+**clique ce bouton** : l'outil ouvre la fenêtre et vise l'emplacement du
+lecteur à l'intérieur — pas le bouton.
 
-Tu peux aussi cliquer directement un encadré ou un lecteur déjà visible.
-
-Deux façons, et le choix compte :
+**Deux façons, et le choix compte :**
 
 | | Le fichier HTML | La vidéo |
 |---|---|---|
-| **Posée à côté** *(recommandé)* | reste léger | à copier dans un dossier `videos/` à côté du HTML |
-| **Embarquée** | grossit d'environ 1,4 × le poids de la vidéo | dans le fichier, rien à copier |
+| **Posée à côté** *(recommandé)* | reste léger | à copier à l'endroit indiqué |
+| **Embarquée** | grossit d'environ 1,4 × le poids de la vidéo | dans le fichier |
 
-Pour un pack diffusé sur le serveur du studio, **« posée à côté »** est
-presque toujours le bon choix : le HTML reste maniable et tu remplaces une
-vidéo sans refaire la page. L'outil te rappelle en clair, dans le panneau de
-droite, la liste des fichiers à copier et sous quel nom.
+Pour un pack diffusé sur le serveur du studio, **« posée à côté »** est presque
+toujours le bon choix. Le panneau de droite te rappelle **la liste des fichiers
+à copier et sous quel nom**.
 
-L'embarqué est parfait pour un clip court qu'on veut pouvoir envoyer seul.
+**Si la maquette range ses vidéos dans une réserve**, l'outil branche la tienne
+sur l'entrée du fichier : chaque tuto, chaque personnage garde la sienne. Et il
+**reprend le chemin que la maquette attend** — `ma-video.mp4 →
+assets_nda/tutos/rig.mp4`. Tu déposes le fichier au bon endroit, le pack est
+complet.
 
-Un lecteur **déjà présent** dans la maquette se traite pareil : clique-le, et
-tu changes juste la vidéo qu'il lit.
+**Une seule fenêtre, plusieurs boutons.** Quand la maquette n'a qu'une fenêtre
+vidéo partagée et pas de réserve, l'outil retient **le titre qu'elle affiche**
+au moment où tu poses la vidéo : chaque bouton garde ainsi la sienne.
 
-**Si la maquette range ses vidéos dans une réserve** (une balise par fichier,
-avec son chemin), c'est là que l'outil branche la tienne : chaque tuto, chaque
-personnage garde la sienne, et elle suit partout où ce fichier sert. Mieux : en
-« posée à côté », l'outil **reprend le chemin que la maquette attend** — le
-panneau de droite t'indique alors le nom exact à donner à ta vidéo
-(`ma-video.mp4 → assets_nda/tutos/rig.mp4`). Tu déposes le fichier au bon
-endroit, et le pack est complet.
+**Tu la vois tout de suite** : même en « posée à côté », le lecteur lit ta
+vidéo depuis ton disque pendant que tu travailles. Le HTML exporté, lui, garde
+le chemin propre.
 
-**Une seule fenêtre, plusieurs boutons.** La plupart des maquettes n'ont qu'UNE
-fenêtre vidéo, remplie au clic selon le bouton : RIG, TOOLS et les autres
-partagent le même emplacement. Sans repère, la deuxième vidéo écraserait la
-première. L'outil retient donc **le titre que la fenêtre affiche** quand tu
-poses la vidéo, et te le dit : *« la vidéo ne sera montrée que pour
-« Présentation générale du rig » »*. Chaque bouton garde ainsi la sienne, dans
-l'éditeur comme dans le fichier exporté.
+**Si le lecteur reste noir**, c'est le format : un navigateur lit le **MP4
+(H.264)** et le **WebM**. ProRes, HEVC, `.mkv`, `.avi` ne se liront pas, même
+s'ils s'ouvrent dans QuickTime ou VLC. L'outil te le dit.
 
-**Tu la vois tout de suite.** Même en « posée à côté » — où le fichier n'est
-pas encore dans `videos/` — le lecteur lit ta vidéo depuis ton disque pendant
-que tu travailles. Le HTML exporté, lui, garde bien le chemin propre
-`videos/ta-video.mp4`.
+---
 
-**Si le lecteur reste noir**, c'est presque toujours le format : un navigateur
-lit le **MP4 (H.264)** et le **WebM**. Un ProRes, un HEVC, un `.mkv` ou un
-`.avi` ne se liront pas, même s'ils s'ouvrent très bien dans QuickTime ou VLC.
-L'outil te le dit et te propose la conversion à faire.
+## 5. Liens
 
-## Un même emplacement, plusieurs contenus (fiches par personnage)
+Les boutons d'une maquette pointent souvent vers `#` — nulle part. Le mode
+Liens liste **tous les liens de la page** avec leur destination, et **signale
+en orange ceux qui n'ont pas d'adresse**.
 
-Une maquette réutilise souvent **la même balise image** pour afficher tour à
-tour plusieurs contenus : la fiche de Pipo, puis celle de Bruno, dans le même
-cadre. Sans précaution, remplacer l'une remplacerait les autres.
+- Le champ est pré-rempli : tu corriges au lieu de retaper.
+- **« Ouvrir dans un nouvel onglet »**, coché par défaut.
+- Sur un **bouton qui n'est pas un vrai lien**, l'outil pose un clic qui ouvre
+  l'adresse. Ça marche pareil à l'arrivée.
 
-L'outil s'appuie donc sur la **description de l'image** (son `alt`, que la
-maquette met à jour quand tu changes de personnage) : ta retouche est liée à
-ce contenu-là, et la retouche l'affiche dans la liste (`portrait.png — Pipo`).
-Quand tu passes à un autre personnage, **son visuel d'origine revient**. Tu
-peux donc donner une image différente à chacun, en les faisant défiler.
+**Chemins réseau** (`\\serveur\projet\…`) : tu peux les saisir, mais les
+navigateurs refusent le plus souvent de les ouvrir depuis une page web, par
+sécurité. Si le pack est lu depuis le même partage, un chemin **relatif**
+(`../rigs/pipo/`) est bien plus fiable.
 
-Ça vaut aussi dans l'éditeur : la page s'y comporte comme le fichier final,
-onglets et sélecteurs compris.
+---
 
-### La réserve d'images : un visuel par personnage
+## 6. L'onglet du navigateur
 
-Une maquette bien faite range ses visuels dans une **réserve cachée** — une
-balise par fichier, avec son chemin (`personnages/pipo/pipo_planche_01.png`) —
-et les cadres viennent y piocher selon le personnage affiché.
+Un pack diffusé s'ouvre avec **l'icône blanche par défaut** et le titre de la
+maquette — souvent aucun, auquel cas l'onglet affiche le nom du fichier.
 
-Quand c'est le cas, l'outil le voit et **retouche l'entrée de la réserve**, pas
-l'image affichée. Concrètement : tu cliques la planche de Pipo, tu la
-remplaces, et **seul Pipo change** — Bruno garde la sienne. Le nouveau visuel
-suit partout où ce fichier servait (le carrousel, la visionneuse en grand). La
-retouche est nommée d'après le fichier concerné :
-`planche_pipo.png → pipo_planche_01.png`.
+En bas du panneau de droite : **Choisir une icône** (n'importe quelle image,
+ramenée à 128 px et recadrée au carré — quelques kilo-octets) et **le titre**.
+Les deux partent avec le fichier exporté.
 
-**La limite à connaître :** si la maquette affiche *littéralement* la même
-image pour tout le monde, sans réserve ni `alt` distinct, il n'y a **qu'un seul
-emplacement** et l'outil ne peut pas en inventer d'autres. Là, c'est la
-maquette qu'il faut faire évoluer ; l'éditeur ne peut que remplir ce qui
-existe.
+À 16 px dans un onglet, une bannière ne donne rien : prends un **logo carré**
+ou un détail lisible en tout petit.
 
-## Le texte collé prend le style du site
+---
 
-Coller depuis Word, Google Docs ou une page web apporte normalement toute la
-mise en forme d'origine (police énorme, couleurs, interlignes). L'outil ne
-garde **que le texte** : il prend automatiquement la police et la taille de ta
-maquette. Rien à nettoyer.
-
-## Reprendre le travail : trois situations
+## 7. Enregistrer, reprendre, transférer
 
 **Le fichier exporté EST ta sauvegarde.** Il contient ta maquette et toutes tes
-retouches. Redépose-le dans l'outil, sur n'importe quelle machine, et tu
-continues là où tu t'étais arrêté.
+retouches.
 
 | Tu veux… | Ce que tu fais |
 |---|---|
-| continuer plus tard, même machine | rien : l'outil propose de reprendre (voir plus bas) |
-| continuer sur **un autre ordinateur** | emporte le **fichier exporté** et dépose-le dans l'outil |
-| appliquer ton travail à une **nouvelle version de la maquette** | ouvre la nouvelle maquette, puis **« Reprendre les retouches d'un autre fichier… »** et désigne ton ancien export |
+| continuer plus tard, même machine | rien : l'outil propose de reprendre |
+| continuer sur **un autre ordinateur** | emporte le **fichier exporté**, dépose-le dans l'outil |
+| appliquer ton travail à une **nouvelle version de la maquette** | ouvre la nouvelle, puis **« Reprendre les retouches d'un autre fichier… »** |
+
+### Sauvegarde de secours
+
+L'outil garde sur ta machine la page d'origine **et** tes retouches, mises à
+jour à chaque changement — un « sauvegardé » discret l'indique dans la barre. À
+la réouverture, une bande propose : *« Reprendre "ma-maquette.html" —
+34 retouches, il y a 12 min »*. Tu reprends **sans redéposer le fichier**.
+
+Le stockage est celui du navigateur, sur ton disque : rien ne sort de la
+machine. Il est vaste mais pas infini — si le disque est plein, l'outil te
+prévient au lieu de faire semblant.
 
 ### Quand la maquette change
 
-C'est le cas le plus délicat : ta maquette a été régénérée, des sections ont
-bougé, des personnages ont été ajoutés. L'outil s'accroche donc au **chemin du
-fichier** (`personnages/rex/rex_planche_01.jpg`), pas à la position dans la
-page : ta planche de Rex reste celle de Rex même si dix personnages ont été
-insérés avant lui.
+C'est le cas délicat : la maquette a été régénérée, des sections ont bougé, des
+personnages ont été ajoutés. L'outil s'accroche au **chemin du fichier**, pas à
+la position dans la page : ta planche de Rex reste celle de Rex même si dix
+personnages ont été insérés avant lui.
 
-À la reprise, l'outil ne reprend **que ce qu'il peut replacer sans doute
-possible** : une entrée de réserve retrouvée par son chemin, un texte dont
-l'original est toujours là, une image accrochée à sa description, une vidéo
-accrochée au titre de sa fenêtre. Le reste est **laissé de côté et annoncé** —
-mieux vaut refaire trois retouches que d'en poser une au mauvais endroit.
+À la reprise, il ne reprend **que ce qu'il peut replacer sans doute possible** :
+entrée de réserve retrouvée par son chemin, texte dont l'original est toujours
+là, image accrochée à sa description, vidéo accrochée au titre de sa fenêtre.
+Le reste est **laissé de côté et annoncé** — mieux vaut refaire trois retouches
+que d'en poser une au mauvais endroit.
 
-Ce qui a disparu de la nouvelle maquette est simplement ignoré.
+**Un conseil :** garde tes exports datés (`Pack-2026-07-31.html`). C'est ton
+historique, et ça ne coûte que de l'espace disque.
 
-## Sauvegarde de secours
+---
 
-Un pack de cent visuels, c'est plusieurs heures. Si le navigateur ferme, si la
-machine redémarre, **rien n'est perdu** : l'outil garde en réserve, sur ta
-machine, la page d'origine **et** tes retouches, mises à jour à chaque
-changement. Un repère dans la barre du haut indique « sauvegardé ».
+## 8. Poids du fichier
 
-À la réouverture de l'outil, une bande propose : *« Reprendre
-« ma-maquette.html » — 34 retouches, il y a 12 min »*. Tu reprends **sans avoir
-à redéposer le fichier** : la page et les images reviennent telles quelles.
-« Oublier » efface la sauvegarde.
+Chaque image que tu déposes est **encodée dans le HTML**, en base64 : pas de
+dossier d'images à côté, le fichier se suffit à lui-même. Il grossit donc
+d'environ **1,37 × le poids de tes images**.
 
-Si tu redéposes le même fichier alors qu'un travail plus avancé est en réserve,
-l'outil te le signale et te laisse choisir.
+L'outil affiche l'**estimation en direct** à côté de « Mes retouches » : tu vois
+le fichier grossir au fur et à mesure, sans avoir à exporter pour le découvrir.
 
-Le stockage utilisé est celui du navigateur (IndexedDB), sur ton disque : rien
-ne sort de la machine, comme le reste de l'outil. Il est vaste (plusieurs
-centaines de mégaoctets) mais pas infini — si le disque est plein, l'outil te
-prévient au lieu de faire semblant.
+Mesures faites sur un navigateur, fichiers remplis d'images incompressibles :
 
-## Où vont les images ? (et le poids du fichier)
+| Poids du HTML | Ouverture (disque local) | Mémoire |
+|---|---|---|
+| 16 Mo | 0,3 s | +279 Mo |
+| 69 Mo | 0,9 s | +275 Mo |
+| 137 Mo | 1,8 s | +287 Mo |
 
-Chaque image que tu déposes est **encodée dans le HTML lui-même**, en base64 :
-pas de dossier d'images à côté, le fichier exporté se suffit à lui-même. Tu le
-copies sur le serveur, tu l'envoies par mail, tu le lis hors ligne — il marche
-tout seul.
+**Ce qu'il faut en retenir :**
 
-Conséquence à connaître : **le fichier grossit d'environ 1,37 × le poids de tes
-images**. Dix visuels de 500 Ko, c'est ~7 Mo de HTML. Deux conseils :
+- **en local, même 137 Mo passent** — le navigateur ne décode que les images
+  affichées ;
+- **le vrai coût est sur le réseau** : 100 Mo à travers un partage, c'est
+  ~8 s à 100 Mbit/s, à chaque ouverture et par chaque personne ;
+- **la limite dure, c'est l'envoi** : au-delà de ~25 Mo, plus de mail ni de
+  messagerie.
 
-- réduis tes planches avant de les déposer (1600 px de large suffisent
-  largement pour un écran) ;
-- si ta maquette d'origine chargeait ses images depuis un dossier voisin
-  (`assets/…`), les images que tu remplaces deviennent **embarquées**, donc
-  autonomes — c'est un gain, mais le fichier s'alourdit d'autant.
+**Vise 20 à 30 Mo.** Concrètement : réduis tes planches à **1600–2000 px de
+large, JPEG qualité 80** avant de les déposer — 200 à 400 Ko pièce. À l'écran,
+la différence avec un fichier 4000 px est invisible.
 
-Les images que tu **ne touches pas** restent exactement comme elles étaient
-dans ta maquette : embarquées si elles l'étaient, dans leur dossier si elles
-l'étaient. L'outil n'y touche pas.
+Les images que tu **ne touches pas** restent exactement comme elles étaient.
+Les vidéos « posées à côté » ne pèsent rien dans le HTML.
 
-## Ce que l'aperçu sait faire (et ce qu'il ne fait pas)
+---
 
-En **Aperçu**, ta page se comporte normalement : boutons, onglets,
-carrousels, fenêtres. Deux exceptions, parce que la page est affichée dans un
-cadre et n'a pas encore d'adresse à elle :
+## 9. Dépannage
 
-- un lien de menu (`#tutoriels`) **fait défiler** jusqu'à la section, comme il
-  le fera dans le fichier final ;
-- un lien vers l'extérieur **s'ouvre dans un onglet**, et un lien vers un autre
-  fichier est seulement annoncé — l'aperçu ne le suit pas, pour ne pas perdre
-  ton travail en cours.
+**Le lecteur vidéo reste noir.** Format non lisible par un navigateur (ProRes,
+HEVC, `.mkv`) → réexporte en MP4 H.264 ou WebM. Ou, en « posée à côté », le
+fichier n'a pas encore été copié à l'endroit indiqué.
 
-## Quand c'est la maquette qui coince
+**Je ne peux pas cliquer une image.** Elle est sous une autre, ou sous un
+dégradé : l'outil regarde toute la pile, mais si le survol n'annonce rien,
+passe par **la liste de droite** — elle contient tout, y compris ce qui est
+hors écran.
 
-L'éditeur remplit ce qui existe : il ne peut pas inventer un emplacement qui
-n'est pas dans la page. Si un visuel est **le même fichier pour deux contenus**,
-si un agrandissement se fabrique son image de son côté, ou si un encadré vidéo
-n'est qu'un décor sans lecteur, aucun outil ne pourra les distinguer.
+**Ma retouche a disparu après un changement de maquette.** Elle n'a pas pu être
+replacée avec certitude ; l'outil te l'a annoncé à la reprise. Refais-la.
 
-Dans ce cas, c'est la maquette qu'il faut faire évoluer — et
+**Un lien de menu ne fait rien en Aperçu.** Il fait défiler jusqu'à la section,
+comme dans le fichier final. Les liens vers l'extérieur s'ouvrent dans un
+onglet ; ceux vers un autre fichier sont seulement annoncés, pour ne pas perdre
+ton travail en cours.
+
+**L'outil ne se comporte pas comme ce manuel.** Vérifie le numéro de version
+sur l'écran d'accueil et retélécharge.
+
+---
+
+## 10. Ce que l'outil ne peut pas faire
+
+Il **remplit ce qui existe**. Il ne déplace pas les blocs, ne change pas la
+mise en page, n'ajoute pas de section — c'est un remplaçeur de contenu, pas un
+constructeur de site.
+
+Il ne peut pas non plus **inventer un emplacement** : si la maquette affiche
+littéralement le même fichier pour deux contenus, ou si un agrandissement se
+fabrique son image de son côté, aucun outil ne pourra les distinguer.
+
+Dans ce cas, c'est la maquette qu'il faut faire évoluer :
 [`POUR-CLAUDE-DESIGN.md`](POUR-CLAUDE-DESIGN.md) contient un texte prêt à
-copier-coller à l'outil qui l'a fabriquée : six règles simples, sans effet sur
+copier-coller à l'outil qui l'a fabriquée — six règles simples, sans effet sur
 le rendu, qui rendent une page remplissable.
 
-## Bon à savoir
-
-- Les images que tu déposes sont **embarquées dans le fichier** (en base64) :
-  le HTML exporté reste autonome, lisible hors ligne, sans dossier d'images à
-  côté.
-- L'outil retouche **textes, images, vidéos et liens**. Il ne déplace pas les
-  blocs et ne change pas la mise en page — c'est un remplaçeur de contenu, pas
-  un constructeur de site.
+---
 
 ## Fichiers
 
 ```
-Editeur-HTML.html   l'outil, autonome et sans dépendance — c'est CE fichier
-                    que tu télécharges et ouvres
+Editeur-HTML.html      l'outil, autonome et sans dépendance
+README.md              ce manuel
+POUR-CLAUDE-DESIGN.md  les règles à transmettre à l'outil qui fabrique la maquette
 ```

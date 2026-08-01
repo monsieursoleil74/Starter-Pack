@@ -14,7 +14,7 @@ dernière version.
 
 1. Double-clic sur `Editeur-HTML.html`, dépose ta maquette dedans
 2. **Textes** : clique un texte et réécris-le · **Images** : clique une
-   image pour la remplacer (ou une zone pour y **poser** une image) ·
+   image pour la remplacer — ou lâche directement le fichier dessus ·
    **Vidéos** : branche une vidéo locale sur un encadré ou un lecteur ·
    **Liens** : donne sa destination à chaque bouton
 3. **Exporter** → `ta-maquette - modifie.html`
