@@ -168,6 +168,8 @@ header .sp{flex:1}
 #gal .hd.plie .ic{transform:rotate(-90deg)}
 #gal .hd .nb{margin-left:auto;color:var(--muted);font-weight:500;font-variant-numeric:tabular-nums}
 #gal .hd .pastille{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
+#gal .hd.survol,#gal .g.survol{border-color:var(--accent);background:var(--panel3);
+  box-shadow:inset 0 0 0 1px var(--accent)}
 #galInfo,#lnkInfo{color:var(--muted);font-size:12px;margin:0}
 #besoins{background:rgba(243,189,92,.09);border:1px solid rgba(243,189,92,.32);color:#f6d69b;
   border-radius:10px;padding:10px 11px;font-size:12px;line-height:1.65;margin-top:12px}
@@ -262,7 +264,7 @@ header .sp{flex:1}
   display:flex;align-items:center;justify-content:center;z-index:70;font-size:14px;color:var(--muted)}
 
 /* ------------------------------------------------------------------ fenêtres */
-#ask,#askv,#askl,#askg{position:fixed;inset:0;background:rgba(7,8,11,.72);backdrop-filter:blur(3px);
+#ask,#askv,#askl,#askg,#askm{position:fixed;inset:0;background:rgba(7,8,11,.72);backdrop-filter:blur(3px);
   display:flex;align-items:center;justify-content:center;z-index:80;padding:24px}
 #askIn{background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:22px;
   max-width:440px;width:100%;box-shadow:var(--sh)}
@@ -287,6 +289,23 @@ header .sp{flex:1}
 #askIn #asklOk{border-color:var(--accent);background:var(--accent);color:#fff;
   text-align:center;font-weight:600}
 #askIn #asklOk:hover{background:var(--accent);filter:brightness(1.06)}
+#askIn #askmOk{border-color:var(--accent);background:var(--accent);color:#fff;
+  text-align:center;font-weight:600}
+#askIn #askmOk:hover{background:var(--accent);filter:brightness(1.06)}
+/* le fichier lâché en face de l'emplacement qui le recevra */
+#askmList{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:11px;
+  background:var(--panel2);padding:4px}
+#askmList .pa{display:flex;gap:9px;align-items:center;padding:6px 7px;font-size:12px;
+  border-bottom:1px solid var(--line)}
+#askmList .pa:last-child{border-bottom:none}
+#askmList .pa .n{width:20px;color:var(--muted);font-size:11px;text-align:right;flex:none}
+#askmList .pa .f{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#askmList .pa .fl{color:var(--muted);flex:none}
+#askmList .pa .c{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--muted)}
+#askmList .pa.ecrase .c{color:var(--warn)}
+#askmList .pa.hors{opacity:.55}
+#askmList .pa.hors .c{color:var(--danger)}
 /* choisir parmi les images empilées au même endroit */
 #askgGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 2px;
   max-height:54vh;overflow:auto}
@@ -438,6 +457,16 @@ header .sp{flex:1}
   </div>
   <button class="cancel" id="askvNo">Annuler</button>
 </div></div>
+<div id="askm" class="hidden"><div id="askIn">
+  <h3>Poser plusieurs images d’un coup</h3>
+  <p id="askmWhat"></p>
+  <div id="askmList"></div>
+  <p class="warn hidden" id="askmWarn"></p>
+  <div class="row" style="margin-top:12px">
+    <button id="askmOk"><b>Poser ces images</b></button>
+  </div>
+  <button class="cancel" id="askmNo">Annuler</button>
+</div></div>
 <div id="askl" class="hidden"><div id="askIn">
   <h3>Vers quoi doit pointer ce bouton ?</h3>
   <p id="asklWhat"></p>
@@ -468,7 +497,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-01a';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-01b';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -882,9 +911,15 @@ function onDrop(e) {
   if (!fichierGlisse(e)) return;
   e.preventDefault(); e.stopPropagation();
   tip('');
-  var f = e.dataTransfer.files[0];
   if (mode !== 'img') { toast('Passe en mode Images pour déposer un visuel'); return; }
-  if (!f || !/^image\//.test(f.type)) { toast('Ce fichier n’est pas une image'); return; }
+  var fs = imagesDuDepot(e.dataTransfer), f = fs[0];
+  if (!f) { toast('Ce fichier n’est pas une image'); return; }
+  // ici on vise UN emplacement : plusieurs fichiers, c'est la liste de droite
+  if (fs.length > 1) {
+    toast(fs.length + ' images d’un coup : lâche-les sur une famille de la liste à ' +
+          'droite, elles s’y rangeront dans l’ordre. Ici, un emplacement ne prend qu’une image.');
+    return;
+  }
   var pile = imagesAt(e.clientX, e.clientY);
   var hit = targetAt(e.target);
   if (!pile.length && !hit) { toast('Rien à remplacer à cet endroit'); return; }
@@ -1616,6 +1651,13 @@ function collectMedia() {
 
   // 1) la réserve, s'il y en a une : une tuile par contenu, rangée par dossier
   var res = entreesReserve();
+  // combien d'entrées partagent la même source ? (une maquette peut poser le
+  // même cadre gris partout : le nom lu dans la page ne distinguerait rien)
+  var combien = {};
+  res.forEach(function (n) {
+    var v = n.getAttribute('src') || '';
+    combien[v] = (combien[v] || 0) + 1;
+  });
   if (res.length > 2) res.forEach(function (n) {
     var sel = pathOf(n);
     if (seen[sel]) return;
@@ -1623,9 +1665,13 @@ function collectMedia() {
     var ch = cheminDe(n), f = familleDe(ch);
     var src = n.getAttribute('src') || '';
     if (src) srcReserve[src] = 1;
-    // le nom que la page donne à ce visuel vaut mieux que son nom de fichier
+    // le nom que la page donne à ce visuel vaut mieux que son nom de fichier —
+    // sauf si plusieurs entrées partagent la même source : on retomberait sur
+    // le même nom pour tout le monde
     var vu = null;
-    try { vu = doc.querySelector('img[src="' + src + '"]:not([data-k])'); } catch (e) {}
+    try {
+      if (combien[src] < 2) vu = doc.querySelector('img[src="' + src + '"]:not([data-k])');
+    } catch (e) {}
     var alt = vu ? (vu.getAttribute('alt') || '').trim() : '';
     out.push({ sel: sel, kind: 'img', node: n, thumb: '',
                name: alt || nomFichier(ch, f.brut), fichier: ch,
@@ -1710,11 +1756,19 @@ function renderGallery() {
   }
   $('galVide').classList.add('hidden');
 
+  // pour poser une série d'images : chaque tuile sait dans quelle suite elle est
+  // et à quel rang, la famille sait par où commencer
+  var suites = {};
+  media.forEach(function (m) {
+    var k = m.grp || '~seules';
+    (suites[k] = suites[k] || []).push(m);
+  });
+
   var grpVu = '', i = 0;
   media.forEach(function (m) {
     if (m.grp && m.grp !== grpVu) {
       grpVu = m.grp;
-      var lot = media.filter(function (o) { return o.grp === m.grp; });
+      var lot = suites[m.grp];
       var plie = !q && !!replies[m.grp];      // une recherche ouvre ce qu'elle trouve
       var faits = lot.filter(function (o) { return dejaFait(o.node, o.sel); }).length;
       var hd = document.createElement('button');
@@ -1729,6 +1783,8 @@ function renderGallery() {
         replies[m.grp] = replies[m.grp] ? 0 : 1;
         renderGallery();
       });
+      hd.title += '\nTu peux lâcher plusieurs images ici : elles se rangent dans l’ordre';
+      brancherDepotGalerie(hd, lot, 0, m.grpName || 'Images superposées');
       box.appendChild(hd);
       if (plie) return;
     } else if (!m.grp && grpVu !== 'seules') {
@@ -1755,11 +1811,14 @@ function renderGallery() {
     nm.className = 'nm';
     nm.textContent = (done ? '✓ ' : '') + (m.name || 'Image ' + i);
     b.appendChild(vis); b.appendChild(nm);
-    b.title = (m.name || ('Image ' + i)) + (m.fichier ? '\n' + m.fichier : '');
+    var suite = suites[m.grp || '~seules'], rang = suite.indexOf(m);
+    b.title = (m.name || ('Image ' + i)) + (m.fichier ? '\n' + m.fichier : '') +
+              '\nLâche un fichier ici pour le poser — plusieurs pour remplir la suite';
     b.addEventListener('click', function () {
       flash(m.node);
       pickImageFor(m.node, m.kind === 'img');
     });
+    brancherDepotGalerie(b, suite, rang < 0 ? 0 : rang, m.name || 'cet emplacement');
     box.appendChild(b);
   });
 }
@@ -1841,12 +1900,19 @@ function propagerReserve() {
     }
     if (!p.old) return;
     try {
+      // Deux contenus peuvent partager le MÊME visuel d'origine (une maquette
+      // qui met le même cadre gris partout). Entraîner les autres entrées de
+      // la réserve reviendrait à écraser le portrait de Pipo avec celui de
+      // Rex : une entrée de réserve n'appartient qu'à son propre chemin.
+      var autre = function (m) { return m !== n && estReserve(m); };
       [].forEach.call(doc.querySelectorAll('img[src="' + p.old + '"]'), function (m) {
+        if (autre(m)) return;
         m.removeAttribute('srcset');
         m.setAttribute('src', vu);
         if (p.fit) cadrer(m, p);
       });
       [].forEach.call(doc.querySelectorAll('video[src="' + p.old + '"]'), function (m) {
+        if (autre(m)) return;
         m.setAttribute('src', vu);
         m.controls = true;
         m.load();
@@ -1869,9 +1935,10 @@ $('pickImg').addEventListener('change', function (e) {
   var f = e.target.files[0];
   if (f) lireImage(f);
 });
-function lireImage(f) {
-  if (!f || !imgTarget) return;
+function lireImage(f, fini) {
+  if (!f || !imgTarget) { if (fini) fini(); return; }
   var r = new FileReader();
+  r.onerror = function () { toast('Impossible de lire « ' + short(f.name, 30) + ' »'); if (fini) fini(); };
   r.onload = function () {
     var data = String(r.result);
     var el = imgTarget, isImg = imgIsImg, hide = imgHide;
@@ -1879,11 +1946,116 @@ function lireImage(f) {
     var im = new Image();
     im.onload = im.onerror = function () {
       poser(data, f.name, el, isImg, hide, im.width && im.height ? im.width / im.height : 0);
+      if (fini) fini();
     };
     im.src = data;
   };
   r.readAsDataURL(f);
 }
+/* ------------------------------------------- poser une série d'images d'un coup
+   Le geste : sélectionner les cinq planches de Rex dans l'explorateur et les
+   lâcher sur la famille « Rex » de la liste. Elles se rangent dans l'ordre.
+
+   Deux précautions. L'ordre d'abord : l'explorateur ne garantit pas celui de la
+   sélection, on trie donc par nom, en lisant les nombres comme des nombres
+   (`planche_2` avant `planche_10`). Et on montre l'appariement AVANT de poser :
+   dix remplacements d'un coup, ça ne se devine pas, ça se relit. */
+var enLot = false;
+function ordreNaturel(a, b) {
+  return (a.name || '').localeCompare(b.name || '', 'fr',
+                                      { numeric: true, sensitivity: 'base' });
+}
+function imagesDuDepot(dt) {
+  var l = [];
+  try { l = [].slice.call(dt.files || []); } catch (e) { l = []; }
+  l = l.filter(function (f) { return /^image\//.test(f.type || ''); });
+  l.sort(ordreNaturel);
+  return l;
+}
+
+var lotEnCours = null;
+function proposerLot(fichiers, lot, depart, titre) {
+  var libres = lot.length - depart;
+  var paires = fichiers.map(function (f, i) {
+    var m = lot[depart + i];
+    return { f: f, m: m || null, ecrase: !!(m && dejaFait(m.node, m.sel)) };
+  });
+  lotEnCours = paires;
+  $('askmWhat').innerHTML = esc(fichiers.length + ' images lâchées sur « ' + titre + ' ». ') +
+    'Elles seront posées <b>dans l’ordre des noms de fichiers</b>, à partir de l’emplacement visé.';
+  $('askmList').innerHTML = paires.map(function (pr, i) {
+    var cls = !pr.m ? 'pa hors' : pr.ecrase ? 'pa ecrase' : 'pa';
+    var but = !pr.m ? 'pas de place — ne sera pas posée'
+            : (pr.ecrase ? '⟳ ' : '') + (pr.m.name || 'emplacement ' + (depart + i + 1));
+    return '<div class="' + cls + '"><span class="n">' + (i + 1) + '</span>' +
+           '<span class="f">' + esc(pr.f.name) + '</span>' +
+           '<span class="fl">→</span><span class="c">' + esc(but) + '</span></div>';
+  }).join('');
+  var trop = paires.filter(function (pr) { return !pr.m; }).length;
+  var ecr = paires.filter(function (pr) { return pr.ecrase; }).length;
+  var av = [];
+  if (trop) av.push(trop + ' image(s) de trop : il n’y a que ' + libres + ' emplacement(s) à partir d’ici.');
+  if (ecr) av.push(ecr + ' emplacement(s) déjà retouché(s) seront écrasés (⟳).');
+  $('askmWarn').innerHTML = av.join('<br>');
+  $('askmWarn').classList.toggle('hidden', !av.length);
+  var n = paires.filter(function (pr) { return pr.m; }).length;
+  $('askmOk').innerHTML = '<b>Poser ' + n + ' image' + (n > 1 ? 's' : '') + '</b>';
+  $('askmOk').disabled = !n;
+  $('askm').classList.remove('hidden');
+}
+function fermerLot() { $('askm').classList.add('hidden'); lotEnCours = null; }
+$('askmNo').addEventListener('click', fermerLot);
+$('askm').addEventListener('click', function (e) { if (e.target === $('askm')) fermerLot(); });
+$('askmOk').addEventListener('click', function () {
+  var paires = (lotEnCours || []).filter(function (pr) { return pr.m; });
+  fermerLot();
+  if (!paires.length) return;
+  enLot = true;
+  toast('Pose de ' + paires.length + ' images…');
+  poserSuite(paires, 0);
+});
+function poserSuite(paires, i) {
+  if (i >= paires.length) {
+    enLot = false;
+    if (mode === 'img') renderGallery();
+    toast(paires.length + ' images posées — vérifie le cadrage de celles qui débordent');
+    return;
+  }
+  var pr = paires[i];
+  imgTarget = pr.m.node; imgIsImg = pr.m.kind === 'img'; imgHide = false;
+  lireImage(pr.f, function () { poserSuite(paires, i + 1); });
+}
+
+/* Une famille de la liste, ou une vignette, accepte qu'on lui lâche des
+   fichiers dessus. Un seul fichier : on le pose sans cérémonie. */
+function brancherDepotGalerie(el, lot, depart, titre) {
+  el.addEventListener('dragover', function (e) {
+    if (!fichierGlisse(e)) return;
+    e.preventDefault(); e.stopPropagation();
+    try { e.dataTransfer.dropEffect = 'copy'; } catch (x) {}
+    el.classList.add('survol');
+  });
+  ['dragleave', 'dragend'].forEach(function (ev) {
+    el.addEventListener(ev, function () { el.classList.remove('survol'); });
+  });
+  el.addEventListener('drop', function (e) {
+    if (!fichierGlisse(e)) return;
+    e.preventDefault(); e.stopPropagation();
+    el.classList.remove('survol');
+    var fs = imagesDuDepot(e.dataTransfer);
+    if (!fs.length) { toast('Aucune image dans ce que tu as lâché'); return; }
+    if (fs.length === 1) {
+      var m = lot[depart];
+      if (!m) { toast('Plus d’emplacement libre ici'); return; }
+      flash(m.node);
+      fichierEnAttente = fs[0];
+      pickImageFor(m.node, m.kind === 'img');
+      return;
+    }
+    proposerLot(fs, lot, depart, titre);
+  });
+}
+
 function poser(data, nom, el, isImg, hide, ar) {
   var p = { kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
             hide: hide || undefined, ar: ar || undefined, label: short(nom, 34) };
@@ -1899,7 +2071,7 @@ function poser(data, nom, el, isImg, hide, ar) {
     applyOne(p, res);
     addPatch(p);
     propagerReserve();
-    toast('Remplacé dans la réserve d’images — ce visuel suit partout où il est utilisé');
+    if (!enLot) toast('Remplacé dans la réserve d’images — ce visuel suit partout où il est utilisé');
   } else {
     // Une maquette réutilise souvent la MÊME balise pour plusieurs contenus
     // (la fiche de Pipo puis celle de Bruno) en ne changeant que le alt :
@@ -1910,9 +2082,12 @@ function poser(data, nom, el, isImg, hide, ar) {
     }
     applyOne(p, el);
     addPatch(p);
-    if (isImg && estCachee(el))
+    if (!enLot && isImg && estCachee(el))
       toast('Remplacée — elle apparaîtra quand le carrousel l’affichera');
   }
+  // en lot, on ne redessine et on ne recadre qu'une fois, à la fin : dix
+  // fenêtres de recadrage qui s'ouvrent l'une après l'autre, personne n'en veut
+  if (enLot) return;
   if (mode === 'img') renderGallery();
   if (!$('askg').classList.contains('hidden')) renderChoix();
 
@@ -2547,10 +2722,13 @@ function exportFile() {
     "else if(p.src==='reserve'&&(n.tagName==='IMG'||n.tagName==='VIDEO')){" +
     "var o=n.getAttribute('src');if(o&&o!==p.after){if(!p.old)p.old=o;" +
     "n.removeAttribute('srcset');n.setAttribute('src',p.after)}" +
+    /* deux contenus peuvent partir du même visuel d'origine : entraîner les
+       AUTRES entrées de la réserve écraserait leur retouche à elles */
+    "var au=function(m){return m!==n&&(m.hasAttribute('data-k')||!!m.closest('#rg-assetmap'))};" +
     "if(p.old){[].forEach.call(document.querySelectorAll('img[src=\"'+p.old+'\"]'),function(m){" +
-    "m.removeAttribute('srcset');m.setAttribute('src',p.after);cad(m,p)});" +
+    "if(au(m))return;m.removeAttribute('srcset');m.setAttribute('src',p.after);cad(m,p)});" +
     "[].forEach.call(document.querySelectorAll('video[src=\"'+p.old+'\"]'),function(m){" +
-    "m.setAttribute('src',p.after);m.controls=true;m.load()});" +
+    "if(au(m))return;m.setAttribute('src',p.after);m.controls=true;m.load()});" +
     "[].forEach.call(document.querySelectorAll('[style*=\"'+p.old+'\"]'),function(m){" +
     "m.setAttribute('style',m.getAttribute('style').split(p.old).join(p.after))})}" +
     "if(p.fit)[].forEach.call(document.querySelectorAll('img'),function(m){" +
@@ -2689,7 +2867,7 @@ $('pickImp').addEventListener('change', function (e) {
 var MEMO = [
   ['texte', 'Textes', 'Clique un texte, réécris-le. Un collé depuis Word ou Docs prend le style du site.'],
   ['image', 'Images', 'Clique une image pour la remplacer. Plusieurs superposées (carrousel) ? l’outil te les montre. Une zone sans image ? tu peux y en poser une.'],
-  ['depot', 'Glisser-déposer', 'En mode Images, prends le fichier dans ton explorateur et lâche-le sur l’image : pas de sélecteur à ouvrir.'],
+  ['depot', 'Glisser-déposer', 'En mode Images, prends le fichier dans ton explorateur et lâche-le sur l’image : pas de sélecteur à ouvrir. Plusieurs fichiers lâchés sur une famille de la liste s’y rangent dans l’ordre.'],
   ['recadrer', 'Recadrer', 'Une image qui déborde de son cadre s’ouvre en recadrage : glisse-la, zoome à la molette.'],
   ['video', 'Vidéos', 'Clique le bouton qui ouvre la vidéo : l’outil ouvre la fenêtre et vise le lecteur. « Posée à côté » garde le fichier léger.'],
   ['lien', 'Liens', 'La liste montre tous les liens et signale ceux qui ne mènent nulle part.'],
@@ -2698,6 +2876,7 @@ var MEMO = [
   ['export', 'Exporter', 'Tu récupères ton original + un correctif. Redépose ce fichier ici plus tard pour continuer.']
 ];
 var ASTUCES = [
+  'Cinq planches à poser ? sélectionne-les toutes et lâche-les sur la famille dans la liste : l’outil montre l’appariement avant de poser.',
   'Dans « Mes retouches », clique le nom d’une ligne : l’outil t’emmène à l’endroit dans la page.',
   'Le poids affiché à côté de « Mes retouches » est celui du fichier que tu vas exporter.'
 ];
@@ -2740,6 +2919,10 @@ function raccourci(e) {
           t.isContentEditable);
   if (e.key === 'Escape') { fermerAide(); return; }
   if (saisie || editing) return;
+  // une fenêtre ouverte attend une réponse : on ne change pas de mode sous elle
+  if (['ask', 'askg', 'askv', 'askl', 'askm'].some(function (id) {
+    return !$(id).classList.contains('hidden');
+  })) return;
   if (e.key === '?' || (e.key === '/' && e.shiftKey)) { e.preventDefault(); ouvrirAide(); return; }
   var i = '12345'.indexOf(e.key);
   if (i >= 0 && !$('bar').classList.contains('hidden')) {
@@ -2845,6 +3028,7 @@ $('undo').addEventListener('click', function () {
 });
 document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') {
+    if (!$('askm').classList.contains('hidden')) return fermerLot();
     if (!$('askl').classList.contains('hidden')) return closeAskl();
     if (!$('askv').classList.contains('hidden')) return closeAskv();
     if (!$('ask').classList.contains('hidden')) return closeAsk();

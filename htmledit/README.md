@@ -10,7 +10,7 @@ envoyé en ligne**.
 
 [⬇ Télécharger la dernière version](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html)
 — le numéro de version s'affiche à côté du nom, sur l'écran d'accueil
-(`2026-08-01a` au moment où ces lignes sont écrites). Si un comportement ne
+(`2026-08-01b` au moment où ces lignes sont écrites). Si un comportement ne
 correspond pas à ce manuel, commence par retélécharger.
 
 ---
@@ -142,6 +142,29 @@ fichier que tu viens de lâcher : il ne te le redemande pas.
 
 Un fichier lâché ailleurs qu'en mode Images, ou qui n'est pas une image, est
 refusé et l'outil te le dit — l'aperçu ne quitte jamais ta page.
+
+### Poser toute une série d'un coup
+
+Les cinq planches de Rex sont dans un dossier ? **Sélectionne-les toutes et
+lâche-les sur la famille « Rex »** dans la liste de droite. Elles se rangent
+dans ses emplacements, dans l'ordre.
+
+- **L'ordre, c'est celui des noms de fichiers**, pas celui de ta sélection —
+  l'explorateur ne le garantit pas. Les nombres sont lus comme des nombres :
+  `planche_2` passe avant `planche_10`.
+- **Tu relis avant que ça parte.** Une fenêtre montre l'appariement fichier par
+  fichier — `rex_a_02.png → Portrait`, `rex_b_03.png → Planche 02`… Rien n'est
+  posé tant que tu n'as pas confirmé.
+- **Rien ne part en douce.** Un emplacement déjà retouché qui va être écrasé est
+  marqué `⟳`, et les fichiers en trop sont annoncés comme *sans place* — ils ne
+  sont pas posés.
+- **Lâche sur une vignette plutôt que sur la famille** pour commencer à **cet**
+  emplacement-là et remplir la suite. Pratique pour ne remplacer que la fin
+  d'une série.
+
+Un seul fichier lâché sur une famille ou une vignette se pose directement, sans
+fenêtre. Sur la page elle-même, un emplacement ne prend qu'une image : lâcher
+plusieurs fichiers dessus te renvoie vers la liste.
 
 ### Carrousels et images empilées
 
