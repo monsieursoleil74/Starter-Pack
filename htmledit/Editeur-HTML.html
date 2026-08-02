@@ -553,7 +553,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02j';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02k';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1357,17 +1357,27 @@ var cacheTemoin = null;
 function bonTemoin(n, w) {
   return !!n && texteDe(n) === w.txt && (!w.fx || dansFenetre(n));
 }
-function trouveTemoin(w) {
-  var n = null;
-  try { n = doc.querySelector(w.sel); } catch (e) {}
-  if (bonTemoin(n, w)) return n;
+/* Le même texte peut apparaître plusieurs fois (l'onglet « Bruno », sa carte,
+   sa fiche) : on garde TOUS les porteurs — le chemin relatif tranchera. */
+function candidatsTemoin(w) {
+  var out = [];
+  try {
+    var n = doc.querySelector(w.sel);
+    if (bonTemoin(n, w)) out.push(n);
+  } catch (e) {}
   if (!cacheTemoin) cacheTemoin = {};
-  if (cacheTemoin[w.txt] !== undefined) return cacheTemoin[w.txt];
-  var found = null, all = doc.querySelectorAll('*');
-  for (var i = 0; i < all.length; i++)
-    if (bonTemoin(all[i], w)) { found = all[i]; break; }
-  cacheTemoin[w.txt] = found;
-  return found;
+  if (cacheTemoin[w.txt] === undefined) {
+    var l = [], all = doc.querySelectorAll('*');
+    for (var i = 0; i < all.length && l.length < 8; i++)
+      if (bonTemoin(all[i], w)) l.push(all[i]);
+    cacheTemoin[w.txt] = l;
+  }
+  cacheTemoin[w.txt].forEach(function (x) { if (out.indexOf(x) < 0) out.push(x); });
+  return out;
+}
+function trouveTemoin(w) {
+  var l = candidatsTemoin(w);
+  return l.length ? l[0] : null;
 }
 /* Une maquette qui évolue décale les positions : un personnage ajouté, et le
    « troisième img » n'est plus le même. On retrouve donc l'entrée par SON
@@ -1379,14 +1389,17 @@ function parChemin(k) {
 function cibleDe(p) {
   if (p.k) { var d = parChemin(p.k); if (d) return d; }
   if (!p.when) { try { return doc.querySelector(p.sel); } catch (e) { return null; } }
-  var t = trouveTemoin(p.when);
-  if (!t) return null;
-  var a = t;
-  for (var i = 0; i < (p.when.up || 0) && a.parentElement; i++) a = a.parentElement;
-  var c = a;
-  if (p.when.down) { try { c = a.querySelector(':scope>' + p.when.down); } catch (e) { return null; } }
-  if (c && p.when.tag && c.tagName !== p.when.tag) return null;
-  return c;
+  // chaque porteur du texte témoin est essayé : c'est le chemin relatif
+  // strict qui décide lequel est le vrai (la fiche, pas l'onglet)
+  var cands = candidatsTemoin(p.when);
+  for (var ci = 0; ci < cands.length; ci++) {
+    var a = cands[ci];
+    for (var i = 0; i < (p.when.up || 0) && a.parentElement; i++) a = a.parentElement;
+    var c = a;
+    if (p.when.down) { try { c = a.querySelector(':scope>' + p.when.down); } catch (e) { c = null; } }
+    if (c && (!p.when.tag || c.tagName === p.when.tag)) return c;
+  }
+  return null;
 }
 /* La fenêtre est repartie sur un autre contenu : notre lecteur n'y est plus
    chez lui, on le retire où qu'il soit. */
@@ -3039,17 +3052,17 @@ function exportFile() {
     "function df(n){for(var i=0;n&&i<8;i++,n=n.parentElement)" +
     "if(getComputedStyle(n).position==='fixed')return true;return false}" +
     "function bt(n,w){return !!n&&tx(n)===w.txt&&(!w.fx||df(n))}" +
-    "function tem(w){var n=null;try{n=document.querySelector(w.sel)}catch(e){}" +
-    "if(bt(n,w))return n;if(!CT)CT={};if(CT[w.txt]!==undefined)return CT[w.txt];" +
-    "var f=null,a=document.querySelectorAll('*'),i;" +
-    "for(i=0;i<a.length;i++)if(bt(a[i],w)){f=a[i];break}CT[w.txt]=f;return f}" +
+    "function tem(w){var out=[];try{var n=document.querySelector(w.sel);if(bt(n,w))out.push(n)}catch(e){}" +
+    "if(!CT)CT={};if(CT[w.txt]===undefined){var l=[],a=document.querySelectorAll('*'),i;" +
+    "for(i=0;i<a.length&&l.length<8;i++)if(bt(a[i],w))l.push(a[i]);CT[w.txt]=l}" +
+    "CT[w.txt].forEach(function(x){if(out.indexOf(x)<0)out.push(x)});return out}" +
     "function pk(k){if(!k)return null;try{return document.querySelector('[data-k=\"'+k.replace(/\"/g,'\\\\\"')+'\"]')}catch(e){return null}}" +
     "function cible(p){if(p.k){var d=pk(p.k);if(d)return d}" +
     "if(!p.when){try{return document.querySelector(p.sel)}catch(e){return null}}" +
-    "var t=tem(p.when);if(!t)return null;var a=t,i;" +
+    "var cs=tem(p.when),ci,i;for(ci=0;ci<cs.length;ci++){var a=cs[ci];" +
     "for(i=0;i<(p.when.up||0)&&a.parentElement;i++)a=a.parentElement;" +
-    "var c=a;if(p.when.down){try{c=a.querySelector(':scope>'+p.when.down)}catch(e){return null}}" +
-    "if(c&&p.when.tag&&c.tagName!==p.when.tag)return null;return c}" +
+    "var c=a;if(p.when.down){try{c=a.querySelector(':scope>'+p.when.down)}catch(e){c=null}}" +
+    "if(c&&(!p.when.tag||c.tagName===p.when.tag))return c}return null}" +
     /* le cadrage choisi dans l'éditeur : position en % de ce qui dépasse, zoom
        en % du cadre — jamais de pixels, pour survivre à un changement de taille */
     "function cad(n,p){if(!p.fit&&!p.cadre)return;var f=p.fit||{},x=f.x==null?50:f.x," +
@@ -3189,17 +3202,17 @@ function exportFile() {
 function reprenable(p) {
   if (p.kind === 'head') return true;
   if (p.k) return !!parChemin(p.k);
-  if (p.kind === 'text') {
-    var n = null;
-    try { n = doc.querySelector(p.sel); } catch (e) {}
-    return !!n && (!p.before || n.textContent.trim() === p.before.trim());
-  }
   if (p.when) {
     if (cibleDe(p)) return true;
     // un texte accroché au nom d'un personnage : la fiche affiche peut-être
     // quelqu'un d'autre en ce moment — il suffit que le nom existe encore
     if (p.kind === 'text') return !!trouveTemoin(p.when);
     return false;
+  }
+  if (p.kind === 'text') {
+    var n = null;
+    try { n = doc.querySelector(p.sel); } catch (e) {}
+    return !!n && (!p.before || n.textContent.trim() === p.before.trim());
   }
   if (p.alt) {
     // l'alt n'est pas une preuve de présence : c'est l'ancre qui décide QUAND
