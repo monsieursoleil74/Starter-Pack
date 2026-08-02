@@ -553,7 +553,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02g';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02h';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -730,6 +730,16 @@ function applyAll() {
     if (!n) {
       // fenêtre partagée refermée ou passée à un autre contenu
       if (p.kind === 'video' && p.when) orphelins.push(p);
+      // un texte dont le témoin ne correspond plus : la maquette n'a peut-être
+      // PAS repeint le champ (même valeur pour tous les personnages) — notre
+      // texte y traîne encore. On remet l'original.
+      if (p.kind === 'text' && p.when) {
+        var r = null;
+        try { r = doc.querySelector(p.sel); } catch (e) {}
+        if (r && r.textContent.trim() === (p.after || '').trim() &&
+            (p.after || '').trim() !== (p.before || '').trim())
+          r.textContent = p.before || '';
+      }
       return;
     }
     if (p.kind === 'text') {
@@ -3009,7 +3019,10 @@ function exportFile() {
     "if(l.getAttribute('href')!==p.icon)l.setAttribute('href',p.icon)}catch(e){}}" +
     "function ap(){if(busy)return;busy=true;CT=null;tours++;var orph=[],R=[];" +
     "P.forEach(function(p){if(p.kind==='head'){tete(p);return}var n=cible(p);" +
-    "if(!n){if(p.kind==='video'&&p.when)orph.push(p);return}" +
+    "if(!n){if(p.kind==='video'&&p.when)orph.push(p);" +
+    "if(p.kind==='text'&&p.when){try{var rr=document.querySelector(p.sel);" +
+    "if(rr&&rr.textContent.trim()===(p.after||'').trim()&&(p.after||'').trim()!==(p.before||'').trim())" +
+    "rr.textContent=p.before||''}catch(e){}}return}" +
     "if(p.kind==='text'){if(n.textContent.trim()===(p.before||'').trim()){n.textContent=p.after}}" +
     /* entrée d'une réserve d'images : on la retouche, puis on remplace le
        visuel partout où sa source d'origine sert encore — l'appli a pu lire
