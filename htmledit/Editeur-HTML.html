@@ -553,7 +553,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02f';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02g';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1009,6 +1009,40 @@ function onDrop(e) {
   else pickImageFor(hit.el, hit.kind === 'img');
 }
 
+/* --------------------------------------------- le témoin d'un texte partagé
+   « Prénom Nom », « Réf. anim »… : la même fiche affiche le même placeholder
+   pour chaque personnage. Le texte d'origine ne distingue alors plus rien.
+   On s'accroche au TITRE le plus proche au-dessus (le nom du personnage, en
+   gros caractères) : la retouche ne vaut que quand ce témoin est affiché. */
+function temoinTexte(n) {
+  var vw = doc.defaultView;
+  var tCible = texteDe(n) || (n.textContent || '').trim().replace(/\s+/g, ' ');
+  var fsC = parseFloat(vw.getComputedStyle(n).fontSize) || 14;
+  var anc = n.parentElement, best = null, prof = 0;
+  for (; anc && prof < 8 && !best; anc = anc.parentElement, prof++) {
+    if (!anc.tagName || anc.tagName === 'BODY' || anc.tagName === 'HTML') break;
+    var cands = anc.querySelectorAll('h1,h2,h3,h4,h5,h6,span,div,p,strong,b,legend,figcaption');
+    for (var i = 0; i < cands.length; i++) {
+      var c = cands[i];
+      if (c === n || c.contains(n) || n.contains(c) || c.children.length) continue;
+      var t = texteDe(c);
+      if (t.length < 2 || t.length > 60 || t === tCible) continue;
+      if (!(c.compareDocumentPosition(n) & 4)) continue;      // le témoin PRÉCÈDE
+      var st = vw.getComputedStyle(c);
+      if (st.display === 'none' || st.visibility === 'hidden') continue;
+      var fs = parseFloat(st.fontSize) || 14;
+      var gras = (parseInt(st.fontWeight, 10) || 400) >= 600 || /^H[1-6]$/.test(c.tagName);
+      if (fs >= fsC * 1.25 || /^H[1-6]$/.test(c.tagName) || (gras && fs >= fsC * 1.05))
+        best = c;                                             // le plus proche au-dessus
+    }
+  }
+  if (!best) return null;
+  var com = communAvec(best, n);
+  if (!com) return null;
+  return { sel: pathOf(best), txt: texteDe(best), up: com.up,
+           down: pathRel(n, com.anc), tag: n.tagName };
+}
+
 /* Une croix de fermeture n'est pas un emplacement à retoucher : on la laisse
    faire son travail, sinon la fenêtre ne se referme jamais. */
 function estFermeture(n) {
@@ -1312,7 +1346,7 @@ function cibleDe(p) {
   var a = t;
   for (var i = 0; i < (p.when.up || 0) && a.parentElement; i++) a = a.parentElement;
   var c = a;
-  if (p.when.down) { try { c = a.querySelector(p.when.down); } catch (e) { return null; } }
+  if (p.when.down) { try { c = a.querySelector(':scope>' + p.when.down); } catch (e) { return null; } }
   if (c && p.when.tag && c.tagName !== p.when.tag) return null;
   return c;
 }
@@ -1593,8 +1627,16 @@ function startEdit(n, x, y) {
     editing = null;
     var after = n.textContent;
     if (after.trim() === before.trim()) return;
+    var w = null;
+    try { w = temoinTexte(n); } catch (e) {}
     addPatch({ kind: 'text', sel: pathOf(n), before: before, after: after,
-               label: short(after, 40) || '(vide)' });
+               when: w || undefined, label: short(after, 40) || '(vide)' });
+    // si CE texte servait de témoin à d'autres retouches (on vient de renommer
+    // le personnage), elles suivent le nouveau nom
+    var nb = before.trim().replace(/\s+/g, ' '), na = after.trim().replace(/\s+/g, ' ');
+    if (nb !== na) patches.forEach(function (o) {
+      if (o.when && o.when.txt === nb) o.when.txt = na;
+    });
   };
   n.addEventListener('blur', done);
 }
@@ -2936,7 +2978,7 @@ function exportFile() {
     "if(!p.when){try{return document.querySelector(p.sel)}catch(e){return null}}" +
     "var t=tem(p.when);if(!t)return null;var a=t,i;" +
     "for(i=0;i<(p.when.up||0)&&a.parentElement;i++)a=a.parentElement;" +
-    "var c=a;if(p.when.down){try{c=a.querySelector(p.when.down)}catch(e){return null}}" +
+    "var c=a;if(p.when.down){try{c=a.querySelector(':scope>'+p.when.down)}catch(e){return null}}" +
     "if(c&&p.when.tag&&c.tagName!==p.when.tag)return null;return c}" +
     /* le cadrage choisi dans l'éditeur : position en % de ce qui dépasse, zoom
        en % du cadre — jamais de pixels, pour survivre à un changement de taille */
@@ -3078,7 +3120,13 @@ function reprenable(p) {
     try { n = doc.querySelector(p.sel); } catch (e) {}
     return !!n && (!p.before || n.textContent.trim() === p.before.trim());
   }
-  if (p.when) return !!cibleDe(p);
+  if (p.when) {
+    if (cibleDe(p)) return true;
+    // un texte accroché au nom d'un personnage : la fiche affiche peut-être
+    // quelqu'un d'autre en ce moment — il suffit que le nom existe encore
+    if (p.kind === 'text') return !!trouveTemoin(p.when);
+    return false;
+  }
   if (p.alt) {
     // l'alt n'est pas une preuve de présence : c'est l'ancre qui décide QUAND
     // la retouche s'applique. La balise partagée affiche peut-être un autre

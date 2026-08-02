@@ -10,7 +10,7 @@ envoyé en ligne**.
 
 [⬇ Télécharger la dernière version](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html)
 — le numéro de version s'affiche à côté du nom, sur l'écran d'accueil
-(`2026-08-02f` au moment où ces lignes sont écrites). Si un comportement ne
+(`2026-08-02g` au moment où ces lignes sont écrites). Si un comportement ne
 correspond pas à ce manuel, commence par retélécharger.
 
 ---
@@ -133,6 +133,12 @@ milieu) est unifiée au style du bloc.
 Bruno passent dans le même bloc ? Chaque retouche est accrochée à **son texte
 d'origine** et ne s'applique que quand il est affiché : éditer l'un ne touche
 pas l'autre, et chacun garde le sien en naviguant.
+
+**Même les placeholders identiques.** « Prénom Nom », « Réf. anim »… le même
+texte de remplissage pour chaque personnage ? La retouche s'accroche en plus au
+**nom affiché au-dessus** (le titre le plus proche) : celui de Pipo ne
+s'applique que sur la fiche de Pipo. Et si tu renommes le personnage, ses
+retouches suivent le nouveau nom.
 
 **Une retouche de texte ne s'applique que si l'original est encore là.** Si tu
 changes de version de maquette et que ce texte a changé, la retouche est
