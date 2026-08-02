@@ -553,7 +553,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02e';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02f';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -733,8 +733,10 @@ function applyAll() {
       return;
     }
     if (p.kind === 'text') {
-      if (n.dataset.pkEdited === p.id || !p.before || n.textContent.trim() === p.before.trim())
-        applyOne(p, n);
+      // la même fiche sert à plusieurs personnages : la retouche ne vaut que
+      // quand SON texte d'origine est affiché — jamais « à vie » sur l'élément
+      var cur = n.textContent.trim();
+      if (cur === (p.before || '').trim()) applyOne(p, n);
     } else applyOne(p, n);
   });
   orphelins.forEach(nettoyerLecteurs);
@@ -1533,7 +1535,16 @@ $('askg').addEventListener('click', function (e) { if (e.target === $('askg')) c
 /* ------------------------------------------------------------ édition texte */
 function startEdit(n, x, y) {
   editing = n;
-  var before = n.dataset.pkOrig || n.textContent;
+  // d'où repart-on ? Si le texte affiché est le RÉSULTAT d'une retouche déjà
+  // faite, on réédite celle-là : son original reste le point d'ancrage. Sinon
+  // le texte affiché est l'original (la fiche a pu passer à un autre
+  // personnage : chaque contenu a le sien).
+  var cur = n.textContent;
+  var before = cur, chemin = pathOf(n);
+  for (var i = 0; i < patches.length; i++) {
+    var o = patches[i];
+    if (o.kind === 'text' && o.sel === chemin && o.after === cur) { before = o.before || ''; break; }
+  }
   n.dataset.pkOrig = before;
   n.setAttribute('contenteditable', 'true');
   n.focus();
@@ -2330,7 +2341,6 @@ function r2(v) { return Math.round(v * 100) / 100; }
 function applyOne(p, n) {
   if (p.kind === 'text') {
     n.textContent = p.after;
-    n.dataset.pkEdited = p.id || '1';
   } else if (p.kind === 'img' && n.tagName === 'IMG') {
     // Même balise, contenus différents (la fiche de Pipo puis celle de Bruno) :
     // on pose notre image quand c'est le bon, et on REMET celle d'origine
@@ -2766,7 +2776,11 @@ function addPatch(p) {
     if (o.sel !== p.sel || o.kind !== p.kind) return true;
     var a = o.when ? o.when.txt : '', b = p.when ? p.when.txt : '';
     if (a !== b) return true;
-    return (o.alt || '') !== (p.alt || '');
+    if ((o.alt || '') !== (p.alt || '')) return true;
+    // un texte est reconnu à son ORIGINAL : l'arc de Pipo et celui de Bruno
+    // passent dans la même fiche, ce sont deux retouches
+    if (p.kind === 'text') return (o.before || '') !== (p.before || '');
+    return false;
   });
   patches.push(p);
   renderList();
@@ -2954,8 +2968,7 @@ function exportFile() {
     "function ap(){if(busy)return;busy=true;CT=null;tours++;var orph=[],R=[];" +
     "P.forEach(function(p){if(p.kind==='head'){tete(p);return}var n=cible(p);" +
     "if(!n){if(p.kind==='video'&&p.when)orph.push(p);return}" +
-    "if(p.kind==='text'){if(n.dataset.pkEdited===p.id||!p.before||n.textContent.trim()===p.before.trim()){" +
-    "n.textContent=p.after;n.dataset.pkEdited=p.id}}" +
+    "if(p.kind==='text'){if(n.textContent.trim()===(p.before||'').trim()){n.textContent=p.after}}" +
     /* entrée d'une réserve d'images : on la retouche, puis on remplace le
        visuel partout où sa source d'origine sert encore — l'appli a pu lire
        sa réserve avant nous */
@@ -3095,7 +3108,9 @@ $('pickImp').addEventListener('change', function (e) {
         if (p.k) return o.k !== p.k;
         if (o.sel !== p.sel) return true;
         if ((o.when ? o.when.txt : '') !== (p.when ? p.when.txt : '')) return true;
-        return (o.alt || '') !== (p.alt || '');
+        if ((o.alt || '') !== (p.alt || '')) return true;
+        if (p.kind === 'text') return (o.before || '') !== (p.before || '');
+        return false;
       });
       patches.push(p);
       pris++;
