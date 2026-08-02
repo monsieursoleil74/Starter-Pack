@@ -55,6 +55,7 @@ button{font:inherit;cursor:pointer;color:inherit}
 #homeIn .brand .nm{font-size:16px}
 h1{font-size:25px;line-height:1.2;letter-spacing:-.02em;margin:0 0 8px;font-weight:650}
 #homeIn>p{color:var(--muted);margin:0 0 22px;max-width:52ch}
+#homeIn>p.pied{max-width:none}
 #drop{border:1.5px dashed var(--line2);border-radius:16px;padding:40px 24px;text-align:center;
   cursor:pointer;background:var(--panel);transition:border-color .16s,background .16s,transform .16s}
 #drop:hover,#drop.over{border-color:var(--accent);background:var(--panel2)}
@@ -63,9 +64,15 @@ h1{font-size:25px;line-height:1.2;letter-spacing:-.02em;margin:0 0 8px;font-weig
 #drop:hover .ic,#drop.over .ic{color:var(--accent)}
 #drop b{display:block;font-size:16px;font-weight:600;margin-bottom:5px}
 #drop span{color:var(--muted);font-size:12.5px}
-.note{margin-top:20px;color:var(--muted);font-size:12.5px;line-height:1.75;
-  border-top:1px solid var(--line);padding-top:16px}
-.note b{color:var(--fg);font-weight:600}
+.note{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}
+.note .c{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px 14px;
+  color:var(--muted);font-size:12px;line-height:1.65}
+.note .c b{display:block;color:var(--fg);font-weight:600;font-size:12.5px;margin-bottom:5px}
+.pied{display:flex;align-items:center;gap:7px;margin:16px 0 0;color:var(--muted);font-size:12px}
+.pied .ic{width:14px;height:14px}
+.pied a{color:var(--muted);text-decoration:underline;text-underline-offset:2px;margin-left:auto}
+.pied a:hover{color:var(--fg)}
+@media (max-width:640px){.note{grid-template-columns:1fr}}
 
 /* reprise d'un travail interrompu */
 #reprise{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--accent);
@@ -113,18 +120,37 @@ header .sp{flex:1}
 #main{flex:1;display:flex;min-height:0}
 #stage{flex:1;position:relative;background:#07080b;min-width:0}
 #frame{width:100%;height:100%;border:0;display:block;background:#fff}
+/* Deux zones : la liste du mode défile toute seule, « Mes retouches » reste
+   ancré en bas. Avec 144 visuels, ses retouches ne doivent pas disparaître
+   trois écrans plus bas. */
 #side{width:294px;background:var(--panel);border-left:1px solid var(--line);
-  padding:14px;overflow-y:auto;flex-shrink:0}
+  flex-shrink:0;display:flex;flex-direction:column;min-height:0}
+#sideHaut{flex:1;min-height:0;overflow-y:auto;padding:14px 14px 6px}
+#sideBas{flex:none;border-top:1px solid var(--line);background:var(--panel);
+  padding:8px 14px 12px;display:flex;flex-direction:column;min-height:0;max-height:52%}
+#sideBas #basIn{display:flex;flex-direction:column;min-height:0;overflow-y:auto}
+#sideBas.plie #basIn{display:none}
+#titreRetouches{display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;
+  color:var(--muted);font:inherit;font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;
+  font-weight:700;padding:5px 2px 7px;text-align:left;border-radius:0}
+#titreRetouches:hover{color:var(--fg)}
+#titreRetouches .t{flex:none}
+#titreRetouches .ch{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;
+  border-top:5px solid currentColor;flex:none;transition:transform .16s}
+#sideBas.plie #titreRetouches .ch{transform:rotate(-90deg)}
 #side h3{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);
   font-weight:700;margin:2px 0 9px}
 #side p.help{color:var(--muted);font-size:12.5px;line-height:1.7}
 #galBox,#lnkBox{margin-bottom:18px}
 
 /* liste des retouches */
-#list{display:flex;flex-direction:column;gap:4px;margin:6px 0 4px}
-#list .it{display:flex;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);
+#list{display:flex;flex-direction:column;gap:4px;margin:2px 0 4px}
+#list .it{display:flex;gap:8px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);
   border-radius:9px;padding:7px 8px;font-size:12.5px}
-#list .it span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+/* le libellé dit d'où vient l'image ET où elle va : sur 294 px, une seule
+   ligne coupait la moitié utile */
+#list .it span{flex:1;min-width:0;overflow:hidden;cursor:pointer;line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
 #list .it span:hover{color:var(--accent)}
 #list .it button{background:none;border:none;color:var(--muted);padding:2px;border-radius:6px;
   display:inline-flex;transition:color .12s,background .12s}
@@ -158,7 +184,7 @@ header .sp{flex:1}
 #gal .g.done{border-color:var(--ok)}
 #gal .g.done .nm{color:var(--ok)}
 /* en-tête de famille : repliable, avec le compte et une flèche */
-#gal .hd{grid-column:1/-1;display:flex;align-items:center;gap:7px;width:100%;
+#gal .hd{position:relative;grid-column:1/-1;display:flex;align-items:center;gap:7px;width:100%;
   background:none;border:none;border-top:1px solid var(--line);color:var(--fg);
   font:inherit;font-size:11.5px;font-weight:600;text-align:left;
   margin:8px 0 0;padding:9px 4px 5px;cursor:pointer;border-radius:0}
@@ -168,6 +194,20 @@ header .sp{flex:1}
 #gal .hd.plie .ic{transform:rotate(-90deg)}
 #gal .hd .nb{margin-left:auto;color:var(--muted);font-weight:500;font-variant-numeric:tabular-nums}
 #gal .hd .pastille{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
+#gal .hd .jauge{position:absolute;left:4px;right:4px;bottom:0;height:2px;border-radius:2px;
+  background:var(--line);overflow:hidden}
+#gal .hd .jauge i{display:block;height:100%;background:var(--ok);border-radius:2px;
+  transition:width .2s}
+#gal .hd.fini{color:var(--ok)}
+#gal .hd.fini .nb{color:var(--ok)}
+#galProg{display:flex;flex-direction:column;gap:6px;margin:10px 0 2px;color:var(--muted);
+  font-size:11.5px}
+#galProg .ch{display:flex;align-items:baseline;gap:8px}
+#galProg em{margin-left:auto;font-style:normal;font-variant-numeric:tabular-nums}
+#galProg b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+#galProg .jauge{height:4px;border-radius:3px;background:var(--panel3);overflow:hidden}
+#galProg .jauge i{display:block;height:100%;background:var(--ok);border-radius:3px;
+  transition:width .25s}
 #gal .hd.survol,#gal .g.survol{border-color:var(--accent);background:var(--panel3);
   box-shadow:inset 0 0 0 1px var(--accent)}
 #galInfo,#lnkInfo{color:var(--muted);font-size:12px;margin:0}
@@ -235,13 +275,17 @@ header .sp{flex:1}
 #aideIn a{color:var(--accent)}
 #aideIn .fin{color:var(--muted);font-size:12px;margin:16px 0 0;line-height:1.6}
 #vide{color:var(--muted);font-size:12.5px;line-height:1.6;padding:10px 2px}
-#poids{color:var(--muted);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+#poids{margin-left:auto;color:var(--muted);font-size:11px;white-space:nowrap;text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums}
 
 /* ------------------------------------------------------------------ flottants */
-#hint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
+/* Le rappel du mode se pose dans un coin, pas en travers de la page, et
+   s'efface tout seul : on n'a besoin de le lire qu'une fois. */
+#hint{position:absolute;left:16px;bottom:16px;
   background:rgba(18,21,27,.92);backdrop-filter:blur(10px);border:1px solid var(--line);
   color:var(--fg);padding:8px 15px;border-radius:99px;font-size:12.5px;
-  pointer-events:none;z-index:5;box-shadow:var(--sh);display:flex;align-items:center;gap:8px}
+  pointer-events:none;z-index:5;box-shadow:var(--sh);display:flex;align-items:center;gap:8px;
+  opacity:1;transform:none;transition:opacity .5s,transform .5s}
+#hint.parti{opacity:0;transform:translateY(6px)}
 #hint .ic{color:var(--muted)}
 #crop{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
   background:rgba(18,21,27,.96);backdrop-filter:blur(10px);border:1px solid var(--line2);
@@ -342,15 +386,18 @@ header .sp{flex:1}
     </div>
     <div id="drop">
       <b>Dépose ton fichier .html ici</b>
-      <span>ou clique pour le choisir — tout se passe sur ta machine, rien n’est envoyé en ligne</span>
+      <span>ou clique pour le choisir</span>
     </div>
-    <p class="note">
-      <b>Comment ça marche.</b> Ta page est ouverte telle quelle, avec ses scripts et ses
-      animations. Tes retouches sont enregistrées <b>par-dessus</b> : le fichier exporté est
-      ton original + un petit correctif qui rejoue tes remplacements à l’ouverture. Rien
-      n’est réécrit, donc rien ne casse — et tu peux redéposer le fichier exporté ici pour
-      continuer plus tard.
-    </p>
+    <div class="note">
+      <div class="c"><b>Rien n’est réécrit</b>Ta page est ouverte telle quelle, avec ses
+        scripts et ses animations. Tes retouches sont enregistrées par-dessus : le fichier
+        exporté est ton original + un petit correctif. Rien ne casse.</div>
+      <div class="c"><b>Tu reprends quand tu veux</b>Redépose le fichier exporté ici et tes
+        retouches sont retrouvées — même dans quelques jours, même sur un autre ordinateur.</div>
+    </div>
+    <p class="pied"><span id="piedIco"></span>Tout se passe sur ta machine : aucun fichier n’est envoyé en ligne.
+      <a id="piedDoc" href="https://github.com/monsieursoleil74/Starter-Pack/blob/claude/git-github-publish-5u5ayq/htmledit/README.md"
+         target="_blank" rel="noopener">Lire le manuel</a></p>
   </div>
 </div>
 
@@ -388,9 +435,11 @@ header .sp{flex:1}
     </div>
   </div>
   <aside id="side">
+   <div id="sideHaut">
     <div id="galBox" class="hidden">
       <h3>Images de la page</h3>
       <p id="galInfo"></p>
+      <div id="galProg" class="hidden"></div>
       <div id="galQ">
         <input type="search" id="galQi" placeholder="Chercher un visuel…" spellcheck="false">
         <button id="galQx" class="hidden" title="Effacer la recherche"></button>
@@ -403,11 +452,6 @@ header .sp{flex:1}
       <p id="lnkInfo"></p>
       <div id="lnks"></div>
     </div>
-    <h3>Mes retouches <span id="poids"></span></h3>
-    <p id="vide" class="hidden"></p>
-    <div id="list"></div>
-    <p id="besoins" class="hidden"></p>
-    <button id="importer" class="lien">Reprendre les retouches d’un autre fichier…</button>
     <div id="ongletBox" class="hidden">
       <h3>Onglet du navigateur</h3>
       <div id="onglet">
@@ -423,6 +467,17 @@ header .sp{flex:1}
       <p class="help" id="ongletAide"></p>
     </div>
     <p class="help" id="help"></p>
+   </div>
+   <div id="sideBas">
+    <button id="titreRetouches" title="Replier ou déplier la liste de tes retouches">
+      <span class="ch"></span><span class="t">Mes retouches</span><span id="poids"></span></button>
+    <div id="basIn">
+      <p id="vide" class="hidden"></p>
+      <div id="list"></div>
+      <p id="besoins" class="hidden"></p>
+      <button id="importer" class="lien" title="Reprendre les retouches enregistrées dans un autre fichier exporté">Reprendre d’un autre fichier…</button>
+    </div>
+   </div>
   </aside>
 </div>
 
@@ -497,7 +552,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-01b';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02a';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1717,6 +1772,18 @@ function renderGallery() {
   $('galInfo').textContent = !media.length ? 'Aucune image détectée sur cette page.'
     : nbF ? media.length + ' visuels, rangés par personnage et par section — clique pour remplacer'
           : media.length + ' image(s) trouvée(s), carrousels compris — clique pour remplacer';
+  // « où en suis-je ? » se lit d'un coup d'œil, pas en comptant les pastilles
+  var total = media.length;
+  var faitsT = media.filter(function (m) { return dejaFait(m.node, m.sel); }).length;
+  var pg = $('galProg');
+  pg.classList.toggle('hidden', total < 4);
+  if (total >= 4) {
+    pg.innerHTML = '<span class="jauge"><i style="width:' +
+      Math.round(100 * faitsT / total) + '%"></i></span>' +
+      '<span class="ch"><b>' + faitsT + '</b> sur ' + total + ' remplacé' +
+      (faitsT > 1 ? 's' : '') + '<em>' + (total - faitsT) + ' à faire</em></span>';
+    pg.title = total - faitsT + ' visuel(s) encore à leur état d’origine';
+  }
   $('galQ').classList.toggle('hidden', media.length < 8);
 
   // une pile d'une seule image n'en est pas une ; une famille de la réserve,
@@ -1772,13 +1839,15 @@ function renderGallery() {
       var plie = !q && !!replies[m.grp];      // une recherche ouvre ce qu'elle trouve
       var faits = lot.filter(function (o) { return dejaFait(o.node, o.sel); }).length;
       var hd = document.createElement('button');
-      hd.className = 'hd' + (plie ? ' plie' : '');
+      hd.className = 'hd' + (plie ? ' plie' : '') + (faits === lot.length ? ' fini' : '');
+      // « 2/5 » dit ce qu'il reste à faire ; « 5 » ne disait rien
       hd.innerHTML = ico('chevron') +
         '<span>' + esc(m.grpName || 'Images superposées') + '</span>' +
-        (faits ? '<span class="pastille" title="' + faits + ' déjà remplacé(s)"></span>' : '') +
-        '<span class="nb">' + lot.length + (m.fichier ? '' : ' empilées') + '</span>';
-      hd.title = (m.grpName || 'Images superposées') + ' — ' + lot.length +
-        (m.fichier ? (lot.length > 1 ? ' visuels' : ' visuel') : ' images au même endroit');
+        '<span class="nb">' + faits + '/' + lot.length + (m.fichier ? '' : ' empilées') + '</span>' +
+        '<span class="jauge"><i style="width:' +
+        Math.round(100 * faits / Math.max(1, lot.length)) + '%"></i></span>';
+      hd.title = (m.grpName || 'Images superposées') + ' — ' + faits + ' remplacé(s) sur ' +
+        lot.length + (m.fichier ? (lot.length > 1 ? ' visuels' : ' visuel') : ' images au même endroit');
       hd.addEventListener('click', function () {
         replies[m.grp] = replies[m.grp] ? 0 : 1;
         renderGallery();
@@ -2281,6 +2350,7 @@ function ouvrirRecadrage(p) {
   n.style.cursor = 'move';
   $('cropQui').textContent = short(p.label, 34);
   $('cropZ').value = Math.round(fitDe(p).z * 100);
+  $('hint').classList.add('parti');
   $('crop').classList.remove('hidden');
   $('hint').classList.add('hidden');
   var d = debordement(n, p);
@@ -2564,7 +2634,7 @@ function renderList() {
     d.innerHTML = '<i>' + ico(quoi) + '</i><span>' + esc(p.label) + '</span>';
     // une liste de vingt retouches ne dit pas OÙ elles sont : un clic y emmène
     var lb = d.querySelector('span');
-    lb.title = 'Aller voir cette retouche dans la page';
+    lb.title = p.label + '\n— clique pour aller voir cette retouche dans la page';
     lb.addEventListener('click', function () { localiser(p); });
     if (p.kind === 'img' || p.kind === 'bg') {
       var rc = document.createElement('button');
@@ -2618,6 +2688,15 @@ function localiser(p) {
 
 function aide(n, icone, txt) { n.innerHTML = ico(icone) + '<span>' + esc(txt) + '</span>'; }
 
+/* le rappel du mode : visible le temps de le lire, puis il s'efface */
+var minuteurAstuce = null;
+function montrerAstuce() {
+  var h = $('hint');
+  clearTimeout(minuteurAstuce);
+  h.classList.remove('parti');
+  minuteurAstuce = setTimeout(function () { h.classList.add('parti'); }, 5200);
+}
+
 /* --------------------------------------------------------------- les modes */
 function setMode(m) {
   mode = m;
@@ -2631,6 +2710,7 @@ function setMode(m) {
   }
   var h = $('hint');
   h.classList.toggle('hidden', m === 'view');
+  if (m !== 'view') montrerAstuce();
   if (m === 'text') aide(h, 'texte', 'Clique un texte pour le réécrire — Échap pour valider');
   if (m === 'img') aide(h, 'image', 'Clique une image — ou lâche directement un fichier dessus');
   if (m === 'vid') aide(h, 'video', 'Clique le bouton qui ouvre la vidéo — l’outil ouvre la fenêtre et vise le lecteur');
@@ -2876,6 +2956,7 @@ var MEMO = [
   ['export', 'Exporter', 'Tu récupères ton original + un correctif. Redépose ce fichier ici plus tard pour continuer.']
 ];
 var ASTUCES = [
+  'En haut de la liste des visuels : où tu en es (« 34 sur 144 »). Chaque famille porte son compte et passe au vert quand elle est complète.',
   'Cinq planches à poser ? sélectionne-les toutes et lâche-les sur la famille dans la liste : l’outil montre l’appariement avant de poser.',
   'Dans « Mes retouches », clique le nom d’une ligne : l’outil t’emmène à l’endroit dans la page.',
   'Le poids affiché à côté de « Mes retouches » est celui du fichier que tu vas exporter.'
@@ -2906,6 +2987,9 @@ function ouvrirAide() {
   $('aideBoite').classList.remove('hidden');
 }
 function fermerAide() { $('aideBoite').classList.add('hidden'); }
+$('titreRetouches').addEventListener('click', function () {
+  $('sideBas').classList.toggle('plie');
+});
 $('aide').addEventListener('click', ouvrirAide);
 $('aideNon').addEventListener('click', fermerAide);
 $('aideBoite').addEventListener('click', function (e) { if (e.target === $('aideBoite')) fermerAide(); });
@@ -2968,7 +3052,9 @@ var ICONES = {
   loupe:  '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
   secours:'<path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M12 7.5V12l3 2"/>',
   aide:   '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.2 3.1c-.6.2-.8.7-.8 1.3v.4"/>' +
-          '<circle cx="12" cy="17.2" r=".6" fill="currentColor"/>'
+          '<circle cx="12" cy="17.2" r=".6" fill="currentColor"/>',
+  cadenas:'<rect x="4.5" y="10.5" width="15" height="9.5" rx="2.2"/>' +
+          '<path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/>'
 };
 function ico(nom, cls) {
   return '<svg class="ic' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" fill="none" ' +
@@ -2987,6 +3073,7 @@ function habiller() {
   $('aide').innerHTML = ico('aide');
   $('aideIco').innerHTML = ico('aide');
   $('drop').insertAdjacentHTML('afterbegin', ico('depot'));
+  $('piedIco').innerHTML = ico('cadenas');
   $('galQ').insertAdjacentHTML('afterbegin', ico('loupe'));
   $('galQx').innerHTML = ico('fermer');
   $('cropTitre').innerHTML = ico('recadrer') + 'Recadrage';

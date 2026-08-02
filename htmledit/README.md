@@ -10,7 +10,7 @@ envoyé en ligne**.
 
 [⬇ Télécharger la dernière version](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html)
 — le numéro de version s'affiche à côté du nom, sur l'écran d'accueil
-(`2026-08-01b` au moment où ces lignes sont écrites). Si un comportement ne
+(`2026-08-02a` au moment où ces lignes sont écrites). Si un comportement ne
 correspond pas à ce manuel, commence par retélécharger.
 
 ---
@@ -46,10 +46,15 @@ Une **barre en haut** : la marque et le nom du fichier à gauche, les **cinq
 modes** au centre, les actions à droite — annuler, recharger, **aide**,
 **Exporter**.
 
-Un **panneau à droite** qui montre ce que le mode en cours donne à voir : les
-visuels de la page, les liens, tes retouches, les réglages de l'onglet.
+Un **panneau à droite**, en deux zones : en haut ce que le mode en cours donne à
+voir (les visuels, les liens, les réglages de l'onglet), qui défile tout seul ;
+en bas **« Mes retouches »**, ancré — avec 144 visuels, ton travail ne doit pas
+se retrouver trois écrans plus bas. Clique le titre pour replier la section et
+rendre la place au reste.
 
-Le reste de l'écran, c'est **ta page**, telle qu'elle sera.
+Le reste de l'écran, c'est **ta page**, telle qu'elle sera. Le rappel du mode
+s'affiche en bas à gauche puis s'efface tout seul ; il revient à chaque
+changement de mode.
 
 | Mode | Ce qu'il fait |
 |---|---|
@@ -180,6 +185,13 @@ apparaîtra quand le carrousel la fera défiler.
 
 Même mécanisme pour un visuel **caché sous un dégradé et du texte** (une carte
 dont l'image sert de fond) : l'outil voit ce qu'il y a dessous.
+
+### Savoir où tu en es
+
+En haut de la liste : **une jauge et un compte** — *« 34 sur 144 remplacés ·
+110 à faire »*. Chaque famille porte le sien (*« Rex 3/5 »*) avec une barre fine
+sous son titre, et passe en vert quand elle est complète. C'est la checklist du
+pack, sans rien à tenir à jour à la main.
 
 ### La liste des visuels, rangée
 
