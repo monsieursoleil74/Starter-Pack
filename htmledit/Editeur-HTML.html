@@ -553,7 +553,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02h';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02i';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1028,13 +1028,28 @@ function temoinTexte(n) {
   var vw = doc.defaultView;
   var tCible = texteDe(n) || (n.textContent || '').trim().replace(/\s+/g, ' ');
   var fsC = parseFloat(vw.getComputedStyle(n).fontSize) || 14;
-  var anc = n.parentElement, best = null, prof = 0;
-  for (; anc && prof < 8 && !best; anc = anc.parentElement, prof++) {
+  // Parmi tout ce qui précède dans le bloc, on veut LE titre — le texte le
+  // plus gros (le nom du personnage), pas le petit libellé collé au champ
+  // (« Références anim »), identique sur toutes les fiches et qui ne
+  // distingue rien. On explore donc TOUS les niveaux et on garde le plus
+  // grand corps de texte.
+  // Un texte marqué comme INTERPOLÉ (sc-interp : rempli par personnage) vaut
+  // mieux qu'un titre plus gros mais fixe (« Personnages ») : c'est par
+  // définition ce qui varie d'une fiche à l'autre.
+  var interp = function (c) {
+    var cl = (c.className || '').toString();
+    return cl.indexOf('interp') >= 0 || (c.parentElement &&
+      (c.parentElement.className || '').toString().indexOf('interp') >= 0);
+  };
+  var anc = n.parentElement, best = null, bestFs = 0, bestI = null, bestIFs = 0, prof = 0, vus = [];
+  for (; anc && prof < 8; anc = anc.parentElement, prof++) {
     if (!anc.tagName || anc.tagName === 'BODY' || anc.tagName === 'HTML') break;
     var cands = anc.querySelectorAll('h1,h2,h3,h4,h5,h6,span,div,p,strong,b,legend,figcaption');
     for (var i = 0; i < cands.length; i++) {
       var c = cands[i];
       if (c === n || c.contains(n) || n.contains(c) || c.children.length) continue;
+      if (vus.indexOf(c) >= 0) continue;
+      vus.push(c);
       var t = texteDe(c);
       if (t.length < 2 || t.length > 60 || t === tCible) continue;
       if (!(c.compareDocumentPosition(n) & 4)) continue;      // le témoin PRÉCÈDE
@@ -1042,10 +1057,18 @@ function temoinTexte(n) {
       if (st.display === 'none' || st.visibility === 'hidden') continue;
       var fs = parseFloat(st.fontSize) || 14;
       var gras = (parseInt(st.fontWeight, 10) || 400) >= 600 || /^H[1-6]$/.test(c.tagName);
-      if (fs >= fsC * 1.25 || /^H[1-6]$/.test(c.tagName) || (gras && fs >= fsC * 1.05))
-        best = c;                                             // le plus proche au-dessus
+      if (!(fs >= fsC * 1.25 || /^H[1-6]$/.test(c.tagName) || (gras && fs >= fsC * 1.05))) continue;
+      if (interp(c)) {
+        if (fs > bestIFs || (fs === bestIFs && bestI && (bestI.compareDocumentPosition(c) & 4))) {
+          bestI = c; bestIFs = fs;
+        }
+      }
+      if (fs > bestFs || (fs === bestFs && best && (best.compareDocumentPosition(c) & 4))) {
+        best = c; bestFs = fs;
+      }
     }
   }
+  if (bestI) best = bestI;
   if (!best) return null;
   var com = communAvec(best, n);
   if (!com) return null;
@@ -1067,8 +1090,13 @@ function onClick(e) {
   var t = e.target;
   if (mode !== 'text' && estFermeture(t)) return;
   if (mode === 'text') {
-    var n = t;
-    while (n && !textish(n)) n = n.parentElement;
+    // un texte déjà retouché peut porter des restes d'édition (<div> d'un
+    // collé multiligne) : on rouvre le bloc ENTIER, pas un de ses morceaux
+    var n = t, deja = t;
+    for (var d = 0; deja && d < 6; d++, deja = deja.parentElement)
+      if (deja.dataset && deja.dataset.pkOrig != null) { n = deja; break; }
+    if (!(n.dataset && n.dataset.pkOrig != null))
+      while (n && !textish(n)) n = n.parentElement;
     if (!n) return;
     // déjà en train d'éditer CE texte ? on laisse le navigateur faire son
     // travail : placer le curseur au clic, sélectionner à la souris…
@@ -1583,7 +1611,7 @@ function startEdit(n, x, y) {
   // faite, on réédite celle-là : son original reste le point d'ancrage. Sinon
   // le texte affiché est l'original (la fiche a pu passer à un autre
   // personnage : chaque contenu a le sien).
-  var cur = n.textContent;
+  var cur = n.innerText != null ? n.innerText : n.textContent;
   var before = cur, chemin = pathOf(n);
   for (var i = 0; i < patches.length; i++) {
     var o = patches[i];
@@ -1635,12 +1663,24 @@ function startEdit(n, x, y) {
     n.removeEventListener('paste', onPaste);
     n.removeEventListener('blur', done);
     editing = null;
-    var after = n.textContent;
-    if (after.trim() === before.trim()) return;
+    var after = n.innerText != null ? n.innerText : n.textContent;
+    after = after.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+\n/g, '\n');
+    if (after.trim() === before.trim()) {
+      // pas de retouche, mais on range quand même les restes d'édition
+      if (n.children.length) n.textContent = before;
+      return;
+    }
+    // l'édition a pu semer des <div> (collé multiligne) : on repasse en texte
+    // pur, avec les sauts de ligne rendus — exactement ce que rejouera l'export
+    if (n.children.length || /\n/.test(after)) {
+      n.textContent = after;
+      if (/\n/.test(after)) n.style.whiteSpace = 'pre-line';
+    }
     var w = null;
     try { w = temoinTexte(n); } catch (e) {}
     addPatch({ kind: 'text', sel: pathOf(n), before: before, after: after,
-               when: w || undefined, label: short(after, 40) || '(vide)' });
+               when: w || undefined,
+               label: short(after.replace(/\s+/g, ' ').trim(), 40) || '(vide)' });
     // si CE texte servait de témoin à d'autres retouches (on vient de renommer
     // le personnage), elles suivent le nouveau nom
     var nb = before.trim().replace(/\s+/g, ' '), na = after.trim().replace(/\s+/g, ' ');
@@ -2132,12 +2172,14 @@ function propagerReserve() {
       [].forEach.call(doc.querySelectorAll('[style*="' + p.old + '"]'), function (m) {
         m.setAttribute('style', m.getAttribute('style').split(p.old).join(vu));
       });
+      // le cadrage vaut pour la vignette dans son cadre — pas pour
+      // l'agrandissement (fenêtre fixe), qui doit montrer l'image entière
       if (p.fit) [].forEach.call(doc.querySelectorAll('img[src="' + p.old + '"]'), function (m) {
-        if (!estReserve(m)) cadrer(m, p);
+        if (!estReserve(m) && !dansFenetre(m)) cadrer(m, p);
       });
       // la page a pu peindre depuis l'entrée déjà retouchée
       if (p.fit) [].forEach.call(doc.querySelectorAll('img'), function (m) {
-        if (m.getAttribute('src') === vu && !estReserve(m)) cadrer(m, p);
+        if (m.getAttribute('src') === vu && !estReserve(m) && !dansFenetre(m)) cadrer(m, p);
       });
     } catch (e) {}
   });
@@ -2301,7 +2343,17 @@ function poser(data, nom, el, isImg, hide, ar) {
     p.k = ch || undefined;        // le chemin du fichier : ne bouge pas, lui
     p.label = short(nom, 26) + ' → ' + short((ch.split('/').pop() || 'réserve'), 24);
     p.src = 'reserve';
+    // re-remplacement : la « source d'origine » reste CELLE DE LA MAQUETTE,
+    // pas le résultat de la retouche précédente — sinon, en la remplaçant,
+    // l'affichage retombe sur le proto sans plus jamais être recouvert
     p.old = el.getAttribute('src');
+    for (var iA = 0; iA < patches.length; iA++) {
+      var oA = patches[iA];
+      if (oA.src === 'reserve' && ((ch && oA.k === ch) || oA.sel === p.sel) && oA.old) {
+        p.old = oA.old;
+        break;
+      }
+    }
     applyOne(p, res);
     addPatch(p);
     propagerReserve();
@@ -2393,6 +2445,7 @@ function r2(v) { return Math.round(v * 100) / 100; }
 function applyOne(p, n) {
   if (p.kind === 'text') {
     n.textContent = p.after;
+    if (/\n/.test(p.after)) n.style.whiteSpace = 'pre-line';
   } else if (p.kind === 'img' && n.tagName === 'IMG') {
     // Même balise, contenus différents (la fiche de Pipo puis celle de Bruno) :
     // on pose notre image quand c'est le bon, et on REMET celle d'origine
@@ -3023,7 +3076,8 @@ function exportFile() {
     "if(p.kind==='text'&&p.when){try{var rr=document.querySelector(p.sel);" +
     "if(rr&&rr.textContent.trim()===(p.after||'').trim()&&(p.after||'').trim()!==(p.before||'').trim())" +
     "rr.textContent=p.before||''}catch(e){}}return}" +
-    "if(p.kind==='text'){if(n.textContent.trim()===(p.before||'').trim()){n.textContent=p.after}}" +
+    "if(p.kind==='text'){if(n.textContent.trim()===(p.before||'').trim()){n.textContent=p.after;" +
+    "if(p.after.indexOf('\\n')>=0)n.style.whiteSpace='pre-line'}}" +
     /* entrée d'une réserve d'images : on la retouche, puis on remplace le
        visuel partout où sa source d'origine sert encore — l'appli a pu lire
        sa réserve avant nous */
@@ -3039,9 +3093,9 @@ function exportFile() {
     "[].forEach.call(document.querySelectorAll('[style*=\"'+p.old+'\"]'),function(m){" +
     "m.setAttribute('style',m.getAttribute('style').split(p.old).join(p.after))});" +
     "if(p.fit)[].forEach.call(document.querySelectorAll('img[src=\"'+p.old+'\"]'),function(m){" +
-    "if(!au(m)&&m!==n)cad(m,p)})}" +
+    "if(!au(m)&&m!==n&&!df(m))cad(m,p)})}" +
     "if(p.fit)[].forEach.call(document.querySelectorAll('img'),function(m){" +
-    "if(m.getAttribute('src')===p.after&&!m.hasAttribute('data-k')&&!m.closest('#rg-assetmap'))cad(m,p)})}" +
+    "if(m.getAttribute('src')===p.after&&!m.hasAttribute('data-k')&&!m.closest('#rg-assetmap')&&!df(m))cad(m,p)})}" +
     "else if(p.kind==='img'&&n.tagName==='IMG'){" +
     "var bon=!p.alt||(n.getAttribute('alt')||'').trim()===p.alt;" +
     "if(bon){if(n.getAttribute('src')!==p.after){if(!n.pkOrig)n.pkOrig=n.getAttribute('src');" +
