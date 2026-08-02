@@ -10,7 +10,7 @@ envoyé en ligne**.
 
 [⬇ Télécharger la dernière version](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html)
 — le numéro de version s'affiche à côté du nom, sur l'écran d'accueil
-(`2026-08-02c` au moment où ces lignes sont écrites). Si un comportement ne
+(`2026-08-02e` au moment où ces lignes sont écrites). Si un comportement ne
 correspond pas à ce manuel, commence par retélécharger.
 
 ---
@@ -113,8 +113,10 @@ texte écrit un `3`.
 
 ## 2. Textes
 
-Clique n'importe quel texte de la page et réécris-le. Un clic ailleurs — ou
-`Échap` — valide.
+Clique un texte : **le curseur se pose à l'endroit du clic**, comme dans un
+vrai éditeur. Tu sélectionnes à la souris, tu supprimes ou corriges juste ce
+qui t'intéresse, tu colles au curseur. `Ctrl+A` pour tout réécrire d'un coup.
+Un clic ailleurs — ou `Échap` — valide.
 
 **Le texte collé prend le style du site.** Coller depuis Word, Google Docs,
 Google Slides ou une page web apporte normalement toute la mise en forme
@@ -192,6 +194,12 @@ apparaîtra quand le carrousel la fera défiler.
 Même mécanisme pour un visuel **caché sous un dégradé et du texte** (une carte
 dont l'image sert de fond) : l'outil voit ce qu'il y a dessous.
 
+### Le panneau te suit
+
+Après chaque remplacement, le panneau de droite **déplie la famille concernée
+et amène sa vignette en vue**, marquée un instant. Et re-remplir une longue
+liste ne te renvoie plus en haut : la position de défilement est conservée.
+
 ### Savoir où tu en es
 
 En haut de la liste : **une jauge et un compte** — *« 34 sur 144 remplacés ·
@@ -220,6 +228,13 @@ Logos — 3 visuels
 
 Sans réserve, la liste reste groupée par bloc de la page.
 
+### Un fichier générique partagé (les deux réalisateurs)
+
+Une maquette pose parfois **le même fichier de remplissage** à deux endroits
+qui sont pourtant deux contenus — la photo des deux réalisateurs, par exemple.
+Quand leurs descriptions (`alt`) diffèrent, l'outil comprend et **ne change que
+celui que tu as cliqué**.
+
 ### Un visuel par personnage
 
 Une maquette réutilise souvent **la même balise** pour afficher tour à tour la
@@ -241,6 +256,14 @@ couleur. Clique-la (cadre orange pointillé), puis choisis :
 - **en fond** — l'image se place derrière, le texte reste lisible par-dessus.
 
 L'image est cadrée en *cover* : elle remplit sans se déformer, quitte à rogner.
+
+### Montrer toute l'image
+
+Le cadrage plein (*cover*) remplit le cadre quitte à rogner — c'est le bon choix
+pour une bannière, pas toujours pour un **portrait plein pied**. Dans la barre
+de recadrage, **« Toute l'image »** montre le visuel en entier : des marges
+apparaissent au besoin, et tu peux glisser l'image dans ces marges. Le bouton
+devient « Remplir le cadre » pour revenir en arrière.
 
 ### Recadrer
 

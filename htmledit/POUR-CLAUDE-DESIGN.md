@@ -71,3 +71,11 @@ L'éditeur applique ses retouches **par-dessus** la page, sans réécrire le cod
 c'est ce qui permet de reprendre le travail et de ne rien casser. En échange,
 il lui faut, pour chaque contenu, **un point d'accroche stable et unique**. Les
 règles ci-dessus ne demandent rien d'autre.
+
+## Règle 7 — retrouver un visuel par son chemin, jamais par son `src`
+
+Un clic qui ouvre un visuel en grand (lightbox, agrandissement) ne doit pas
+retrouver son contenu **en comparant le `src` affiché** à une table interne :
+un `src` peut changer (édition, remplacement) et la correspondance casse.
+Porte plutôt le chemin sur l'élément cliquable (`data-k="assets_nda/…"`)
+et résous par ce chemin. Aucun effet sur le rendu.

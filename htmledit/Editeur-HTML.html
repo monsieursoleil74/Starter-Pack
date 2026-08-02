@@ -430,6 +430,7 @@ header .sp{flex:1}
       <b id="cropTitre">Recadrage</b>
       <span class="qui" id="cropQui"></span>
       <span class="z">Zoom <input type="range" id="cropZ" min="100" max="400" value="100"></span>
+      <button id="cropTout">Toute l’image</button>
       <button id="cropReset">Recentrer</button>
       <button id="cropOk">Terminé</button>
     </div>
@@ -552,7 +553,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02c';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02e';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1023,8 +1024,11 @@ function onClick(e) {
     var n = t;
     while (n && !textish(n)) n = n.parentElement;
     if (!n) return;
+    // déjà en train d'éditer CE texte ? on laisse le navigateur faire son
+    // travail : placer le curseur au clic, sélectionner à la souris…
+    if (editing && (n === editing || editing.contains(t))) return;
     e.preventDefault(); e.stopPropagation();
-    startEdit(n);
+    startEdit(n, e.clientX, e.clientY);
   } else if (mode === 'img') {
     var pile = imagesAt(e.clientX, e.clientY);
     var hit = targetAt(t);
@@ -1527,16 +1531,27 @@ $('askgNo').addEventListener('click', closeAskg);
 $('askg').addEventListener('click', function (e) { if (e.target === $('askg')) closeAskg(); });
 
 /* ------------------------------------------------------------ édition texte */
-function startEdit(n) {
+function startEdit(n, x, y) {
   editing = n;
   var before = n.dataset.pkOrig || n.textContent;
   n.dataset.pkOrig = before;
   n.setAttribute('contenteditable', 'true');
   n.focus();
+  // le curseur se pose LÀ où on a cliqué — corriger un mot ne doit pas
+  // commencer par « tout est sélectionné ». Ctrl+A reste là pour tout refaire.
   try {
-    var rg = doc.createRange();
-    rg.selectNodeContents(n);
     var sel = doc.defaultView.getSelection();
+    var rg = null;
+    if (x != null && doc.caretRangeFromPoint) rg = doc.caretRangeFromPoint(x, y);
+    else if (x != null && doc.caretPositionFromPoint) {
+      var cp = doc.caretPositionFromPoint(x, y);
+      if (cp) { rg = doc.createRange(); rg.setStart(cp.offsetNode, cp.offset); rg.collapse(true); }
+    }
+    if (!rg || !n.contains(rg.startContainer)) {
+      rg = doc.createRange();
+      rg.selectNodeContents(n);
+      rg.collapse(false);            // à défaut : curseur en fin, rien de sélectionné
+    }
     sel.removeAllRanges(); sel.addRange(rg);
   } catch (e) {}
   // coller depuis Word, Docs ou une page web colle aussi leur mise en forme
@@ -1679,7 +1694,9 @@ function dejaFait(node, sel) {
   return patches.some(function (p) {
     if (p.kind !== 'img' && p.kind !== 'bg') return false;
     if (p.sel === (sel || pathOf(node)) && (!p.alt || p.alt === alt)) return true;
-    return !!cur && p.after === cur;
+    // une copie affichée garde son src d'ORIGINE (p.old) : elle est retouchée
+    // quand même — le remplacement se pose par-dessus en CSS
+    return !!cur && (p.after === cur || (p.src === 'reserve' && p.old === cur));
   });
 }
 /* ------------------------------------------- la réserve comme table des matières
@@ -1766,6 +1783,12 @@ function collectMedia() {
                grp: f.grp, grpName: f.nom });
   });
 
+  // les copies affichées gardent leur src d'ORIGINE (l'identité) même une
+  // fois l'entrée retouchée : elles restent des doublons, pas des images
+  patches.forEach(function (p) {
+    if (p.src === 'reserve' && p.old) srcReserve[p.old] = 1;
+  });
+
   // 2) les images de la page qui ne viennent pas de la réserve
   Array.prototype.forEach.call(doc.querySelectorAll('img'), function (im) {
     var sel = pathOf(im);
@@ -1797,10 +1820,14 @@ function sansAccent(t) {
     .normalize ? (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                : (t || '').toLowerCase();
 }
+var galerieCourante = [];
 function renderGallery() {
   var box = $('gal');
+  // re-rendre ne doit pas te renvoyer en haut du panneau : on garde la position
+  var sh = $('sideHaut'), posSh = sh ? sh.scrollTop : 0;
   box.innerHTML = '';
   var media = collectMedia();
+  galerieCourante = media;
   var nbF = media.filter(function (m) { return m.fichier; }).length;
   $('galInfo').textContent = !media.length ? 'Aucune image détectée sur cette page.'
     : nbF ? media.length + ' visuels, rangés par personnage et par section — clique pour remplacer'
@@ -1914,6 +1941,8 @@ function renderGallery() {
     nm.textContent = (done ? '✓ ' : '') + (m.name || 'Image ' + i);
     b.appendChild(vis); b.appendChild(nm);
     var suite = suites[m.grp || '~seules'], rang = suite.indexOf(m);
+    b.dataset.sel = m.sel;
+    if (m.fichier) b.dataset.k = m.fichier;
     b.title = (m.name || ('Image ' + i)) + (m.fichier ? '\n' + m.fichier : '') +
               '\nLâche un fichier ici pour le poser — plusieurs pour remplir la suite';
     b.addEventListener('click', function () {
@@ -1923,6 +1952,27 @@ function renderGallery() {
     brancherDepotGalerie(b, suite, rang < 0 ? 0 : rang, m.name || 'cet emplacement');
     box.appendChild(b);
   });
+  if (sh) sh.scrollTop = posSh;
+}
+
+/* Après un remplacement, amener le panneau sur la famille et la vignette
+   concernées : on voit tout de suite OÙ on vient de travailler. */
+function revelerVisuel(p) {
+  if (mode !== 'img' || enLot) return;
+  var m = null;
+  for (var i = 0; i < galerieCourante.length; i++) {
+    var o = galerieCourante[i];
+    if ((p.k && o.fichier === p.k) || (!p.k && o.sel === p.sel)) { m = o; break; }
+  }
+  if (!m) return;
+  if (m.grp && replies[m.grp]) { replies[m.grp] = 0; renderGallery(); }
+  var cible = null, ts = $('gal').querySelectorAll('.g');
+  for (var j = 0; j < ts.length; j++)
+    if ((p.k && ts[j].dataset.k === p.k) || (!p.k && ts[j].dataset.sel === p.sel)) { cible = ts[j]; break; }
+  if (!cible) return;
+  try { cible.scrollIntoView({ block: 'center' }); } catch (e) {}
+  cible.classList.add('survol');
+  setTimeout(function () { cible.classList.remove('survol'); }, 1500);
 }
 $('galQi').addEventListener('input', function () { renderGallery(); });
 $('galQi').addEventListener('keydown', function (e) {
@@ -1986,6 +2036,7 @@ function reserveDe(list) {
    (`old` est propre à l'ouverture en cours : il n'est jamais exporté.) */
 function propagerReserve() {
   if (!doc) return;
+  var regles = [];
   patches.forEach(function (p) {
     if (p.src !== 'reserve') return;
     // à l'écran on lit le fichier choisi ; le fichier exporté garde le chemin
@@ -2001,18 +2052,13 @@ function propagerReserve() {
       }
     }
     if (!p.old) return;
+    // L'appli retrouve ses visuels en COMPARANT les src (quel fichier ouvrir
+    // en grand ?) : réécrire le src d'une copie affichée casse ce repérage.
+    // On n'y touche donc plus : le remplacement s'affiche PAR-DESSUS, en CSS
+    // (content:), et l'identité de la copie reste celle que l'appli connaît.
+    regles.push('img[src="' + p.old.replace(/"/g, '\\"') + '"]:not([data-k]){content:url("' + vu + '")}');
     try {
-      // Deux contenus peuvent partager le MÊME visuel d'origine (une maquette
-      // qui met le même cadre gris partout). Entraîner les autres entrées de
-      // la réserve reviendrait à écraser le portrait de Pipo avec celui de
-      // Rex : une entrée de réserve n'appartient qu'à son propre chemin.
       var autre = function (m) { return m !== n && estReserve(m); };
-      [].forEach.call(doc.querySelectorAll('img[src="' + p.old + '"]'), function (m) {
-        if (autre(m)) return;
-        m.removeAttribute('srcset');
-        m.setAttribute('src', vu);
-        if (p.fit) cadrer(m, p);
-      });
       [].forEach.call(doc.querySelectorAll('video[src="' + p.old + '"]'), function (m) {
         if (autre(m)) return;
         m.setAttribute('src', vu);
@@ -2023,14 +2069,24 @@ function propagerReserve() {
       [].forEach.call(doc.querySelectorAll('[style*="' + p.old + '"]'), function (m) {
         m.setAttribute('style', m.getAttribute('style').split(p.old).join(vu));
       });
-      // la page a pu lire la réserve APRÈS nous : le visuel est alors déjà en
-      // place sans être passé par la boucle ci-dessus. Le cadrage vaut aussi
-      // pour celles-là.
+      if (p.fit) [].forEach.call(doc.querySelectorAll('img[src="' + p.old + '"]'), function (m) {
+        if (!estReserve(m)) cadrer(m, p);
+      });
+      // la page a pu peindre depuis l'entrée déjà retouchée
       if (p.fit) [].forEach.call(doc.querySelectorAll('img'), function (m) {
-        if (m.getAttribute('src') === vu) cadrer(m, p);
+        if (m.getAttribute('src') === vu && !estReserve(m)) cadrer(m, p);
       });
     } catch (e) {}
   });
+  var st = doc.getElementById('pk-prop');
+  if (!regles.length) { if (st) st.parentNode && st.parentNode.removeChild(st); return; }
+  if (!st) {
+    st = doc.createElement('style');
+    st.id = 'pk-prop';
+    (doc.head || doc.documentElement).appendChild(st);
+  }
+  var css = regles.join('\n');
+  if (st.textContent !== css) st.textContent = css;
 }
 
 $('pickImg').addEventListener('change', function (e) {
@@ -2163,6 +2219,19 @@ function poser(data, nom, el, isImg, hide, ar) {
             hide: hide || undefined, ar: ar || undefined, label: short(nom, 34) };
   // le visuel vient-il d'une réserve ? alors c'est là qu'il faut le changer
   var res = isImg ? (estReserve(el) ? el : reserveDe(jumeaux(el))) : null;
+  // …sauf si ce fichier est un REMPLISSAGE générique servant à plusieurs
+  // contenus à la fois (le même « ph_head.png » pour les deux réalisateurs) :
+  // changer l'entrée changerait tout le monde. Des descriptions différentes
+  // = des contenus différents → on ne touche que CELUI qu'on a cliqué.
+  if (res && !estReserve(el)) {
+    var alts = {};
+    [el].concat(jumeaux(el)).forEach(function (m) {
+      if (estReserve(m)) return;
+      var a = (m.getAttribute('alt') || '').trim();
+      if (a) alts[a] = 1;
+    });
+    if (Object.keys(alts).length > 1) res = null;
+  }
   if (res) {
     var ch = cheminDe(res);
     p.sel = pathOf(res);
@@ -2191,6 +2260,7 @@ function poser(data, nom, el, isImg, hide, ar) {
   // fenêtres de recadrage qui s'ouvrent l'une après l'autre, personne n'en veut
   if (enLot) return;
   if (mode === 'img') renderGallery();
+  revelerVisuel(p);
   if (!$('askg').classList.contains('hidden')) renderChoix();
 
   // rognée par son cadre ? on ouvre tout de suite le recadrage : c'est LÀ que
@@ -2212,12 +2282,15 @@ function poser(data, nom, el, isImg, hide, ar) {
 function fitDe(p) {
   return { x: p.fit && p.fit.x != null ? p.fit.x : 50,
            y: p.fit && p.fit.y != null ? p.fit.y : 50,
-           z: p.fit && p.fit.z ? p.fit.z : 1 };
+           z: p.fit && p.fit.z ? p.fit.z : 1,
+           c: !!(p.fit && p.fit.c) };
 }
 function cadrer(n, p) {
   var f = fitDe(p);
   var pose = f.x + '% ' + f.y + '%';
   if (p.kind === 'bg') {
+    // « toute l'image » : rien n'est rogné, des marges apparaissent au besoin
+    if (f.c) { n.style.backgroundSize = 'contain'; n.style.backgroundRepeat = 'no-repeat'; n.style.backgroundPosition = pose; return; }
     // sans zoom, « couvrir » fait le travail et suit tous les changements de
     // taille ; avec zoom, on l'exprime en % du cadre — jamais en pixels
     if (f.z === 1) n.style.backgroundSize = 'cover';
@@ -2231,6 +2304,12 @@ function cadrer(n, p) {
   if (p.cadre) {                       // cadre pincé : l'image se rogne au lieu
     n.style.aspectRatio = String(p.cadre);   // de déformer la mise en page
     n.style.height = 'auto';
+  }
+  if (f.c) {                           // « toute l'image » : cover rognerait
+    n.style.objectFit = 'contain';
+    n.style.objectPosition = pose;
+    n.style.transform = '';
+    return;
   }
   n.style.objectFit = 'cover';
   n.style.objectPosition = pose;
@@ -2357,6 +2436,12 @@ function debordement(n, p) {
   var ar = p.ar || (n.tagName === 'IMG' && n.naturalHeight ? n.naturalWidth / n.naturalHeight : null);
   if (!ar) return null;
   var f = fitDe(p);
+  if (f.c) {
+    // « toute l'image » : le contenu tient dans le cadre, ce qui se déplace
+    // c'est l'image DANS ses marges
+    var kw = Math.min(w, h * ar), kh = Math.min(h, w / ar);
+    return { dx: 0, dy: 0, gx: Math.max(0, w - kw), gy: Math.max(0, h - kh) };
+  }
   var s = Math.max(w / (h * ar), 1) * f.z;      // échelle « couvrir » × zoom
   var cw = h * ar * s, ch = h * s;
   if (cw < w) { ch = ch * w / cw; cw = w; }
@@ -2365,11 +2450,17 @@ function debordement(n, p) {
 /* Une entrée de réserve n'est pas affichée : on recadre là où l'image SE VOIT. */
 function noeudVisible(p) {
   if (p.src === 'reserve') {
+    // la copie affichée garde son src d'origine (p.old) — le remplacement se
+    // pose par-dessus en CSS. Selon le moment, elle peut aussi porter la
+    // nouvelle valeur (page repeinte depuis l'entrée).
     var vu = apercu(p.sel) || p.after;
-    var l = [];
-    try { l = [].slice.call(doc.querySelectorAll('img[src="' + vu + '"]')); } catch (e) {}
-    for (var i = 0; i < l.length; i++)
-      if (l[i].clientWidth > 20 && l[i].clientHeight > 20) return l[i];
+    var cands = [p.old, vu, p.after], l = [];
+    for (var c = 0; c < cands.length; c++) {
+      if (!cands[c]) continue;
+      try { l = [].slice.call(doc.querySelectorAll('img[src="' + cands[c] + '"]')); } catch (e) { l = []; }
+      for (var i = 0; i < l.length; i++)
+        if (!estReserve(l[i]) && l[i].clientWidth > 20 && l[i].clientHeight > 20) return l[i];
+    }
     return null;
   }
   return cibleDe(p);
@@ -2383,13 +2474,23 @@ function ouvrirRecadrage(p) {
   n.style.cursor = 'move';
   $('cropQui').textContent = short(p.label, 34);
   $('cropZ').value = Math.round(fitDe(p).z * 100);
+  majBarreCadre(p);
   $('hint').classList.add('parti');
   $('crop').classList.remove('hidden');
   $('hint').classList.add('hidden');
   var d = debordement(n, p);
   toast(d && (d.dx > 2 || d.dy > 2)
-    ? 'Glisse l’image pour choisir ce qu’on garde'
+    ? 'Glisse l’image pour choisir ce qu’on garde — ou « Toute l’image » pour ne rien rogner'
     : 'Cette image tient entière dans son cadre : zoome pour pouvoir la déplacer');
+}
+function majBarreCadre(p) {
+  var c = fitDe(p).c;
+  $('cropTout').textContent = c ? 'Remplir le cadre' : 'Toute l’image';
+  $('cropTout').title = c
+    ? 'Revenir au cadrage plein : l’image remplit le cadre, quitte à rogner'
+    : 'Montrer l’image en entier : des marges apparaissent au besoin';
+  $('cropZ').disabled = c;
+  $('cropZ').parentElement.style.opacity = c ? '.4' : '';
 }
 function fermerRecadrage() {
   if (recadre) { try { recadre.n.style.cursor = ''; } catch (e) {} }
@@ -2399,10 +2500,19 @@ function fermerRecadrage() {
   renderList();
 }
 $('cropOk').addEventListener('click', fermerRecadrage);
+$('cropTout').addEventListener('click', function () {
+  if (!recadre) return;
+  var f = recadre.p.fit;
+  if (f.c) { delete f.c; }
+  else { f.c = 1; f.x = 50; f.y = 50; f.z = 1; $('cropZ').value = 100; }
+  majBarreCadre(recadre.p);
+  cadrer(recadre.n, recadre.p);
+});
 $('cropReset').addEventListener('click', function () {
   if (!recadre) return;
   recadre.p.fit = { x: 50, y: 50, z: 1 };
   $('cropZ').value = 100;
+  majBarreCadre(recadre.p);
   cadrer(recadre.n, recadre.p);
 });
 $('cropZ').addEventListener('input', function () {
@@ -2433,7 +2543,9 @@ function brancherRecadrage() {
     if (!d) return;
     var f = recadre.p.fit;
     if (d.dx > 1) f.x = Math.max(0, Math.min(100, glisse.fx - (e.clientX - glisse.x) / d.dx * 100));
+    else if (d.gx > 1) f.x = Math.max(0, Math.min(100, glisse.fx + (e.clientX - glisse.x) / d.gx * 100));
     if (d.dy > 1) f.y = Math.max(0, Math.min(100, glisse.fy - (e.clientY - glisse.y) / d.dy * 100));
+    else if (d.gy > 1) f.y = Math.max(0, Math.min(100, glisse.fy + (e.clientY - glisse.y) / d.gy * 100));
     f.x = r2(f.x); f.y = r2(f.y);
     cadrer(recadre.n, recadre.p);
   }, true);
@@ -2441,6 +2553,7 @@ function brancherRecadrage() {
   doc.addEventListener('wheel', function (e) {
     if (!recadre) return;
     e.preventDefault(); e.stopPropagation();
+    if (fitDe(recadre.p).c) return;
     var z = r2(Math.max(1, Math.min(4, fitDe(recadre.p).z * (e.deltaY < 0 ? 1.08 : 1 / 1.08))));
     recadre.p.fit.z = z;
     $('cropZ').value = Math.round(z * 100);
@@ -2753,7 +2866,7 @@ function setMode(m) {
   var h = $('hint');
   h.classList.toggle('hidden', m === 'view');
   if (m !== 'view') montrerAstuce();
-  if (m === 'text') aide(h, 'texte', 'Clique un texte pour le réécrire — Échap pour valider');
+  if (m === 'text') aide(h, 'texte', 'Clique un texte et corrige à l’endroit du clic — Échap pour valider');
   if (m === 'img') aide(h, 'image', 'Clique une image — ou lâche directement un fichier dessus');
   if (m === 'vid') aide(h, 'video', 'Clique le bouton qui ouvre la vidéo — l’outil ouvre la fenêtre et vise le lecteur');
   if (m === 'link') aide(h, 'lien', 'Clique un bouton ou un lien pour choisir où il mène');
@@ -2771,7 +2884,8 @@ function setMode(m) {
         'pour toi et vise l’emplacement du lecteur dedans. Tu peux aussi cliquer ' +
         'directement un encadré ou un lecteur déjà visible.'
     : m === 'text'
-      ? 'Clique n’importe quel texte de la page et réécris-le. Un clic ailleurs (ou Échap) valide.'
+      ? 'Clique un texte : le curseur se pose à l’endroit du clic. Sélectionne à la souris, ' +
+        'supprime ou corrige ce que tu veux — Ctrl+A pour tout réécrire. Un clic ailleurs (ou Échap) valide.'
       : 'Cadre <b style="color:#3ecf8e">vert</b> : une image, clic = remplacer. ' +
         'Cadre <b style="color:#ffc157">orange pointillé</b> : une zone sans image ' +
         '(pastille, bloc) — clic = y poser une image. Dans un carrousel, les images ' +
@@ -2814,6 +2928,10 @@ function exportFile() {
        en % du cadre — jamais de pixels, pour survivre à un changement de taille */
     "function cad(n,p){if(!p.fit&&!p.cadre)return;var f=p.fit||{},x=f.x==null?50:f.x," +
     "y=f.y==null?50:f.y,z=f.z||1,po=x+'% '+y+'%';" +
+    "if(f.c){if(p.kind==='bg'){n.style.backgroundSize='contain';n.style.backgroundRepeat='no-repeat';" +
+    "n.style.backgroundPosition=po;return}" +
+    "if(p.cadre){n.style.aspectRatio=String(p.cadre);n.style.height='auto'}" +
+    "n.style.objectFit='contain';n.style.objectPosition=po;n.style.transform='';return}" +
     "if(p.kind==='bg'){if(z===1)n.style.backgroundSize='cover';else{" +
     "var rc=n.clientWidth&&n.clientHeight?n.clientWidth/n.clientHeight:1;" +
     "n.style.backgroundSize=Math.round(100*z*Math.max(1,(p.ar||rc)/rc)*100)/100+'% auto'}" +
@@ -2833,7 +2951,7 @@ function exportFile() {
     "function(x){x.remove()});l=document.createElement('link');l.setAttribute('rel','icon');" +
     "l.setAttribute('data-pk-ico','1');(document.head||document.documentElement).appendChild(l)}" +
     "if(l.getAttribute('href')!==p.icon)l.setAttribute('href',p.icon)}catch(e){}}" +
-    "function ap(){if(busy)return;busy=true;CT=null;tours++;var orph=[];" +
+    "function ap(){if(busy)return;busy=true;CT=null;tours++;var orph=[],R=[];" +
     "P.forEach(function(p){if(p.kind==='head'){tete(p);return}var n=cible(p);" +
     "if(!n){if(p.kind==='video'&&p.when)orph.push(p);return}" +
     "if(p.kind==='text'){if(n.dataset.pkEdited===p.id||!p.before||n.textContent.trim()===p.before.trim()){" +
@@ -2844,17 +2962,18 @@ function exportFile() {
     "else if(p.src==='reserve'&&(n.tagName==='IMG'||n.tagName==='VIDEO')){" +
     "var o=n.getAttribute('src');if(o&&o!==p.after){if(!p.old)p.old=o;" +
     "n.removeAttribute('srcset');n.setAttribute('src',p.after)}" +
-    /* deux contenus peuvent partir du même visuel d'origine : entraîner les
-       AUTRES entrées de la réserve écraserait leur retouche à elles */
+    /* l'appli retrouve ses visuels en comparant les src : on ne réécrit JAMAIS
+       celui d'une copie affichée. Le remplacement se pose par-dessus, en CSS. */
     "var au=function(m){return m!==n&&(m.hasAttribute('data-k')||!!m.closest('#rg-assetmap'))};" +
-    "if(p.old){[].forEach.call(document.querySelectorAll('img[src=\"'+p.old+'\"]'),function(m){" +
-    "if(au(m))return;m.removeAttribute('srcset');m.setAttribute('src',p.after);cad(m,p)});" +
+    "if(p.old){R.push('img[src=\"'+p.old.replace(/\"/g,'\\\\\"')+'\"]:not([data-k]){content:url(\"'+p.after+'\")}');" +
     "[].forEach.call(document.querySelectorAll('video[src=\"'+p.old+'\"]'),function(m){" +
     "if(au(m))return;m.setAttribute('src',p.after);m.controls=true;m.load()});" +
     "[].forEach.call(document.querySelectorAll('[style*=\"'+p.old+'\"]'),function(m){" +
-    "m.setAttribute('style',m.getAttribute('style').split(p.old).join(p.after))})}" +
+    "m.setAttribute('style',m.getAttribute('style').split(p.old).join(p.after))});" +
+    "if(p.fit)[].forEach.call(document.querySelectorAll('img[src=\"'+p.old+'\"]'),function(m){" +
+    "if(!au(m)&&m!==n)cad(m,p)})}" +
     "if(p.fit)[].forEach.call(document.querySelectorAll('img'),function(m){" +
-    "if(m.getAttribute('src')===p.after)cad(m,p)})}" +
+    "if(m.getAttribute('src')===p.after&&!m.hasAttribute('data-k')&&!m.closest('#rg-assetmap'))cad(m,p)})}" +
     "else if(p.kind==='img'&&n.tagName==='IMG'){" +
     "var bon=!p.alt||(n.getAttribute('alt')||'').trim()===p.alt;" +
     "if(bon){if(n.getAttribute('src')!==p.after){if(!n.pkOrig)n.pkOrig=n.getAttribute('src');" +
@@ -2881,6 +3000,11 @@ function exportFile() {
     "var u=n.dataset.pkLink;if(!u)return;ev.preventDefault();ev.stopPropagation();" +
     "window.open(u,p.blank===false?'_self':'_blank','noopener')},true)}}}});" +
     "orph.forEach(net);" +
+    "var SP=document.getElementById('" + MARK + "-prop');" +
+    "if(R.length){if(!SP){SP=document.createElement('style');SP.id='" + MARK + "-prop';" +
+    "(document.head||document.documentElement).appendChild(SP)}" +
+    "var css=R.join('\\n');if(SP.textContent!==css)SP.textContent=css}" +
+    "else if(SP)SP.parentNode.removeChild(SP);" +
     /* trace discrète : « le correctif a bien tourné N fois » */
     "try{document.documentElement.setAttribute('data-pack-edit',tours)}catch(e){}" +
     "busy=false}" +
@@ -2995,10 +3119,10 @@ $('pickImp').addEventListener('change', function (e) {
    pouvoir dire lui-même ce qu'il sait faire. Court, sinon personne ne le lit ;
    le manuel complet est à côté. */
 var MEMO = [
-  ['texte', 'Textes', 'Clique un texte, réécris-le. Un collé depuis Word ou Docs prend le style du site.'],
+  ['texte', 'Textes', 'Clique un texte : le curseur se pose au clic, tu corriges ce que tu veux. Ctrl+A pour tout réécrire. Un collé depuis Word, Docs ou Slides prend le style du site.'],
   ['image', 'Images', 'Clique une image pour la remplacer. Plusieurs superposées (carrousel) ? l’outil te les montre. Une zone sans image ? tu peux y en poser une.'],
   ['depot', 'Glisser-déposer', 'En mode Images, prends le fichier dans ton explorateur et lâche-le sur l’image : pas de sélecteur à ouvrir. Plusieurs fichiers lâchés sur une famille de la liste s’y rangent dans l’ordre.'],
-  ['recadrer', 'Recadrer', 'Une image qui déborde de son cadre s’ouvre en recadrage : glisse-la, zoome à la molette.'],
+  ['recadrer', 'Recadrer', 'Une image qui déborde s’ouvre en recadrage : glisse-la, zoome à la molette — ou « Toute l’image » pour ne rien rogner.'],
   ['video', 'Vidéos', 'Clique le bouton qui ouvre la vidéo : l’outil ouvre la fenêtre et vise le lecteur. « Posée à côté » garde le fichier léger.'],
   ['lien', 'Liens', 'La liste montre tous les liens et signale ceux qui ne mènent nulle part.'],
   ['marque', 'Onglet', 'Donne une icône et un titre à l’onglet du navigateur, en bas du panneau.'],
