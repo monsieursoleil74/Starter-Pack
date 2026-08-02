@@ -553,7 +553,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02i';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02j';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1728,6 +1728,13 @@ function thumbOf(im) {
    fichier lui-même depuis la page, sans le recoder. */
 var vign = {};
 function vignette(im, cb) {
+  // ce que le visuel AFFICHE d'abord : un remplacement posé en CSS (content:)
+  // prime sur le src, qui garde volontairement sa valeur d'origine
+  try {
+    var cc = doc.defaultView.getComputedStyle(im).content;
+    var mm = cc && cc.match(/^url\("?([\s\S]*?)"?\)$/);
+    if (mm && mm[1]) return cb(mm[1]);
+  } catch (e) {}
   var direct = thumbOf(im);
   if (direct) return cb(direct);
   var s = im.getAttribute('src') || '';

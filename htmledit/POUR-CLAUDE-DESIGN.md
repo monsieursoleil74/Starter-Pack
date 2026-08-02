@@ -79,3 +79,12 @@ retrouver son contenu **en comparant le `src` affiché** à une table interne :
 un `src` peut changer (édition, remplacement) et la correspondance casse.
 Porte plutôt le chemin sur l'élément cliquable (`data-k="assets_nda/…"`)
 et résous par ce chemin. Aucun effet sur le rendu.
+
+## Règle 8 — un agrandissement doit permettre de parcourir la série
+
+Quand un visuel appartient à une série (planches, concepts 2D, color script,
+décors), son agrandissement doit offrir **précédent / suivant** — flèches
+cliquables et touches ← →, en bouclant. Aujourd'hui l'agrandissement n'a
+qu'une croix : pour voir la planche suivante il faut refermer, attendre le
+fondu du carrousel, recliquer. Résous la navigation par le chemin (`data-k`)
+de l'élément affiché, jamais en comparant des `src` (règle 7).
