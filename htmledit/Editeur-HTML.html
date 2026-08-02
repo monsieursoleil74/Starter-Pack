@@ -552,7 +552,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02a';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02b';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -803,6 +803,13 @@ function injectUi() {
   doc.addEventListener('drop', onDrop, true);
   doc.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && editing) { editing.blur(); return; }
+    // le clavier suit le curseur : les raccourcis globaux valent aussi ici
+    if ((e.ctrlKey || e.metaKey) && !editing) {
+      var k = e.key.toLowerCase();
+      if (k === 'z') { e.preventDefault(); $('undo').click(); return; }
+      if (k === 's') { e.preventDefault(); exportFile(); return; }
+    }
+    if (e.key === 'Escape' && fermerFenetre()) return;
     raccourci(e);
   }, true);
 }
@@ -2607,11 +2614,14 @@ function proposerReprise() {
 function addPatch(p) {
   p.id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   // une nouvelle retouche au même endroit remplace la précédente — sauf si
-  // elles visent deux contenus différents du même emplacement partagé
+  // elles visent deux contenus différents du même emplacement partagé :
+  // une fenêtre reconnue à son titre (when), ou une fiche reconnue à sa
+  // description (alt) — Pipo et Bruno passent dans la même balise
   patches = patches.filter(function (o) {
     if (o.sel !== p.sel || o.kind !== p.kind) return true;
     var a = o.when ? o.when.txt : '', b = p.when ? p.when.txt : '';
-    return a !== b;
+    if (a !== b) return true;
+    return (o.alt || '') !== (p.alt || '');
   });
   patches.push(p);
   renderList();
@@ -2901,9 +2911,12 @@ function reprenable(p) {
   }
   if (p.when) return !!cibleDe(p);
   if (p.alt) {
+    // l'alt n'est pas une preuve de présence : c'est l'ancre qui décide QUAND
+    // la retouche s'applique. La balise partagée affiche peut-être un autre
+    // contenu en ce moment — il suffit qu'elle existe.
     var m = null;
     try { m = doc.querySelector(p.sel); } catch (e) {}
-    return !!m && (m.getAttribute('alt') || '').trim() === p.alt;
+    return !!m;
   }
   return false;
 }
@@ -2919,9 +2932,14 @@ $('pickImp').addEventListener('change', function (e) {
     venus.forEach(function (p) {
       if (!reprenable(p)) { laisses.push(p.label || p.kind); return; }
       delete p.old;
+      // même règle qu'addPatch : un contenu reconnu à son chemin, à son
+      // témoin OU à sa description reste distinct des autres
       patches = patches.filter(function (o) {
-        return !(o.kind === p.kind && ((p.k && o.k === p.k) || (!p.k && o.sel === p.sel &&
-                 (o.when ? o.when.txt : '') === (p.when ? p.when.txt : ''))));
+        if (o.kind !== p.kind) return true;
+        if (p.k) return o.k !== p.k;
+        if (o.sel !== p.sel) return true;
+        if ((o.when ? o.when.txt : '') !== (p.when ? p.when.txt : '')) return true;
+        return (o.alt || '') !== (p.alt || '');
       });
       patches.push(p);
       pris++;
@@ -3082,7 +3100,8 @@ function habiller() {
 $('ver').textContent = APP;
 habiller();
 proposerReprise();
-$('drop').addEventListener('click', function () { $('pick').click(); });
+// valeur remise à zéro : rechoisir LE MÊME fichier doit re-déclencher l'ouverture
+$('drop').addEventListener('click', function () { $('pick').value = ''; $('pick').click(); });
 $('pick').addEventListener('change', function (e) { openFile(e.target.files[0]); });
 ['dragenter', 'dragover'].forEach(function (ev) {
   $('drop').addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.add('over'); });
@@ -3113,13 +3132,20 @@ $('undo').addEventListener('click', function () {
   renderList();
   render(true);
 });
+function fermerFenetre() {
+  if (!$('askm').classList.contains('hidden')) { fermerLot(); return true; }
+  if (!$('askl').classList.contains('hidden')) { closeAskl(); return true; }
+  if (!$('askv').classList.contains('hidden')) { closeAskv(); return true; }
+  if (!$('ask').classList.contains('hidden')) { closeAsk(); return true; }
+  if (!$('askg').classList.contains('hidden')) { closeAskg(); return true; }
+  return false;
+}
 document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape') {
-    if (!$('askm').classList.contains('hidden')) return fermerLot();
-    if (!$('askl').classList.contains('hidden')) return closeAskl();
-    if (!$('askv').classList.contains('hidden')) return closeAskv();
-    if (!$('ask').classList.contains('hidden')) return closeAsk();
-  }
+  if (e.key === 'Escape' && fermerFenetre()) return;
+  // dans un champ, Ctrl+Z annule la frappe — pas une retouche
+  var t = e.target, saisie = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' ||
+          t.isContentEditable);
+  if (saisie) return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); $('undo').click(); }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); exportFile(); }
 });
