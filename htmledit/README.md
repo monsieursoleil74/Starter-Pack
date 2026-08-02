@@ -10,7 +10,7 @@ envoyé en ligne**.
 
 [⬇ Télécharger la dernière version](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html)
 — le numéro de version s'affiche à côté du nom, sur l'écran d'accueil
-(`2026-08-02b` au moment où ces lignes sont écrites). Si un comportement ne
+(`2026-08-02c` au moment où ces lignes sont écrites). Si un comportement ne
 correspond pas à ce manuel, commence par retélécharger.
 
 ---
@@ -116,10 +116,16 @@ texte écrit un `3`.
 Clique n'importe quel texte de la page et réécris-le. Un clic ailleurs — ou
 `Échap` — valide.
 
-**Le texte collé prend le style du site.** Coller depuis Word, Google Docs ou
-une page web apporte normalement toute la mise en forme d'origine (police
-énorme, couleurs, interlignes). L'outil ne garde **que le texte** : il prend la
-police et la taille de ta maquette. Rien à nettoyer.
+**Le texte collé prend le style du site.** Coller depuis Word, Google Docs,
+Google Slides ou une page web apporte normalement toute la mise en forme
+d'origine (police énorme, couleurs, interlignes). L'outil ne garde **que le
+texte** : il prend la police et la taille de ta maquette. Rien à nettoyer —
+même en copiant une zone de texte entière depuis Slides.
+
+**Un texte découpé en morceaux s'édite en entier.** Les maquettes générées
+enrobent souvent chaque phrase dans des `<span>` ou de l'italique : l'outil
+édite le paragraphe complet. Sa mise en forme interne (un mot en gras au
+milieu) est unifiée au style du bloc.
 
 **Une retouche de texte ne s'applique que si l'original est encore là.** Si tu
 changes de version de maquette et que ce texte a changé, la retouche est
@@ -241,7 +247,8 @@ L'image est cadrée en *cover* : elle remplit sans se déformer, quitte à rogne
 Ton visuel n'a presque jamais le format du cadre. Dès qu'une image posée
 **déborde**, la barre de recadrage s'ouvre :
 
-- **glisse l'image** pour choisir ce qu'on garde ;
+- **glisse l'image** pour choisir ce qu'on garde — ça marche aussi à travers
+  un dégradé ou un titre posé dessus ;
 - **zoome** à la molette ou au curseur, jusqu'à 4× ;
 - **Recentrer** annule, **Terminé** referme.
 

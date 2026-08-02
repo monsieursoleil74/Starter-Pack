@@ -552,7 +552,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02b';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02c';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -814,15 +814,29 @@ function injectUi() {
   }, true);
 }
 
-/* Un élément est-il un porteur de texte simple (pas un gros conteneur) ? */
+/* Un élément est-il un porteur de texte simple (pas un gros conteneur) ?
+   Les maquettes générées enrobent souvent chaque phrase dans des <span> ou des
+   <em> : un paragraphe dont TOUT l'intérieur n'est que de la mise en forme en
+   ligne reste un texte — on l'édite en entier. Les liens restent à part (ils
+   se règlent en mode Liens, et l'édition les aplatirait). */
+var ENLIGNE = /^(B|I|EM|STRONG|SPAN|SMALL|SUP|SUB|U|S|MARK|CODE|BR|WBR|ABBR|TIME|FONT)$/;
+function queDeLaMiseEnForme(n, quota) {
+  var l = n.children;
+  for (var i = 0; i < l.length; i++) {
+    if (!ENLIGNE.test(l[i].tagName)) return false;
+    if (--quota.n < 0) return false;
+    if (!queDeLaMiseEnForme(l[i], quota)) return false;
+  }
+  return true;
+}
 function textish(n) {
   if (!n || n.nodeType !== 1) return false;
   if (/^(HTML|BODY|SCRIPT|STYLE|IMG|SVG|VIDEO|IFRAME|CANVAS)$/.test(n.tagName)) return false;
   if (!n.textContent || !n.textContent.trim()) return false;
-  // que du texte à l'intérieur (pas d'autres blocs) : on édite au plus près
-  for (var i = 0; i < n.children.length; i++)
-    if (n.children[i].textContent && n.children[i].textContent.trim()) return false;
-  return true;
+  if (!n.children.length) return true;
+  // un vrai paragraphe, pas une section entière faite de spans
+  if (n.textContent.length > 800) return false;
+  return queDeLaMiseEnForme(n, { n: 15 });
 }
 function bgOf(n) {
   var v = doc.defaultView.getComputedStyle(n).backgroundImage;
@@ -1529,9 +1543,21 @@ function startEdit(n) {
   // (polices géantes, couleurs) : on ne garde que le texte
   var onPaste = function (ev) {
     ev.preventDefault();
-    var t = (ev.clipboardData || doc.defaultView.clipboardData).getData('text/plain') || '';
-    t = t.replace(/\r/g, '');
-    doc.execCommand('insertText', false, t);
+    var cd = ev.clipboardData || doc.defaultView.clipboardData;
+    var t = (cd && cd.getData('text/plain')) || '';
+    // copier une ZONE de texte entière (Slides, Docs) ne donne parfois que du
+    // HTML : on en garde le texte, jamais la mise en forme
+    if (!t && cd) {
+      var h = cd.getData('text/html') || '';
+      if (h) {
+        var tmp = doc.createElement('div');
+        tmp.innerHTML = h;
+        t = tmp.textContent || '';
+      }
+    }
+    t = t.replace(/\r/g, '').replace(/\u00a0/g, ' ');
+    if (t) doc.execCommand('insertText', false, t);
+    else toast('Rien à coller : le presse-papier ne contient pas de texte');
   };
   n.addEventListener('paste', onPaste);
   var done = function () {
@@ -2388,11 +2414,17 @@ $('cropZ').addEventListener('input', function () {
 function brancherRecadrage() {
   var glisse = null;
   doc.addEventListener('pointerdown', function (e) {
-    if (!recadre || e.target !== recadre.n) return;
+    if (!recadre) return;
+    // le visuel est souvent SOUS un dégradé et du texte : on attrape le geste
+    // dès qu'il commence au-dessus du cadre, peu importe ce qui recouvre
+    var r;
+    try { r = recadre.n.getBoundingClientRect(); } catch (x) { return; }
+    if (e.clientX < r.left || e.clientX > r.right ||
+        e.clientY < r.top || e.clientY > r.bottom) return;
     e.preventDefault(); e.stopPropagation();
     var f = fitDe(recadre.p);
     glisse = { x: e.clientX, y: e.clientY, fx: f.x, fy: f.y };
-    try { recadre.n.setPointerCapture(e.pointerId); } catch (x) {}
+    try { e.target.setPointerCapture(e.pointerId); } catch (x) {}
   }, true);
   doc.addEventListener('pointermove', function (e) {
     if (!glisse || !recadre) return;
