@@ -553,7 +553,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02l';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02m';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1694,6 +1694,7 @@ function startEdit(n, x, y) {
     addPatch({ kind: 'text', sel: pathOf(n), before: before, after: after,
                when: w || undefined,
                label: short(after.replace(/\s+/g, ' ').trim(), 40) || '(vide)' });
+    if (/[\\\/]/.test(after)) brancherCopie(n);
     // si CE texte servait de témoin à d'autres retouches (on vient de renommer
     // le personnage), elles suivent le nouveau nom
     var nb = before.trim().replace(/\s+/g, ' '), na = after.trim().replace(/\s+/g, ' ');
@@ -2462,10 +2463,46 @@ function cadrer(n, p) {
 }
 function r2(v) { return Math.round(v * 100) / 100; }
 
+/* Une carte « chemin » a souvent un bouton Copier dont la valeur est codée en
+   dur dans la maquette : après retouche, il copierait l'ANCIEN chemin. On le
+   fait copier ce qui est affiché. */
+function brancherCopie(n) {
+  var a = n, btn = null;
+  for (var i = 0; i < 4 && a && !btn; i++, a = a.parentElement) {
+    if (!a.querySelectorAll) break;
+    var l = a.querySelectorAll('button,[role=button]');
+    for (var j = 0; j < l.length; j++)
+      if (/copier/i.test(l[j].textContent || '')) { btn = l[j]; break; }
+  }
+  if (!btn || btn.pkCopie) return;
+  btn.pkCopie = 1;
+  btn.addEventListener('click', function (ev) {
+    ev.preventDefault(); ev.stopPropagation();
+    var txt = n.textContent.trim();
+    var d2 = n.ownerDocument, W = d2.defaultView, fait = false;
+    // execCommand d'abord : synchrone, il profite du geste de clic — le
+    // presse-papiers moderne est parfois interdit dans un cadre
+    try {
+      var ta = d2.createElement('textarea');
+      ta.value = txt;
+      ta.style.cssText = 'position:fixed;opacity:0';
+      d2.body.appendChild(ta);
+      ta.select();
+      fait = d2.execCommand('copy');
+      ta.remove();
+    } catch (e) {}
+    if (!fait && W.navigator.clipboard && W.navigator.clipboard.writeText)
+      W.navigator.clipboard.writeText(txt).catch(function () {});
+    var avant = btn.textContent;
+    btn.textContent = 'Copié ✓';
+    setTimeout(function () { btn.textContent = avant; }, 1200);
+  }, true);
+}
 function applyOne(p, n) {
   if (p.kind === 'text') {
     n.textContent = p.after;
     if (/\n/.test(p.after)) n.style.whiteSpace = 'pre-line';
+    if (/[\\\/]/.test(p.after)) brancherCopie(n);
   } else if (p.kind === 'img' && n.tagName === 'IMG') {
     // Même balise, contenus différents (la fiche de Pipo puis celle de Bruno) :
     // on pose notre image quand c'est le bon, et on REMET celle d'origine
@@ -3092,6 +3129,19 @@ function exportFile() {
     "n.style.objectFit='cover';n.style.objectPosition=po;" +
     "if(z!==1){n.style.transform='scale('+z+')';n.style.transformOrigin=po;" +
     "var pa=n.parentElement;if(pa&&getComputedStyle(pa).overflow==='visible')pa.style.overflow='hidden'}}" +
+    /* le bouton « Copier … » voisin d'un chemin retouché copie l'AFFICHÉ */
+    "function cop(n){var a=n,b=null,i,j;for(i=0;i<4&&a&&!b;i++,a=a.parentElement){" +
+    "if(!a.querySelectorAll)break;var l=a.querySelectorAll('button,[role=button]');" +
+    "for(j=0;j<l.length;j++)if(/copier/i.test(l[j].textContent||'')){b=l[j];break}}" +
+    "if(!b||b.pkCop)return;b.pkCop=1;" +
+    "b.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();" +
+    "var t=n.textContent.trim(),ok2=false;" +
+    "try{var ta=document.createElement('textarea');ta.value=t;" +
+    "ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);" +
+    "ta.select();ok2=document.execCommand('copy');ta.remove()}catch(e){}" +
+    "if(!ok2&&navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t)['catch'](function(){});" +
+    "var av=b.textContent;b.textContent='Copié \u2713';" +
+    "setTimeout(function(){b.textContent=av},1200)},true)}" +
     "function net(p){[].forEach.call(document.querySelectorAll('video.pk-vid'),function(v){" +
     "if(v.getAttribute('src')!==p.after||v.pkTour===tours)return;var pa=v.parentElement;v.remove();" +
     "if(pa&&!pa.querySelector(':scope > video.pk-vid'))pa.removeAttribute('data-pk-hide')})}" +
@@ -3110,7 +3160,8 @@ function exportFile() {
     "if(rr&&rr.textContent.trim()===(p.after||'').trim()&&(p.after||'').trim()!==(p.before||'').trim())" +
     "rr.textContent=p.before||''}catch(e){}}return}" +
     "if(p.kind==='text'){if(n.textContent.trim()===(p.before||'').trim()){n.textContent=p.after;" +
-    "if(p.after.indexOf('\\n')>=0)n.style.whiteSpace='pre-line'}}" +
+    "if(p.after.indexOf('\\n')>=0)n.style.whiteSpace='pre-line';" +
+    "if(/[\\\\\\/]/.test(p.after))cop(n)}}" +
     /* entrée d'une réserve d'images : on la retouche, puis on remplace le
        visuel partout où sa source d'origine sert encore — l'appli a pu lire
        sa réserve avant nous */

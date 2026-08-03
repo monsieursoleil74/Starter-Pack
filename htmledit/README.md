@@ -10,7 +10,7 @@ envoyé en ligne**.
 
 [⬇ Télécharger la dernière version](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html)
 — le numéro de version s'affiche à côté du nom, sur l'écran d'accueil
-(`2026-08-02l` au moment où ces lignes sont écrites). Si un comportement ne
+(`2026-08-02m` au moment où ces lignes sont écrites). Si un comportement ne
 correspond pas à ce manuel, commence par retélécharger.
 
 ---
@@ -342,6 +342,10 @@ en orange ceux qui n'ont pas d'adresse**.
 - **« Ouvrir dans un nouvel onglet »**, coché par défaut.
 - Sur un **bouton qui n'est pas un vrai lien**, l'outil pose un clic qui ouvre
   l'adresse. Ça marche pareil à l'arrivée.
+
+**Les cartes « chemin » (animatique, rigs…).** Le chemin affiché se corrige en
+mode **Textes**, tout simplement — et le bouton **« Copier le chemin »** d'à
+côté copie alors **ce qui est affiché**, plus la valeur d'usine de la maquette.
 
 **Chemins réseau** (`\\serveur\projet\…`) : tu peux les saisir, mais les
 navigateurs refusent le plus souvent de les ouvrir depuis une page web, par
