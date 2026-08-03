@@ -88,3 +88,13 @@ cliquables et touches ← →, en bouclant. Aujourd'hui l'agrandissement n'a
 qu'une croix : pour voir la planche suivante il faut refermer, attendre le
 fondu du carrousel, recliquer. Résous la navigation par le chemin (`data-k`)
 de l'élément affiché, jamais en comparant des `src` (règle 7).
+
+## Règle 9 — tout visuel référencé doit être embarqué (ou déclaré en réserve)
+
+La page ne doit jamais afficher un `<img>` dont le fichier n'est ni embarqué
+dans le bundle, ni déclaré dans la réserve : il apparaît cassé dès l'ouverture
+(icône d'image brisée). Dernier cas constaté : `pipo_concept2d_03.png` à
+`_06.png`, `cs_15.jpg` et `syncsketch_logo.png` référencés dans la page alors
+que la réserve s'arrête à `pipo_concept2d_02` et `cs_14`. Si un emplacement
+est prévu « à remplir plus tard », donne-lui un visuel de remplissage embarqué
+et une entrée de réserve — jamais un chemin mort.
