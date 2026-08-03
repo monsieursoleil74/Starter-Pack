@@ -553,7 +553,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02k';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02l';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -2508,6 +2508,19 @@ function putLink(n, p) {
     n.setAttribute('href', p.after);
     if (p.blank !== false) { n.setAttribute('target', '_blank'); n.setAttribute('rel', 'noopener'); }
     else { n.removeAttribute('target'); }
+    // la maquette neutralise parfois le clic sur ses cartes (liens fictifs de
+    // démo) : en Aperçu, on ouvre nous-mêmes, en passant devant
+    if (!n.pkLien) {
+      n.pkLien = true;
+      n.addEventListener('click', function (ev) {
+        if (mode !== 'view') return;
+        var u = n.getAttribute('href');
+        if (!u || u === '#' || !/^(https?|mailto|tel):/i.test(u)) return;
+        ev.preventDefault(); ev.stopPropagation();
+        window.open(u, p.blank === false ? '_self' : '_blank', 'noopener');
+        toast('Lien ouvert dans un onglet');
+      }, true);
+    }
     return;
   }
   if (n.dataset.pkLink === p.after) return;
@@ -3137,7 +3150,15 @@ function exportFile() {
     "if(v.getAttribute('src')!==p.after)v.setAttribute('src',p.after);v.pkTour=tours}" +
     "else if(p.kind==='link'){if(n.tagName==='A'){if(n.getAttribute('href')!==p.after){" +
     "n.setAttribute('href',p.after)}if(p.blank!==false){n.setAttribute('target','_blank');" +
-    "n.setAttribute('rel','noopener')}}else{if(n.dataset.pkLink!==p.after)n.dataset.pkLink=p.after;" +
+    "n.setAttribute('rel','noopener')}" +
+    /* la maquette neutralise parfois le clic sur ses cartes (liens fictifs de
+       démo) : on ouvre nous-mêmes, en phase de capture, pour passer devant */
+    "if(!n.pkLinked){n.pkLinked=true;n.addEventListener('click',function(ev){" +
+    "var u=n.getAttribute('href');if(!u||u==='#')return;" +
+    "if(!/^(https?|mailto|tel):/i.test(u))return;" +
+    "ev.preventDefault();ev.stopPropagation();" +
+    "window.open(u,p.blank===false?'_self':'_blank','noopener')},true)}}" +
+    "else{if(n.dataset.pkLink!==p.after)n.dataset.pkLink=p.after;" +
     "if(!n.pkLinked){n.pkLinked=true;n.style.cursor='pointer';n.addEventListener('click',function(ev){" +
     "var u=n.dataset.pkLink;if(!u)return;ev.preventDefault();ev.stopPropagation();" +
     "window.open(u,p.blank===false?'_self':'_blank','noopener')},true)}}}});" +
