@@ -555,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02p';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02q';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1089,9 +1089,18 @@ function estFermeture(n) {
 }
 function onClick(e) {
   if (mode === 'view' || laisserPasser) return;
-  // recadrage ouvert : les gestes dans la page servent à déplacer l'image —
-  // un clic ne doit surtout pas relancer un remplacement (et son sélecteur)
-  if (recadre) { e.preventDefault(); e.stopPropagation(); return; }
+  // recadrage ouvert : sur l'image cadrée, les gestes servent à la déplacer —
+  // un clic ne doit surtout pas relancer un remplacement (et son sélecteur).
+  // Ailleurs, le clic ferme le recadrage (déjà appliqué) et fait son travail.
+  if (recadre) {
+    var rc = null;
+    try { rc = recadre.n.getBoundingClientRect(); } catch (x) {}
+    if (rc && e.clientX >= rc.left && e.clientX <= rc.right &&
+        e.clientY >= rc.top && e.clientY <= rc.bottom) {
+      e.preventDefault(); e.stopPropagation(); return;
+    }
+    fermerRecadrage();
+  }
   var t = e.target;
   if (mode !== 'text' && estFermeture(t)) return;
   if (mode === 'text') {
