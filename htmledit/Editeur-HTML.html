@@ -555,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02r';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02s';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -3343,6 +3343,47 @@ function exportFile() {
    là, une image accrochée à sa description, une vidéo accrochée à son titre.
    Le reste est laissé de côté et annoncé — mieux vaut refaire trois retouches
    que d'en poser une au mauvais endroit. */
+/* Une nouvelle génération de la maquette déplace ses balises : les chemins
+   enregistrés ne mènent plus au bon endroit. Avant de juger une retouche
+   irrécupérable, on la ré-ancre : un texte est retrouvé par son contenu
+   d'origine, une image par sa description (alt). */
+function reancrer(p) {
+  if (p.k || p.kind === 'head') return;              // la réserve suit data-k : stable
+  var la = null;
+  try { la = doc.querySelector(p.sel); } catch (e) {}
+  if (p.kind === 'text') {
+    if (la && (!p.before || memeTexte(la.textContent, p.before))) return;
+    var cands = [], tous = doc.querySelectorAll('body *');
+    for (var i = 0; i < tous.length && cands.length <= 12; i++) {
+      var n = tous[i];
+      if (!n.children.length && memeTexte(n.textContent, p.before)) cands.push(n);
+    }
+    var n2 = null;
+    if (cands.length === 1) n2 = cands[0];
+    else if (cands.length > 1 && p.when) {
+      // plusieurs porteurs du même texte : celui dont le titre au-dessus est
+      // le bon témoin (la fiche du bon personnage)
+      for (var j = 0; j < cands.length; j++) {
+        var w = null;
+        try { w = temoinTexte(cands[j]); } catch (e2) {}
+        if (w && w.txt === p.when.txt) { n2 = cands[j]; break; }
+      }
+    }
+    if (!n2) return;
+    p.sel = pathOf(n2);
+    if (p.when) {
+      var w2 = null;
+      try { w2 = temoinTexte(n2); } catch (e3) {}
+      if (w2 && w2.txt === p.when.txt) p.when = w2;   // témoin recalculé ici
+    }
+    return;
+  }
+  if ((p.kind === 'img' || p.kind === 'bg') && p.alt && !la) {
+    var m = null;
+    try { m = doc.querySelector('img[alt="' + p.alt.replace(/"/g, '\\"') + '"]'); } catch (e4) {}
+    if (m) p.sel = pathOf(m);
+  }
+}
 function reprenable(p) {
   if (p.kind === 'head') return true;
   if (p.k) return !!parChemin(p.k);
@@ -3378,6 +3419,7 @@ $('pickImp').addEventListener('change', function (e) {
     if (!venus.length) { alert('Ce fichier ne contient aucune retouche.'); return; }
     var pris = 0, laisses = [];
     venus.forEach(function (p) {
+      reancrer(p);
       if (!reprenable(p)) { laisses.push(p.label || p.kind); return; }
       delete p.old;
       // même règle qu'addPatch : un contenu reconnu à son chemin, à son
