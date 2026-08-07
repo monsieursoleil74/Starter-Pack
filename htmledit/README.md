@@ -10,7 +10,7 @@ envoyé en ligne**.
 
 [⬇ Télécharger la dernière version](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html)
 — le numéro de version s'affiche à côté du nom, sur l'écran d'accueil
-(`2026-08-02s` au moment où ces lignes sont écrites). Si un comportement ne
+(`2026-08-02t` au moment où ces lignes sont écrites). Si un comportement ne
 correspond pas à ce manuel, commence par retélécharger.
 
 ---
@@ -388,10 +388,16 @@ retouches.
 
 **La nouvelle version vient d'être régénérée** (Claude Design a bougé la
 structure interne) ? Ça marche quand même : au transfert, chaque retouche est
-**ré-ancrée** — un texte est retrouvé par son contenu d'origine (et par le nom
-du personnage au-dessus s'il y en a plusieurs), une image par sa description.
-Ce qui n'existe vraiment plus dans la nouvelle version est laissé de côté, et
-l'outil te dit quoi précisément.
+**ré-ancrée** — un texte est retrouvé par son contenu d'origine (même enrobé
+de `<span>`, même découpé autrement), une image par sa description. Ce qui
+n'existe vraiment plus dans la nouvelle version est laissé de côté, et l'outil
+te liste quoi précisément.
+
+**Les textes des fiches personnages** (arc, espèce, réf…) ne sont visibles que
+quand leur personnage est affiché : au transfert, ceux des autres personnages
+sont gardés **en attente**, et se recalent tout seuls dès que tu ouvres leur
+fiche. Avant d'exporter, **passe une fois sur chaque personnage retouché** —
+tu vérifies d'un coup d'œil, et tout se recale au passage.
 
 ### Sauvegarde de secours
 

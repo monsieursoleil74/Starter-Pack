@@ -555,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02s';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02t';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -743,6 +743,18 @@ function applyAll() {
       // PAS repeint le champ (même valeur pour tous les personnages) — notre
       // texte y traîne encore. On remet l'original.
       if (p.kind === 'text' && p.when) {
+        // une retouche transférée d'une autre version : son personnage vient
+        // peut-être de s'afficher — on tente de la recaler maintenant
+        if (p.aReancrer) {
+          reancrer(p);
+          var r2 = null;
+          try { r2 = doc.querySelector(p.sel); } catch (e) {}
+          if (r2 && memeTexte(r2.textContent, p.before)) {
+            delete p.aReancrer;
+            applyOne(p, r2);
+            return;
+          }
+        }
         var r = null;
         try { r = doc.querySelector(p.sel); } catch (e) {}
         if (r && memeTexte(r.textContent, p.after) && !memeTexte(p.after, p.before))
@@ -2928,7 +2940,7 @@ function planifierBrouillon() {
 }
 function ecrireBrouillon() {
   if (!src) return;
-  var data = JSON.stringify(patches, function (k, v) { return k === 'old' ? undefined : v; });
+  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'tAtt') ? undefined : v; });
   if (data === dernierEcrit) return;
   base(function (b) {
     if (!b) { majEtat('secours indisponible'); return; }
@@ -3139,7 +3151,7 @@ function setMode(m) {
 function exportFile() {
   // « old » est la source de cette ouverture-ci (une URL blob recréée à chaque
   // chargement) : l'exporter figerait une valeur périmée
-  var data = JSON.stringify(patches, function (k, v) { return k === 'old' ? undefined : v; })
+  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'tAtt') ? undefined : v; })
     .replace(/<\//g, '<\\/');
   var run = "(function(){var D=document.getElementById('" + MARK + "-data');if(!D)return;" +
     "var P=[];try{P=JSON.parse(D.textContent)||[]}catch(e){return}" +
@@ -3352,30 +3364,40 @@ function reancrer(p) {
   var la = null;
   try { la = doc.querySelector(p.sel); } catch (e) {}
   if (p.kind === 'text') {
-    if (la && (!p.before || memeTexte(la.textContent, p.before))) return;
+    if (la && (!p.before || memeTexte(la.textContent, p.before))) {
+      if (!p.when) return;
+      // le chemin marche encore, mais le témoin date de l'ancienne structure :
+      // on le recalcule sur place — si c'est bien la fiche du bon personnage
+      var wLa = null;
+      try { wLa = temoinTexte(la); } catch (eW) {}
+      if (wLa && wLa.txt === p.when.txt) { p.when = wLa; return; }
+    }
+    if (!(p.before || '').trim()) return;
+    // le porteur le plus PROFOND du texte : les maquettes générées enrobent
+    // leurs phrases dans des <span>, le bloc retouché a donc des enfants
     var cands = [], tous = doc.querySelectorAll('body *');
     for (var i = 0; i < tous.length && cands.length <= 12; i++) {
       var n = tous[i];
-      if (!n.children.length && memeTexte(n.textContent, p.before)) cands.push(n);
+      if (n.tagName === 'SCRIPT' || n.tagName === 'STYLE') continue;
+      if (!memeTexte(n.textContent, p.before)) continue;
+      var enfantPorte = false;
+      for (var c = 0; c < n.children.length; c++)
+        if (memeTexte(n.children[c].textContent, p.before)) { enfantPorte = true; break; }
+      if (!enfantPorte) cands.push(n);
     }
-    var n2 = null;
-    if (cands.length === 1) n2 = cands[0];
-    else if (cands.length > 1 && p.when) {
-      // plusieurs porteurs du même texte : celui dont le titre au-dessus est
-      // le bon témoin (la fiche du bon personnage)
+    var n2 = null, wOk = null;
+    if (p.when) {
+      // un texte à témoin ne se recale QUE sur la fiche du bon personnage :
+      // le même placeholder affiché chez un autre n'est pas le sien
       for (var j = 0; j < cands.length; j++) {
         var w = null;
         try { w = temoinTexte(cands[j]); } catch (e2) {}
-        if (w && w.txt === p.when.txt) { n2 = cands[j]; break; }
+        if (w && w.txt === p.when.txt) { n2 = cands[j]; wOk = w; break; }
       }
-    }
+    } else if (cands.length === 1) n2 = cands[0];
     if (!n2) return;
     p.sel = pathOf(n2);
-    if (p.when) {
-      var w2 = null;
-      try { w2 = temoinTexte(n2); } catch (e3) {}
-      if (w2 && w2.txt === p.when.txt) p.when = w2;   // témoin recalculé ici
-    }
+    if (wOk) p.when = wOk;                           // témoin recalculé ici
     return;
   }
   if ((p.kind === 'img' || p.kind === 'bg') && p.alt && !la) {
@@ -3420,7 +3442,14 @@ $('pickImp').addEventListener('change', function (e) {
     var pris = 0, laisses = [];
     venus.forEach(function (p) {
       reancrer(p);
-      if (!reprenable(p)) { laisses.push(p.label || p.kind); return; }
+      if (p.kind === 'text' && p.when) {
+        // un texte de fiche (accroché au nom d'un personnage) : s'il n'a pas
+        // pu être recalé tout de suite — sa fiche n'est pas affichée — on le
+        // garde, il se recalera quand la fiche de ce personnage s'ouvrira
+        var la2 = null;
+        try { la2 = cibleDe(p); } catch (e2) {}
+        if (!(la2 && memeTexte(la2.textContent, p.before))) p.aReancrer = 1;
+      } else if (!reprenable(p)) { laisses.push(p.label || p.kind); return; }
       delete p.old;
       // même règle qu'addPatch : un contenu reconnu à son chemin, à son
       // témoin OU à sa description reste distinct des autres
@@ -3441,11 +3470,13 @@ $('pickImp').addEventListener('change', function (e) {
     if (mode === 'img') renderGallery();
     majOnglet();
     var msg = pris + ' retouche(s) reprise(s)';
-    if (laisses.length) msg += ' — ' + laisses.length + ' laissée(s) de côté : ' +
-      laisses.slice(0, 3).join(', ') + (laisses.length > 3 ? '…' : '') +
-      '. Ce contenu n’existe plus dans cette maquette, ou a changé.';
+    if (laisses.length) msg += ' — ' + laisses.length + ' laissée(s) de côté';
     toast(msg);
-    if (laisses.length) alert(msg);
+    if (laisses.length)
+      alert(pris + ' retouche(s) reprise(s).\n\n' + laisses.length +
+        ' laissée(s) de côté — leur contenu d’origine n’existe plus dans cette ' +
+        'maquette, ou a changé :\n· ' + laisses.slice(0, 10).join('\n· ') +
+        (laisses.length > 10 ? '\n… et ' + (laisses.length - 10) + ' autre(s)' : ''));
   };
   r.readAsText(f);
 });
