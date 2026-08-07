@@ -555,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02q';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02r';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -563,6 +563,7 @@ var patches = [];        // [{sel, kind:'text'|'img'|'bg', before, after, label}
 var mode = 'text';
 var doc = null;          // document de l'iframe
 var editing = null;      // élément en cours d'édition
+var finEdition = 0;       // quand la dernière édition s'est validée (clic à côté)
 
 /* ------------------------------------------------------------------ outils */
 function toast(msg) {
@@ -719,6 +720,12 @@ function watchDoc() {
 }
 
 /* Applique les retouches sur le document affiché. */
+/* Le « avant » vient d'innerText, la page brute donne son textContent : les
+   deux écrivent les blancs différemment (indentation du HTML, sauts de
+   ligne). On compare donc le texte, pas ses espaces. */
+function memeTexte(a, b) {
+  return (a || '').replace(/\s+/g, ' ').trim() === (b || '').replace(/\s+/g, ' ').trim();
+}
 function applyAll() {
   if (!doc || applying) return;
   applying = true;
@@ -738,8 +745,7 @@ function applyAll() {
       if (p.kind === 'text' && p.when) {
         var r = null;
         try { r = doc.querySelector(p.sel); } catch (e) {}
-        if (r && r.textContent.trim() === (p.after || '').trim() &&
-            (p.after || '').trim() !== (p.before || '').trim())
+        if (r && memeTexte(r.textContent, p.after) && !memeTexte(p.after, p.before))
           r.textContent = p.before || '';
       }
       return;
@@ -747,8 +753,7 @@ function applyAll() {
     if (p.kind === 'text') {
       // la même fiche sert à plusieurs personnages : la retouche ne vaut que
       // quand SON texte d'origine est affiché — jamais « à vie » sur l'élément
-      var cur = n.textContent.trim();
-      if (cur === (p.before || '').trim()) applyOne(p, n);
+      if (memeTexte(n.textContent, p.before)) applyOne(p, n);
     } else applyOne(p, n);
   });
   orphelins.forEach(nettoyerLecteurs);
@@ -1111,10 +1116,17 @@ function onClick(e) {
       if (deja.dataset && deja.dataset.pkOrig != null) { n = deja; break; }
     if (!(n.dataset && n.dataset.pkOrig != null))
       while (n && !textish(n)) n = n.parentElement;
-    if (!n) return;
+    if (!n) {
+      // le clic qui VALIDE une édition (à côté du texte) ne doit pas
+      // déclencher la maquette — ouvrir la vidéo d'une carte tutoriel, par ex.
+      if (Date.now() - finEdition < 600) { e.preventDefault(); e.stopPropagation(); }
+      return;
+    }
     // déjà en train d'éditer CE texte ? on laisse le navigateur faire son
     // travail : placer le curseur au clic, sélectionner à la souris…
-    if (editing && (n === editing || editing.contains(t))) return;
+    // — mais la maquette, elle, ne doit pas recevoir ce clic (une carte
+    // tutoriel ouvrirait sa vidéo à chaque déplacement du curseur)
+    if (editing && (n === editing || editing.contains(t))) { e.stopPropagation(); return; }
     e.preventDefault(); e.stopPropagation();
     startEdit(n, e.clientX, e.clientY);
   } else if (mode === 'img') {
@@ -1710,6 +1722,7 @@ function startEdit(n, x, y) {
     n.removeEventListener('paste', onPaste);
     n.removeEventListener('blur', done);
     editing = null;
+    finEdition = Date.now();
     var after = n.innerText != null ? n.innerText : n.textContent;
     after = after.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+\n/g, '\n');
     if (after.trim() === before.trim()) {
@@ -3174,6 +3187,9 @@ function exportFile() {
     "if(!a.querySelectorAll)break;var l=a.querySelectorAll('button,[role=button]');" +
     "for(j=0;j<l.length;j++)if(/copi/i.test(l[j].textContent||'')){b=l[j];break}}" +
     "if(!b)return;copb(b,function(){return n.textContent.trim()})}" +
+    /* innerText (le « avant » mémorisé) et textContent (la page brute)
+       n'écrivent pas les blancs pareil : on compare le texte, pas ses espaces */
+    "function mt(a,b){return (a||'').replace(/\\s+/g,' ').trim()===(b||'').replace(/\\s+/g,' ').trim()}" +
     "function copb(b,get){if(b.pkCop)return;b.pkCop=1;" +
     "b.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();" +
     "var t=get(),ok2=false;" +
@@ -3208,9 +3224,9 @@ function exportFile() {
     "P.forEach(function(p){if(p.kind==='head'){tete(p);return}var n=cible(p);" +
     "if(!n){if(p.kind==='video'&&p.when)orph.push(p);" +
     "if(p.kind==='text'&&p.when){try{var rr=document.querySelector(p.sel);" +
-    "if(rr&&rr.textContent.trim()===(p.after||'').trim()&&(p.after||'').trim()!==(p.before||'').trim())" +
+    "if(rr&&mt(rr.textContent,p.after)&&!mt(p.after,p.before))" +
     "rr.textContent=p.before||''}catch(e){}}return}" +
-    "if(p.kind==='text'){if(n.textContent.trim()===(p.before||'').trim()){n.textContent=p.after;" +
+    "if(p.kind==='text'){if(mt(n.textContent,p.before)){n.textContent=p.after;" +
     "if(p.after.indexOf('\\n')>=0)n.style.whiteSpace='pre-line';" +
     "if(/[\\\\\\/]/.test(p.after)||/[\\\\\\/]/.test(p.before||''))cop(n)}}" +
     /* entrée d'une réserve d'images : on la retouche, puis on remplace le
@@ -3340,7 +3356,7 @@ function reprenable(p) {
   if (p.kind === 'text') {
     var n = null;
     try { n = doc.querySelector(p.sel); } catch (e) {}
-    return !!n && (!p.before || n.textContent.trim() === p.before.trim());
+    return !!n && (!p.before || memeTexte(n.textContent, p.before));
   }
   if (p.alt) {
     // l'alt n'est pas une preuve de présence : c'est l'ancre qui décide QUAND
