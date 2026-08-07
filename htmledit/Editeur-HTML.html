@@ -528,6 +528,8 @@ header .sp{flex:1}
   <p id="asklWhat"></p>
   <label class="lab">Adresse
     <input type="text" id="asklUrl" placeholder="https://drive.google.com/…" spellcheck="false"></label>
+  <label class="lab hidden" id="asklCpLab">Chemin copié par le bouton « Copier »
+    <input type="text" id="asklCp" placeholder="\\serveur\projet\…" spellcheck="false"></label>
   <label class="ck"><input type="checkbox" id="asklBlank" checked>
     <span>Ouvrir dans un nouvel onglet</span></label>
   <p class="warn hidden" id="asklWarn"></p>
@@ -553,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02m';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02n';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1143,6 +1145,14 @@ function hrefOf(n) {
   var h = n.getAttribute ? (n.getAttribute('href') || '') : '';
   return (h === '#' || h === 'javascript:void(0)') ? '' : h;
 }
+/* le bouton « Copier … » d'une carte, s'il y en a un */
+function boutonCopieDans(el) {
+  if (!el || !el.querySelectorAll) return null;
+  var l = el.querySelectorAll('button,[role=button]');
+  for (var j = 0; j < l.length; j++)
+    if (/copi/i.test(l[j].textContent || '')) return l[j];
+  return null;
+}
 function askForLink(el) {
   lnkEl = el;
   var dejaP = patches.filter(function (p) { return p.kind === 'link'; })
@@ -1153,6 +1163,12 @@ function askForLink(el) {
     ' — pas de lien d’origine, le clic ouvrira l’adresse.');
   $('asklUrl').value = dejaP ? dejaP.after : hrefOf(el);
   $('asklBlank').checked = dejaP ? dejaP.blank !== false : true;
+  // certaines cartes copient un chemin codé en dur dans la maquette : on
+  // montre alors ce chemin, pour pouvoir le remplacer
+  var bc = boutonCopieDans(el);
+  $('asklCpLab').classList.toggle('hidden', !bc);
+  $('asklCp').value = bc ? (dejaP && dejaP.cp ? dejaP.cp :
+    (bc.title && /[\\\/]/.test(bc.title) ? bc.title : '')) : '';
   $('asklWarn').classList.add('hidden');
   $('askl').classList.remove('hidden');
   setTimeout(function () { $('asklUrl').focus(); $('asklUrl').select(); }, 30);
@@ -1177,12 +1193,17 @@ $('asklUrl').addEventListener('input', function () {
 $('asklUrl').addEventListener('keydown', function (e) {
   if (e.key === 'Enter') { e.preventDefault(); $('asklOk').click(); }
 });
+$('asklCp').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); $('asklOk').click(); }
+});
 $('asklOk').addEventListener('click', function () {
   var el = lnkEl, url = $('asklUrl').value.trim(), blank = $('asklBlank').checked;
+  var cp = $('asklCpLab').classList.contains('hidden') ? '' : $('asklCp').value.trim();
   closeAskl();
-  if (!el || !url) return;
+  if (!el || (!url && !cp)) return;
   var p = { kind: 'link', sel: pathOf(el), before: '', after: url, blank: blank,
-            label: short(url, 34) };
+            label: short(url || cp, 34) };
+  if (cp) p.cp = cp;
   applyOne(p, el);
   addPatch(p);
   if (mode === 'link') renderLinks();
@@ -1211,7 +1232,8 @@ function renderLinks() {
     var b = document.createElement('button');
     b.className = 'lk' + (pat ? ' done' : (l.href ? '' : ' vide'));
     b.innerHTML = '<b>' + esc(l.txt) + '</b><span>' +
-      esc(pat ? pat.after : (l.href || 'aucune adresse')) + '</span>';
+      esc(pat ? (pat.after || (pat.cp ? 'copie : ' + pat.cp : ''))
+              : (l.href || 'aucune adresse')) + '</span>';
     b.addEventListener('click', function () { flash(l.node); askForLink(l.node); });
     box.appendChild(b);
   });
@@ -1694,7 +1716,9 @@ function startEdit(n, x, y) {
     addPatch({ kind: 'text', sel: pathOf(n), before: before, after: after,
                when: w || undefined,
                label: short(after.replace(/\s+/g, ' ').trim(), 40) || '(vide)' });
-    if (/[\\\/]/.test(after)) brancherCopie(n);
+    // un chemin AVANT ou APRÈS : même remplacé par un mot simple, le bouton
+    // « Copier » voisin doit copier ce qui est affiché, pas sa valeur d'usine
+    if (/[\\\/]/.test(after) || /[\\\/]/.test(before)) brancherCopie(n);
     // si CE texte servait de témoin à d'autres retouches (on vient de renommer
     // le personnage), elles suivent le nouveau nom
     var nb = before.trim().replace(/\s+/g, ' '), na = after.trim().replace(/\s+/g, ' ');
@@ -2466,20 +2490,13 @@ function r2(v) { return Math.round(v * 100) / 100; }
 /* Une carte « chemin » a souvent un bouton Copier dont la valeur est codée en
    dur dans la maquette : après retouche, il copierait l'ANCIEN chemin. On le
    fait copier ce qui est affiché. */
-function brancherCopie(n) {
-  var a = n, btn = null;
-  for (var i = 0; i < 4 && a && !btn; i++, a = a.parentElement) {
-    if (!a.querySelectorAll) break;
-    var l = a.querySelectorAll('button,[role=button]');
-    for (var j = 0; j < l.length; j++)
-      if (/copier/i.test(l[j].textContent || '')) { btn = l[j]; break; }
-  }
-  if (!btn || btn.pkCopie) return;
+function brancheBoutonCopie(btn, val) {
+  if (btn.pkCopie) return;
   btn.pkCopie = 1;
   btn.addEventListener('click', function (ev) {
     ev.preventDefault(); ev.stopPropagation();
-    var txt = n.textContent.trim();
-    var d2 = n.ownerDocument, W = d2.defaultView, fait = false;
+    var txt = val();
+    var d2 = btn.ownerDocument, W = d2.defaultView, fait = false;
     // execCommand d'abord : synchrone, il profite du geste de clic — le
     // presse-papiers moderne est parfois interdit dans un cadre
     try {
@@ -2496,13 +2513,38 @@ function brancherCopie(n) {
     var avant = btn.textContent;
     btn.textContent = 'Copié ✓';
     setTimeout(function () { btn.textContent = avant; }, 1200);
+    // certaines maquettes repeignent leur bouton aussitôt : la bulle, posée
+    // par-dessus la page, survit au repeint
+    try {
+      var r = btn.getBoundingClientRect();
+      var bu = d2.createElement('div');
+      bu.textContent = 'Copié ✓';
+      bu.setAttribute('data-pk-bulle', '1');
+      bu.setAttribute('style', 'position:fixed;left:' + (r.left + r.width / 2) + 'px;top:' +
+        (r.top - 8) + 'px;transform:translate(-50%,-100%);background:#1d2129;color:#fff;' +
+        'font:600 12px/1 sans-serif;padding:7px 10px;border-radius:8px;z-index:2147483647;' +
+        'pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.35)');
+      d2.body.appendChild(bu);
+      setTimeout(function () { bu.remove(); }, 1200);
+    } catch (e2) {}
   }, true);
+}
+function brancherCopie(n) {
+  var a = n, btn = null;
+  for (var i = 0; i < 4 && a && !btn; i++, a = a.parentElement) {
+    if (!a.querySelectorAll) break;
+    var l = a.querySelectorAll('button,[role=button]');
+    for (var j = 0; j < l.length; j++)
+      if (/copi/i.test(l[j].textContent || '')) { btn = l[j]; break; }
+  }
+  if (!btn) return;
+  brancheBoutonCopie(btn, function () { return n.textContent.trim(); });
 }
 function applyOne(p, n) {
   if (p.kind === 'text') {
     n.textContent = p.after;
     if (/\n/.test(p.after)) n.style.whiteSpace = 'pre-line';
-    if (/[\\\/]/.test(p.after)) brancherCopie(n);
+    if (/[\\\/]/.test(p.after) || /[\\\/]/.test(p.before || '')) brancherCopie(n);
   } else if (p.kind === 'img' && n.tagName === 'IMG') {
     // Même balise, contenus différents (la fiche de Pipo puis celle de Bruno) :
     // on pose notre image quand c'est le bon, et on REMET celle d'origine
@@ -2541,6 +2583,16 @@ function applyOne(p, n) {
 
 /* Donne sa destination à un lien — ou, sur un bouton, un clic qui l'ouvre. */
 function putLink(n, p) {
+  // la carte copie un chemin codé en dur : son bouton copie désormais le nôtre
+  if (p.cp) {
+    var bc = boutonCopieDans(n);
+    if (bc) {
+      if (bc.title !== p.cp) bc.title = p.cp;
+      bc.pkCp = p.cp;
+      brancheBoutonCopie(bc, function () { return bc.pkCp; });
+    }
+  }
+  if (!p.after) return;
   if (n.tagName === 'A') {
     n.setAttribute('href', p.after);
     if (p.blank !== false) { n.setAttribute('target', '_blank'); n.setAttribute('rel', 'noopener'); }
@@ -2660,9 +2712,7 @@ function ouvrirRecadrage(p) {
   $('cropQui').textContent = short(p.label, 34);
   $('cropZ').value = Math.round(fitDe(p).z * 100);
   majBarreCadre(p);
-  $('hint').classList.add('parti');
   $('crop').classList.remove('hidden');
-  $('hint').classList.add('hidden');
   var d = debordement(n, p);
   toast(d && (d.dx > 2 || d.dy > 2)
     ? 'Glisse l’image pour choisir ce qu’on garde — ou « Toute l’image » pour ne rien rogner'
@@ -2681,7 +2731,6 @@ function fermerRecadrage() {
   if (recadre) { try { recadre.n.style.cursor = ''; } catch (e) {} }
   recadre = null;
   $('crop').classList.add('hidden');
-  if (mode !== 'view') $('hint').classList.remove('hidden');
   renderList();
 }
 $('cropOk').addEventListener('click', fermerRecadrage);
@@ -3030,17 +3079,6 @@ function localiser(p) {
   flash(n);
 }
 
-function aide(n, icone, txt) { n.innerHTML = ico(icone) + '<span>' + esc(txt) + '</span>'; }
-
-/* le rappel du mode : visible le temps de le lire, puis il s'efface */
-var minuteurAstuce = null;
-function montrerAstuce() {
-  var h = $('hint');
-  clearTimeout(minuteurAstuce);
-  h.classList.remove('parti');
-  minuteurAstuce = setTimeout(function () { h.classList.add('parti'); }, 5200);
-}
-
 /* --------------------------------------------------------------- les modes */
 function setMode(m) {
   mode = m;
@@ -3052,13 +3090,9 @@ function setMode(m) {
     if (hiNode) { hiNode.classList.remove('pk-hi-img', 'pk-hi-zone'); hiNode = null; }
     tip('');
   }
-  var h = $('hint');
-  h.classList.toggle('hidden', m === 'view');
-  if (m !== 'view') montrerAstuce();
-  if (m === 'text') aide(h, 'texte', 'Clique un texte et corrige à l’endroit du clic — Échap pour valider');
-  if (m === 'img') aide(h, 'image', 'Clique une image — ou lâche directement un fichier dessus');
-  if (m === 'vid') aide(h, 'video', 'Clique le bouton qui ouvre la vidéo — l’outil ouvre la fenêtre et vise le lecteur');
-  if (m === 'link') aide(h, 'lien', 'Clique un bouton ou un lien pour choisir où il mène');
+  // la bulle de rappel du mode gênait plus qu'elle n'aidait : retirée,
+  // le même contenu vit dans le bandeau d'aide et la boîte « ? »
+  $('hint').classList.add('hidden');
   $('galBox').classList.toggle('hidden', m !== 'img');
   $('lnkBox').classList.toggle('hidden', m !== 'link');
   if (m === 'img') renderGallery();
@@ -3132,16 +3166,27 @@ function exportFile() {
     /* le bouton « Copier … » voisin d'un chemin retouché copie l'AFFICHÉ */
     "function cop(n){var a=n,b=null,i,j;for(i=0;i<4&&a&&!b;i++,a=a.parentElement){" +
     "if(!a.querySelectorAll)break;var l=a.querySelectorAll('button,[role=button]');" +
-    "for(j=0;j<l.length;j++)if(/copier/i.test(l[j].textContent||'')){b=l[j];break}}" +
-    "if(!b||b.pkCop)return;b.pkCop=1;" +
+    "for(j=0;j<l.length;j++)if(/copi/i.test(l[j].textContent||'')){b=l[j];break}}" +
+    "if(!b)return;copb(b,function(){return n.textContent.trim()})}" +
+    "function copb(b,get){if(b.pkCop)return;b.pkCop=1;" +
     "b.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();" +
-    "var t=n.textContent.trim(),ok2=false;" +
+    "var t=get(),ok2=false;" +
     "try{var ta=document.createElement('textarea');ta.value=t;" +
     "ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);" +
     "ta.select();ok2=document.execCommand('copy');ta.remove()}catch(e){}" +
     "if(!ok2&&navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t)['catch'](function(){});" +
     "var av=b.textContent;b.textContent='Copié \u2713';" +
-    "setTimeout(function(){b.textContent=av},1200)},true)}" +
+    "setTimeout(function(){b.textContent=av},1200);" +
+    /* la page repeint parfois son bouton aussitôt : la bulle, posée par-dessus,
+       survit au repeint */
+    "try{var r=b.getBoundingClientRect(),bu=document.createElement('div');" +
+    "bu.textContent='Copié \\u2713';bu.setAttribute('data-pk-bulle','1');" +
+    "bu.setAttribute('style','position:fixed;left:'+(r.left+r.width/2)+'px;top:'+(r.top-8)+" +
+    "'px;transform:translate(-50%,-100%);background:#1d2129;color:#fff;" +
+    "font:600 12px/1 sans-serif;padding:7px 10px;border-radius:8px;z-index:2147483647;" +
+    "pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.35)');" +
+    "document.body.appendChild(bu);setTimeout(function(){bu.remove()},1200)}catch(e2){}" +
+    "},true)}" +
     "function net(p){[].forEach.call(document.querySelectorAll('video.pk-vid'),function(v){" +
     "if(v.getAttribute('src')!==p.after||v.pkTour===tours)return;var pa=v.parentElement;v.remove();" +
     "if(pa&&!pa.querySelector(':scope > video.pk-vid'))pa.removeAttribute('data-pk-hide')})}" +
@@ -3161,7 +3206,7 @@ function exportFile() {
     "rr.textContent=p.before||''}catch(e){}}return}" +
     "if(p.kind==='text'){if(n.textContent.trim()===(p.before||'').trim()){n.textContent=p.after;" +
     "if(p.after.indexOf('\\n')>=0)n.style.whiteSpace='pre-line';" +
-    "if(/[\\\\\\/]/.test(p.after))cop(n)}}" +
+    "if(/[\\\\\\/]/.test(p.after)||/[\\\\\\/]/.test(p.before||''))cop(n)}}" +
     /* entrée d'une réserve d'images : on la retouche, puis on remplace le
        visuel partout où sa source d'origine sert encore — l'appli a pu lire
        sa réserve avant nous */
@@ -3199,7 +3244,12 @@ function exportFile() {
     "if(getComputedStyle(n).position==='static')n.style.position='relative';" +
     "n.setAttribute('data-pk-hide','1');n.appendChild(v)}" +
     "if(v.getAttribute('src')!==p.after)v.setAttribute('src',p.after);v.pkTour=tours}" +
-    "else if(p.kind==='link'){if(n.tagName==='A'){if(n.getAttribute('href')!==p.after){" +
+    "else if(p.kind==='link'){" +
+    /* la carte copiait un chemin codé en dur : son bouton copie le nôtre */
+    "if(p.cp){var lb=n.querySelectorAll?n.querySelectorAll('button,[role=button]'):[],bc=null,jc;" +
+    "for(jc=0;jc<lb.length;jc++)if(/copi/i.test(lb[jc].textContent||'')){bc=lb[jc];break}" +
+    "if(bc){if(bc.title!==p.cp)bc.title=p.cp;bc.pkCp=p.cp;copb(bc,function(){return bc.pkCp})}}" +
+    "if(!p.after){}else if(n.tagName==='A'){if(n.getAttribute('href')!==p.after){" +
     "n.setAttribute('href',p.after)}if(p.blank!==false){n.setAttribute('target','_blank');" +
     "n.setAttribute('rel','noopener')}" +
     /* la maquette neutralise parfois le clic sur ses cartes (liens fictifs de

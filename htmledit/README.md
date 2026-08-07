@@ -10,7 +10,7 @@ envoyé en ligne**.
 
 [⬇ Télécharger la dernière version](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html)
 — le numéro de version s'affiche à côté du nom, sur l'écran d'accueil
-(`2026-08-02m` au moment où ces lignes sont écrites). Si un comportement ne
+(`2026-08-02n` au moment où ces lignes sont écrites). Si un comportement ne
 correspond pas à ce manuel, commence par retélécharger.
 
 ---
@@ -52,9 +52,7 @@ en bas **« Mes retouches »**, ancré — avec 144 visuels, ton travail ne doit
 se retrouver trois écrans plus bas. Clique le titre pour replier la section et
 rendre la place au reste.
 
-Le reste de l'écran, c'est **ta page**, telle qu'elle sera. Le rappel du mode
-s'affiche en bas à gauche puis s'efface tout seul ; il revient à chaque
-changement de mode.
+Le reste de l'écran, c'est **ta page**, telle qu'elle sera.
 
 | Mode | Ce qu'il fait |
 |---|---|
@@ -346,6 +344,15 @@ en orange ceux qui n'ont pas d'adresse**.
 **Les cartes « chemin » (animatique, rigs…).** Le chemin affiché se corrige en
 mode **Textes**, tout simplement — et le bouton **« Copier le chemin »** d'à
 côté copie alors **ce qui est affiché**, plus la valeur d'usine de la maquette.
+Ça vaut même si tu remplaces le chemin par un simple mot.
+
+**Les cartes dont le chemin n'est pas affiché** (« Serveur de production »,
+« Références anim »…) : la maquette copie une valeur codée en dur, invisible à
+l'écran — rien à corriger en mode Textes. Passe en mode **Liens** et clique la
+carte : la fenêtre montre un champ **« Chemin copié par le bouton "Copier" »**,
+pré-rempli avec la valeur d'usine. Remplace-la (tu peux laisser l'adresse
+vide), et le bouton de la carte copiera ton chemin — dans l'aperçu comme dans
+le pack livré. Une bulle **« Copié ✓ »** confirme chaque copie.
 
 **Chemins réseau** (`\\serveur\projet\…`) : tu peux les saisir, mais les
 navigateurs refusent le plus souvent de les ouvrir depuis une page web, par
