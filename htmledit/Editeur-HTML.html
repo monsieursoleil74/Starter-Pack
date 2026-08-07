@@ -555,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02n';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02o';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -2713,10 +2713,7 @@ function ouvrirRecadrage(p) {
   $('cropZ').value = Math.round(fitDe(p).z * 100);
   majBarreCadre(p);
   $('crop').classList.remove('hidden');
-  var d = debordement(n, p);
-  toast(d && (d.dx > 2 || d.dy > 2)
-    ? 'Glisse l’image pour choisir ce qu’on garde — ou « Toute l’image » pour ne rien rogner'
-    : 'Cette image tient entière dans son cadre : zoome pour pouvoir la déplacer');
+  // pas de message à l'ouverture : à la longue, il gênait plus qu'il n'aidait
 }
 function majBarreCadre(p) {
   var c = fitDe(p).c;
