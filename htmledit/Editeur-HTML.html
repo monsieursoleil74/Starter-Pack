@@ -432,6 +432,7 @@ header .sp{flex:1}
       <span class="z">Zoom <input type="range" id="cropZ" min="100" max="400" value="100"></span>
       <button id="cropTout">Toute l’image</button>
       <button id="cropReset">Recentrer</button>
+      <button id="cropRemp" title="Choisir un autre fichier pour cet emplacement">Remplacer…</button>
       <button id="cropOk">Terminé</button>
     </div>
   </div>
@@ -555,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08a';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08b';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1941,7 +1942,32 @@ var imgTarget = null, imgIsImg = false, imgHide = false;
    carrousel demande d'abord laquelle des images remplacer). On le met de côté :
    dès que la cible est choisie, il part sans redemander le fichier. */
 var fichierEnAttente = null;
-function pickImageFor(el, isImg, hide) {
+/* l'image porte-t-elle déjà une retouche ? (la sienne, pas celle d'un
+   homonyme : data-k d'abord, puis source posée, puis chemin+alt) */
+function retoucheImageDe(el) {
+  if (!el || !el.getAttribute) return null;
+  var kEl = el.getAttribute('data-k'), srcEl = el.getAttribute('src');
+  for (var i = patches.length - 1; i >= 0; i--) {
+    var p = patches[i];
+    if (p.kind !== 'img' && p.kind !== 'bg') continue;
+    if (p.k && kEl && p.k === kEl) return p;
+    if (p.kind === 'img' && p.after && srcEl &&
+        (srcEl === p.after || srcEl === apercu(p.sel))) return p;
+    try {
+      if (doc.querySelector(p.sel) === el &&
+          (!p.alt || (el.getAttribute('alt') || '').trim() === p.alt)) return p;
+    } catch (e) {}
+  }
+  return null;
+}
+function pickImageFor(el, isImg, hide, forcer) {
+  // cliquer une image DÉJÀ remplacée sert à la repositionner, pas à rouvrir
+  // l'explorateur : le recadrage s'ouvre — « Remplacer… » y est un bouton,
+  // et le glisser-déposer remplace toujours directement
+  if (!forcer && !fichierEnAttente && isImg) {
+    var deja = retoucheImageDe(el);
+    if (deja) { ouvrirRecadrage(deja); return; }
+  }
   imgTarget = el; imgIsImg = isImg; imgHide = !!hide;
   if (fichierEnAttente) {
     var f = fichierEnAttente;
@@ -2964,6 +2990,12 @@ function fermerRecadrage() {
   renderList();
 }
 $('cropOk').addEventListener('click', fermerRecadrage);
+$('cropRemp').addEventListener('click', function () {
+  if (!recadre) return;
+  var n = recadre.n, estImg = n.tagName === 'IMG';
+  fermerRecadrage();
+  pickImageFor(n, estImg, false, true);
+});
 $('cropTout').addEventListener('click', function () {
   if (!recadre) return;
   var f = recadre.p.fit;

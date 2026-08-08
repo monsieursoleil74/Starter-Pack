@@ -10,7 +10,7 @@ envoyé en ligne**.
 
 [⬇ Télécharger la dernière version](https://github.com/monsieursoleil74/Starter-Pack/releases/download/outil/Editeur-HTML.html)
 — le numéro de version s'affiche à côté du nom, sur l'écran d'accueil
-(`2026-08-08a` au moment où ces lignes sont écrites). Si un comportement ne
+(`2026-08-08b` au moment où ces lignes sont écrites). Si un comportement ne
 correspond pas à ce manuel, commence par retélécharger.
 
 ---
@@ -154,6 +154,11 @@ Clique-la. Le survol te dit à l'avance ce qu'un clic va faire :
 - **cadre orange pointillé** → une zone sans image : clic = **y poser** une
   image (voir plus bas) ;
 - *« 3 images ici — clique pour choisir »* → plusieurs images sont superposées.
+
+**Une image que tu as déjà remplacée** : re-cliquer dessus ouvre directement
+le **recadrage** (repositionner, zoomer) — pas l'explorateur de fichiers. Pour
+changer de fichier : le bouton **« Remplacer… »** dans la barre de recadrage,
+ou lâche simplement le nouveau fichier dessus.
 
 ### Glisser-déposer
 
