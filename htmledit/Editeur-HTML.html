@@ -555,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02w';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02x';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -757,7 +757,11 @@ function applyAll() {
         }
         var r = null;
         try { r = doc.querySelector(p.sel); } catch (e) {}
-        if (r && memeTexte(r.textContent, p.after) && !memeTexte(p.after, p.before)) {
+        if (r && memeTexte(r.textContent, p.after) && !memeTexte(p.after, p.before) &&
+            r.firstChild && r.firstChild.pkDe === p.id) {
+          // seul un texte portant NOTRE signature peut être un reste à nous :
+          // renommer Otto en « Bill » ne doit jamais réécrire « Otto » sur la
+          // fiche du vrai Bill (sa valeur naturelle n'a pas de signature)
           // même charalead « Lucas » chez deux personnages : si une AUTRE
           // retouche du même champ affiche légitimement ce texte en ce
           // moment, ce n'est pas le nôtre qui traîne — on ne touche à rien
@@ -1145,7 +1149,14 @@ function onClick(e) {
         try { rp = doc.caretRangeFromPoint(e.clientX, e.clientY); } catch (x2) {}
         var tn = rp && rp.startContainer;
         if (tn && tn.nodeType === 3 && n.contains(tn) && tn.parentElement !== n &&
-            textish(tn.parentElement)) n = tn.parentElement;
+            textish(tn.parentElement)) {
+          // seulement un SOUS-CHAMP posé en bloc (la valeur d'une pastille) —
+          // un morceau en ligne (<em> d'un paragraphe) fait partie du flux :
+          // c'est le paragraphe entier qui s'édite, comme toujours
+          var dsp = '';
+          try { dsp = doc.defaultView.getComputedStyle(tn.parentElement).display; } catch (x3) {}
+          if (!/inline/.test(dsp)) n = tn.parentElement;
+        }
       }
       while (n && !textish(n)) n = n.parentElement;
     }
@@ -1783,9 +1794,13 @@ function startEdit(n, x, y) {
     }
     var w = null;
     try { w = temoinTexte(n); } catch (e) {}
-    addPatch({ kind: 'text', sel: pathOf(n), before: before, after: after,
-               when: w || undefined,
-               label: short(after.replace(/\s+/g, ' ').trim(), 40) || '(vide)' });
+    var pNeu = { kind: 'text', sel: pathOf(n), before: before, after: after,
+                 when: w || undefined,
+                 label: short(after.replace(/\s+/g, ' ').trim(), 40) || '(vide)' };
+    addPatch(pNeu);
+    // notre signature sur le nœud de texte (voir applyOne) : la remise à
+    // l'original ne touche qu'aux textes que NOUS avons écrits
+    try { if (n.firstChild && !n.children.length) n.firstChild.pkDe = pNeu.id; } catch (eM) {}
     // un chemin AVANT ou APRÈS : même remplacé par un mot simple, le bouton
     // « Copier » voisin doit copier ce qui est affiché, pas sa valeur d'usine
     if (/[\\\/]/.test(after) || /[\\\/]/.test(before)) brancherCopie(n);
@@ -2610,6 +2625,10 @@ function brancherCopie(n) {
 function applyOne(p, n) {
   if (p.kind === 'text') {
     n.textContent = p.after;
+    // notre signature sur le NŒUD DE TEXTE : un repeint de la maquette le
+    // remplace et l'efface — la remise à l'original ne touchera jamais à un
+    // texte qu'elle n'a pas écrit (le vrai « Bill » n'est pas notre reste)
+    try { if (n.firstChild) n.firstChild.pkDe = p.id; } catch (eM) {}
     if (/\n/.test(p.after)) n.style.whiteSpace = 'pre-line';
     if (/[\\\/]/.test(p.after) || /[\\\/]/.test(p.before || '')) brancherCopie(n);
   } else if (p.kind === 'img' && n.tagName === 'IMG') {
@@ -3298,13 +3317,17 @@ function exportFile() {
     "P.forEach(function(p){if(p.kind==='head'){tete(p);return}var n=cible(p);" +
     "if(!n){if(p.kind==='video'&&p.when)orph.push(p);" +
     "if(p.kind==='text'&&p.when){try{var rr=document.querySelector(p.sel);" +
-    "if(rr&&mt(rr.textContent,p.after)&&!mt(p.after,p.before)){" +
+    /* seul un texte portant NOTRE signature (posée à l'écriture, effacée par
+       tout repeint de la page) peut être un reste à nous */
+    "if(rr&&mt(rr.textContent,p.after)&&!mt(p.after,p.before)&&" +
+    "rr.firstChild&&rr.firstChild.pkDe===p.id){" +
     /* même valeur chez deux personnages : si une autre retouche du même champ
        affiche légitimement ce texte, ce n'est pas le nôtre qui traîne */
     "var aq=false,qi,qq;for(qi=0;qi<P.length;qi++){qq=P[qi];" +
     "if(qq!==p&&qq.kind==='text'&&qq.sel===p.sel&&mt(qq.after,rr.textContent)&&cible(qq)){aq=true;break}}" +
     "if(!aq)rr.textContent=p.before||''}}catch(e){}}return}" +
     "if(p.kind==='text'){if(mt(n.textContent,p.before)){n.textContent=p.after;" +
+    "try{if(n.firstChild)n.firstChild.pkDe=p.id}catch(eM){}" +
     "if(p.after.indexOf('\\n')>=0)n.style.whiteSpace='pre-line';" +
     "if(/[\\\\\\/]/.test(p.after)||/[\\\\\\/]/.test(p.before||''))cop(n)}}" +
     /* entrée d'une réserve d'images : on la retouche, puis on remplace le
