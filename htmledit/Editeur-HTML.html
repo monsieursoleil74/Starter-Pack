@@ -556,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08f';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08g';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -740,7 +740,10 @@ function watchDoc() {
    deux écrivent les blancs différemment (indentation du HTML, sauts de
    ligne). On compare donc le texte, pas ses espaces. */
 function memeTexte(a, b) {
-  return (a || '').replace(/\s+/g, ' ').trim() === (b || '').replace(/\s+/g, ' ').trim();
+  // insensible à la casse : text-transform:uppercase fait mentir innerText
+  // (le « avant » des retouches historiques est en MAJUSCULES d'affichage)
+  return (a || '').replace(/\s+/g, ' ').trim().toLowerCase() ===
+         (b || '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 /* la signature d'un nœud n'est VALIDE que si le texte affiché est encore
    celui qu'elle a signé : une maquette qui repeint en mutant le nœud de
@@ -1151,7 +1154,7 @@ function temoinTexte(n, tOverride) {
   for (var i = 0; i < cacheTitres.length; i++) {
     var e = cacheTitres[i], c = e.n;
     if (c === n || n.contains(c) || !haut.contains(c)) continue;
-    if (e.t === tCible) continue;
+    if (e.t.toLowerCase() === tCible.toLowerCase()) continue;
     if (!(c.compareDocumentPosition(n) & 4)) continue;      // le témoin PRÉCÈDE
     var inf = titreInfos(e);
     if (inf.cache) continue;
@@ -1563,7 +1566,8 @@ function construireIndex() {
   for (var i = 0; i < all.length; i++) {
     var el = all[i], t = texteDe(el);
     if (!t || t.length > 60) continue;
-    var l = cacheTemoin[t] || (cacheTemoin[t] = []);
+    var tl = t.toLowerCase();
+    var l = cacheTemoin[tl] || (cacheTemoin[tl] = []);
     if (l.length < 8) l.push(el);
     if (t.length < 2 || el.children.length) continue;
     if (!/^(H[1-6]|SPAN|DIV|P|STRONG|B|LEGEND|FIGCAPTION)$/.test(el.tagName)) continue;
@@ -1580,7 +1584,8 @@ function titreInfos(e) {
   return e.st;
 }
 function bonTemoin(n, w) {
-  return !!n && texteDe(n) === w.txt && (!w.fx || dansFenetre(n));
+  return !!n && texteDe(n).toLowerCase() === (w.txt || '').toLowerCase() &&
+    (!w.fx || dansFenetre(n));
 }
 /* Le même texte peut apparaître plusieurs fois (l'onglet « Bruno », sa carte,
    sa fiche) : on garde TOUS les porteurs — le chemin relatif tranchera. */
@@ -1593,7 +1598,7 @@ function candidatsTemoin(w) {
   // l'index de TOUS les textes courts, construit en UN balayage par passe —
   // trente témoins distincts ne refont pas trente tours de page
   construireIndex();
-  (cacheTemoin[w.txt] || []).forEach(function (x) {
+  (cacheTemoin[(w.txt || '').toLowerCase()] || []).forEach(function (x) {
     if (out.indexOf(x) < 0 && (!w.fx || dansFenetre(x))) out.push(x);
   });
   return out;
@@ -1641,7 +1646,7 @@ function cibleDe(p, vite) {
     if (p.kind === 'text' && !vite) {
       var wv = null;
       try { wv = temoinTexte(c, p.after); } catch (e2) {}
-      if (!wv || wv.txt !== p.when.txt) continue;
+      if (!wv || wv.txt.toLowerCase() !== (p.when.txt || '').toLowerCase()) continue;
     }
     return c;
   }
@@ -1871,7 +1876,9 @@ function startEdit(n, x, y) {
   // le texte affiché est l'original (la fiche a pu passer à un autre
   // personnage : chaque contenu a le sien).
   var cur = n.innerText != null ? n.innerText : n.textContent;
-  var before = cur, chemin = pathOf(n);
+  // le « avant » vient du texte SOURCE : innerText rend l'affichage
+  // (text-transform:uppercase le met en majuscules) et fausserait la garde
+  var before = n.textContent, chemin = pathOf(n);
   // la SIGNATURE du texte affiché dit de quelle retouche il vient : on
   // réédite celle-là. Un texte sans signature est la valeur naturelle de la
   // page — même si une retouche d'une AUTRE fiche affiche la même chose
@@ -1932,7 +1939,7 @@ function startEdit(n, x, y) {
     finEdition = Date.now();
     var after = n.innerText != null ? n.innerText : n.textContent;
     after = after.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+\n/g, '\n');
-    if (after.trim() === before.trim()) {
+    if (memeTexte(after, before)) {
       // pas de retouche, mais on range quand même les restes d'édition
       if (n.children.length) n.textContent = before;
       return;
@@ -1958,8 +1965,8 @@ function startEdit(n, x, y) {
     // si CE texte servait de témoin à d'autres retouches (on vient de renommer
     // le personnage), elles suivent le nouveau nom
     var nb = before.trim().replace(/\s+/g, ' '), na = after.trim().replace(/\s+/g, ' ');
-    if (nb !== na) patches.forEach(function (o) {
-      if (o.when && o.when.txt === nb) o.when.txt = na;
+    if (nb.toLowerCase() !== na.toLowerCase()) patches.forEach(function (o) {
+      if (o.when && (o.when.txt || '').toLowerCase() === nb.toLowerCase()) o.when.txt = na;
     });
   };
   n.addEventListener('blur', done);
@@ -3283,11 +3290,11 @@ function addPatch(p) {
   patches = patches.filter(function (o) {
     if (o.sel !== p.sel || o.kind !== p.kind) return true;
     var a = o.when ? o.when.txt : '', b = p.when ? p.when.txt : '';
-    if (a !== b) return true;
+    if ((a || '').toLowerCase() !== (b || '').toLowerCase()) return true;
     if ((o.alt || '') !== (p.alt || '')) return true;
     // un texte est reconnu à son ORIGINAL : l'arc de Pipo et celui de Bruno
     // passent dans la même fiche, ce sont deux retouches
-    if (p.kind === 'text') return (o.before || '') !== (p.before || '');
+    if (p.kind === 'text') return !memeTexte(o.before, p.before);
     return false;
   });
   patches.push(p);
@@ -3418,12 +3425,12 @@ function exportFile() {
     "var CT=null;" +
     "function df(n){for(var i=0;n&&i<8;i++,n=n.parentElement)" +
     "if(getComputedStyle(n).position==='fixed')return true;return false}" +
-    "function bt(n,w){return !!n&&tx(n)===w.txt&&(!w.fx||df(n))}" +
+    "function bt(n,w){return !!n&&tx(n).toLowerCase()===(w.txt||'').toLowerCase()&&(!w.fx||df(n))}" +
     "var CTT=null;" +
     "function bIdx(){if(CT)return;CT={};CTT=[];" +
     "var a=document.querySelectorAll('*'),i,t,l,el;" +
     "for(i=0;i<a.length;i++){el=a[i];t=tx(el);if(!t||t.length>60)continue;" +
-    "l=CT[t]||(CT[t]=[]);if(l.length<8)l.push(el);" +
+    "var tl=t.toLowerCase();l=CT[tl]||(CT[tl]=[]);if(l.length<8)l.push(el);" +
     "if(t.length<2||el.children.length)continue;" +
     "if(!/^(H[1-6]|SPAN|DIV|P|STRONG|B|LEGEND|FIGCAPTION)$/.test(el.tagName))continue;" +
     "CTT.push({n:el,t:t,st:null})}}" +
@@ -3432,7 +3439,7 @@ function exportFile() {
     "fs:parseFloat(st.fontSize)||14," +
     "gras:(parseInt(st.fontWeight,10)||400)>=600||/^H[1-6]$/.test(e.n.tagName)}}return e.st}" +
     "function tem(w){var out=[];try{var n=document.querySelector(w.sel);if(bt(n,w))out.push(n)}catch(e){}" +
-    "bIdx();(CT[w.txt]||[]).forEach(function(x){if(out.indexOf(x)<0&&(!w.fx||df(x)))out.push(x)});return out}" +
+    "bIdx();(CT[(w.txt||'').toLowerCase()]||[]).forEach(function(x){if(out.indexOf(x)<0&&(!w.fx||df(x)))out.push(x)});return out}" +
     "var KC=null,IXm=null;" +
     "function pk(k){if(!k)return null;" +
     "if(!KC){KC={};try{var lk=document.querySelectorAll('[data-k]'),ik;" +
@@ -3463,7 +3470,7 @@ function exportFile() {
     "var best=null,bF=0,bI=null,bIF=0,i2,e,c;" +
     "for(i2=0;i2<CTT.length;i2++){e=CTT[i2];c=e.n;" +
     "if(c===n||n.contains(c)||!haut.contains(c))continue;" +
-    "if(e.t===tC)continue;" +
+    "if(e.t.toLowerCase()===tC.toLowerCase())continue;" +
     "if(!(c.compareDocumentPosition(n)&4))continue;" +
     "var inf=tInf(e);if(inf.cache)continue;var fs=inf.fs;" +
     "if(!(fs>=fsC*1.25||/^H[1-6]$/.test(c.tagName)||(inf.gras&&fs>=fsC*1.05)))continue;" +
@@ -3477,7 +3484,7 @@ function exportFile() {
     "var c=a;if(p.when.down){try{c=a.querySelector(':scope>'+p.when.down)}catch(e){c=null}}" +
     "if(!c||(p.when.tag&&c.tagName!==p.when.tag))continue;" +
     "if(p.kind==='text'&&!vite){var wv=null;try{wv=tw(c,p.after)}catch(e2){wv=null}" +
-    "if(!wv||wv!==p.when.txt)continue}" +
+    "if(!wv||wv.toLowerCase()!==(p.when.txt||'').toLowerCase())continue}" +
     "return c}return null}" +
     /* le cadrage choisi dans l'éditeur : position en % de ce qui dépasse, zoom
        en % du cadre — jamais de pixels, pour survivre à un changement de taille */
@@ -3509,7 +3516,8 @@ function exportFile() {
     "if(!b)return;copb(b,function(){return n.textContent.trim()})}" +
     /* innerText (le « avant » mémorisé) et textContent (la page brute)
        n'écrivent pas les blancs pareil : on compare le texte, pas ses espaces */
-    "function mt(a,b){return (a||'').replace(/\\s+/g,' ').trim()===(b||'').replace(/\\s+/g,' ').trim()}" +
+    "function mt(a,b){return (a||'').replace(/\\s+/g,' ').trim().toLowerCase()===" +
+    "(b||'').replace(/\\s+/g,' ').trim().toLowerCase()}" +
     "function sgn(n){var f=n&&!n.children.length?n.firstChild:null;" +
     "if(!f||!f.pkDe)return null;return mt(f.pkVal,n.textContent)?f.pkDe:null}" +
     "function copb(b,get){if(b.pkCop)return;b.pkCop=1;" +
@@ -3713,7 +3721,7 @@ function reancrer(p) {
       // on le recalcule sur place — si c'est bien la fiche du bon personnage
       var wLa = null;
       try { wLa = temoinTexte(la); } catch (eW) {}
-      if (wLa && wLa.txt === p.when.txt) { p.when = wLa; return; }
+      if (wLa && wLa.txt.toLowerCase() === (p.when.txt || '').toLowerCase()) { p.when = wLa; return; }
     }
     if (!(p.before || '').trim()) return;
     // le porteur le plus PROFOND du texte : les maquettes générées enrobent
@@ -3732,7 +3740,7 @@ function reancrer(p) {
       for (var j = 0; j < cands.length; j++) {
         var w = null;
         try { w = temoinTexte(cands[j]); } catch (e2) {}
-        if (w && w.txt === p.when.txt) { n2 = cands[j]; wOk = w; break; }
+        if (w && w.txt.toLowerCase() === (p.when.txt || '').toLowerCase()) { n2 = cands[j]; wOk = w; break; }
       }
     } else if (cands.length === 1) n2 = cands[0];
     else if (cands.length > 1) {
