@@ -555,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02x';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02y';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -703,7 +703,15 @@ function render(keepScroll) {
 var moTimer = null, applying = false, dernier = 0;
 function watchDoc() {
   if (!doc || !window.MutationObserver) return;
-  new MutationObserver(function () {
+  new MutationObserver(function (muts) {
+    // un repeint du framework MUTE souvent le nœud de texte sans le remplacer :
+    // sa signature ne vaut alors plus rien (le texte n'est plus « à nous »)
+    for (var im = 0; im < muts.length; im++) {
+      var mu = muts[im];
+      if (mu.type === 'characterData' && mu.target && mu.target.pkDe) {
+        try { delete mu.target.pkDe; delete mu.target.pkVal; } catch (eD) {}
+      }
+    }
     if (applying || editing) return;
     // tout de suite : certaines maquettes LISENT le DOM au démarrage (réserve
     // d'images) — attendre, c'est leur laisser lire l'ancienne version
@@ -716,6 +724,7 @@ function watchDoc() {
     // on surveille le DOCUMENT, pas le <html> : certaines maquettes remplacent
     // la balise racine, et la surveillance mourrait avec elle
   }).observe(doc, { childList: true, subtree: true, attributes: true,
+    characterData: true,
     attributeFilter: ['src', 'alt', 'href', 'style', 'class'] });
 }
 
@@ -726,6 +735,14 @@ function watchDoc() {
 function memeTexte(a, b) {
   return (a || '').replace(/\s+/g, ' ').trim() === (b || '').replace(/\s+/g, ' ').trim();
 }
+/* la signature d'un nœud n'est VALIDE que si le texte affiché est encore
+   celui qu'elle a signé : une maquette qui repeint en mutant le nœud de
+   texte (sans le remplacer) laisserait sinon des signatures périmées */
+function signatureDe(n) {
+  var f = n && !n.children.length ? n.firstChild : null;
+  if (!f || !f.pkDe) return null;
+  return memeTexte(f.pkVal, n.textContent) ? f.pkDe : null;
+}
 function applyAll() {
   if (!doc || applying) return;
   applying = true;
@@ -735,6 +752,15 @@ function applyAll() {
   var orphelins = [];
   patches.forEach(function (p) {
     if (p.kind === 'head') { poserOnglet(doc, p); return; }
+    // CHEMIN RAPIDE — la fluidité avant tout : avec 190 retouches, résoudre
+    // le témoin de chacune à chaque repeint coûte cher. Si le champ visé
+    // n'affiche ni l'original ni notre résultat, il n'y a rien à faire.
+    if (p.kind === 'text' && p.when && !p.aReancrer) {
+      var nf = null;
+      try { nf = doc.querySelector(p.sel); } catch (eF) {}
+      if (nf && !memeTexte(nf.textContent, p.before) &&
+          !(memeTexte(nf.textContent, p.after) && signatureDe(nf) === p.id)) return;
+    }
     var n = cibleDe(p);
     if (!n) {
       // fenêtre partagée refermée ou passée à un autre contenu
@@ -758,7 +784,7 @@ function applyAll() {
         var r = null;
         try { r = doc.querySelector(p.sel); } catch (e) {}
         if (r && memeTexte(r.textContent, p.after) && !memeTexte(p.after, p.before) &&
-            r.firstChild && r.firstChild.pkDe === p.id) {
+            signatureDe(r) === p.id) {
           // seul un texte portant NOTRE signature peut être un reste à nous :
           // renommer Otto en « Bill » ne doit jamais réécrire « Otto » sur la
           // fiche du vrai Bill (sa valeur naturelle n'a pas de signature)
@@ -777,7 +803,12 @@ function applyAll() {
     if (p.kind === 'text') {
       // la même fiche sert à plusieurs personnages : la retouche ne vaut que
       // quand SON texte d'origine est affiché — jamais « à vie » sur l'élément
-      if (memeTexte(n.textContent, p.before)) applyOne(p, n);
+      // jamais PAR-DESSUS le résultat d'une autre retouche : Otto renommé
+      // « Bill » ne doit pas déclencher la retouche « Bill → tesst » du vrai
+      // Bill — chacune ne s'applique que sur la valeur naturelle de la page
+      var sig2 = null;
+      try { sig2 = signatureDe(n); } catch (eG) {}
+      if (memeTexte(n.textContent, p.before) && (!sig2 || sig2 === p.id)) applyOne(p, n);
     } else applyOne(p, n);
   });
   orphelins.forEach(nettoyerLecteurs);
@@ -1489,13 +1520,12 @@ function cibleDe(p) {
     if (p.when.down) { try { c = a.querySelector(':scope>' + p.when.down); } catch (e) { c = null; } }
     if (!c || (p.when.tag && c.tagName !== p.when.tag)) continue;
     // vérification INVERSE pour un texte : le champ trouvé doit lui-même
-    // désigner ce nom comme SON témoin (même calcul qu'à la création) —
-    // sinon on est descendu depuis un mauvais porteur (l'onglet, toujours
-    // visible) jusqu'à la fiche d'un AUTRE personnage
+    // désigner ce nom comme SON témoin — même calcul qu'à la création (le
+    // témoin y est choisi APRÈS l'écriture, d'où l'exclusion de p.after).
+    // Coûteuse, mais le chemin rapide d'applyAll ne l'appelle que pour les
+    // retouches réellement actives sur la vue affichée.
     if (p.kind === 'text') {
       var wv = null;
-      // même calcul qu'à la création : le témoin y est choisi APRÈS l'écriture
-      // du nouveau texte — on exclut donc p.after de la même façon
       try { wv = temoinTexte(c, p.after); } catch (e2) {}
       if (!wv || wv.txt !== p.when.txt) continue;
     }
@@ -1728,9 +1758,16 @@ function startEdit(n, x, y) {
   // personnage : chaque contenu a le sien).
   var cur = n.innerText != null ? n.innerText : n.textContent;
   var before = cur, chemin = pathOf(n);
+  // la SIGNATURE du texte affiché dit de quelle retouche il vient : on
+  // réédite celle-là. Un texte sans signature est la valeur naturelle de la
+  // page — même si une retouche d'une AUTRE fiche affiche la même chose
+  // (Otto renommé « Bill » face au vrai Bill), on ne s'y accroche pas.
+  var sig = null;
+  try { sig = signatureDe(n); } catch (eS) {}
   for (var i = 0; i < patches.length; i++) {
     var o = patches[i];
-    if (o.kind === 'text' && o.sel === chemin && o.after === cur) { before = o.before || ''; break; }
+    if (o.kind !== 'text' || o.sel !== chemin) continue;
+    if (sig && o.id === sig) { before = o.before || ''; break; }
   }
   n.dataset.pkOrig = before;
   n.setAttribute('contenteditable', 'true');
@@ -1800,7 +1837,7 @@ function startEdit(n, x, y) {
     addPatch(pNeu);
     // notre signature sur le nœud de texte (voir applyOne) : la remise à
     // l'original ne touche qu'aux textes que NOUS avons écrits
-    try { if (n.firstChild && !n.children.length) n.firstChild.pkDe = pNeu.id; } catch (eM) {}
+    try { if (n.firstChild && !n.children.length) { n.firstChild.pkDe = pNeu.id; n.firstChild.pkVal = pNeu.after; } } catch (eM) {}
     // un chemin AVANT ou APRÈS : même remplacé par un mot simple, le bouton
     // « Copier » voisin doit copier ce qui est affiché, pas sa valeur d'usine
     if (/[\\\/]/.test(after) || /[\\\/]/.test(before)) brancherCopie(n);
@@ -2628,7 +2665,7 @@ function applyOne(p, n) {
     // notre signature sur le NŒUD DE TEXTE : un repeint de la maquette le
     // remplace et l'efface — la remise à l'original ne touchera jamais à un
     // texte qu'elle n'a pas écrit (le vrai « Bill » n'est pas notre reste)
-    try { if (n.firstChild) n.firstChild.pkDe = p.id; } catch (eM) {}
+    try { if (n.firstChild) { n.firstChild.pkDe = p.id; n.firstChild.pkVal = p.after; } } catch (eM) {}
     if (/\n/.test(p.after)) n.style.whiteSpace = 'pre-line';
     if (/[\\\/]/.test(p.after) || /[\\\/]/.test(p.before || '')) brancherCopie(n);
   } else if (p.kind === 'img' && n.tagName === 'IMG') {
@@ -3224,7 +3261,7 @@ function exportFile() {
     "for(i=0;i<a.length&&l.length<8;i++)if(bt(a[i],w))l.push(a[i]);CT[w.txt]=l}" +
     "CT[w.txt].forEach(function(x){if(out.indexOf(x)<0)out.push(x)});return out}" +
     "function pk(k){if(!k)return null;try{return document.querySelector('[data-k=\"'+k.replace(/\"/g,'\\\\\"')+'\"]')}catch(e){return null}}" +
-    /* le témoin, recalculé côté pack : même règles que l'éditeur (titres qui
+    /* le témoin, recalculé côté pack : mêmes règles que l'éditeur (titres qui
        précèdent, préférence aux textes interpolés), pour la vérification
        inverse — le champ trouvé doit désigner ce nom comme SON témoin */
     "function td(x){var t='',i;for(i=0;i<x.childNodes.length;i++)" +
@@ -3283,6 +3320,8 @@ function exportFile() {
     /* innerText (le « avant » mémorisé) et textContent (la page brute)
        n'écrivent pas les blancs pareil : on compare le texte, pas ses espaces */
     "function mt(a,b){return (a||'').replace(/\\s+/g,' ').trim()===(b||'').replace(/\\s+/g,' ').trim()}" +
+    "function sgn(n){var f=n&&!n.children.length?n.firstChild:null;" +
+    "if(!f||!f.pkDe)return null;return mt(f.pkVal,n.textContent)?f.pkDe:null}" +
     "function copb(b,get){if(b.pkCop)return;b.pkCop=1;" +
     "b.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();" +
     "var t=get(),ok2=false;" +
@@ -3314,20 +3353,26 @@ function exportFile() {
     "l.setAttribute('data-pk-ico','1');(document.head||document.documentElement).appendChild(l)}" +
     "if(l.getAttribute('href')!==p.icon)l.setAttribute('href',p.icon)}catch(e){}}" +
     "function ap(){if(busy)return;busy=true;CT=null;tours++;var orph=[],R=[];" +
-    "P.forEach(function(p){if(p.kind==='head'){tete(p);return}var n=cible(p);" +
+    "P.forEach(function(p){if(p.kind==='head'){tete(p);return}" +
+    /* chemin rapide : si le champ n'affiche ni l'original ni notre résultat,
+       rien à faire — la résolution du témoin (coûteuse) est évitée */
+    "if(p.kind==='text'&&p.when){var nf=null;try{nf=document.querySelector(p.sel)}catch(eF){}" +
+    "if(nf&&!mt(nf.textContent,p.before)&&!(mt(nf.textContent,p.after)&&sgn(nf)===p.id))return}" +
+    "var n=cible(p);" +
     "if(!n){if(p.kind==='video'&&p.when)orph.push(p);" +
     "if(p.kind==='text'&&p.when){try{var rr=document.querySelector(p.sel);" +
     /* seul un texte portant NOTRE signature (posée à l'écriture, effacée par
        tout repeint de la page) peut être un reste à nous */
-    "if(rr&&mt(rr.textContent,p.after)&&!mt(p.after,p.before)&&" +
-    "rr.firstChild&&rr.firstChild.pkDe===p.id){" +
+    "if(rr&&mt(rr.textContent,p.after)&&!mt(p.after,p.before)&&sgn(rr)===p.id){" +
     /* même valeur chez deux personnages : si une autre retouche du même champ
        affiche légitimement ce texte, ce n'est pas le nôtre qui traîne */
     "var aq=false,qi,qq;for(qi=0;qi<P.length;qi++){qq=P[qi];" +
     "if(qq!==p&&qq.kind==='text'&&qq.sel===p.sel&&mt(qq.after,rr.textContent)&&cible(qq)){aq=true;break}}" +
     "if(!aq)rr.textContent=p.before||''}}catch(e){}}return}" +
-    "if(p.kind==='text'){if(mt(n.textContent,p.before)){n.textContent=p.after;" +
-    "try{if(n.firstChild)n.firstChild.pkDe=p.id}catch(eM){}" +
+    /* jamais par-dessus le résultat d'une autre retouche (voir la signature) */
+    "if(p.kind==='text'){var sg=null;try{sg=sgn(n)}catch(eG){}" +
+    "if(mt(n.textContent,p.before)&&(!sg||sg===p.id)){n.textContent=p.after;" +
+    "try{if(n.firstChild){n.firstChild.pkDe=p.id;n.firstChild.pkVal=p.after}}catch(eM){}" +
     "if(p.after.indexOf('\\n')>=0)n.style.whiteSpace='pre-line';" +
     "if(/[\\\\\\/]/.test(p.after)||/[\\\\\\/]/.test(p.before||''))cop(n)}}" +
     /* entrée d'une réserve d'images : on la retouche, puis on remplace le
@@ -3405,9 +3450,13 @@ function exportFile() {
     "ap();if(document.readyState!=='complete')window.addEventListener('load',ap);" +
     /* tout de suite, pas seulement après la pause : une maquette qui LIT le DOM
        au démarrage (réserve d'images) doit y trouver la version retouchée */
-    "var t=null,last=0;new MutationObserver(function(){var w=new Date().getTime();" +
+    "var t=null,last=0;new MutationObserver(function(muts){var im,mu;" +
+    "for(im=0;im<muts.length;im++){mu=muts[im];" +
+    "if(mu.type==='characterData'&&mu.target&&mu.target.pkDe){" +
+    "try{delete mu.target.pkDe;delete mu.target.pkVal}catch(eD){}}}" +
+    "var w=new Date().getTime();" +
     "if(w-last>30){last=w;ap()}clearTimeout(t);t=setTimeout(function(){last=new Date().getTime();ap()},60)})" +
-    ".observe(document,{childList:true,subtree:true,attributes:true," +
+    ".observe(document,{childList:true,subtree:true,attributes:true,characterData:true," +
     "attributeFilter:['src','style','class','alt','href']});" +
     "[120,400,1200,3000].forEach(function(d){setTimeout(ap,d)});" +
     /* Une fenêtre s'ouvre au clic : on repasse juste après. Et un filet lent,
