@@ -556,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08c';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08d';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -715,9 +715,15 @@ function watchDoc() {
     }
     if (applying || editing) return;
     // tout de suite : certaines maquettes LISENT le DOM au démarrage (réserve
-    // d'images) — attendre, c'est leur laisser lire l'ancienne version
+    // d'images) — attendre, c'est leur laisser lire l'ancienne version.
+    // Et une vague qui touche au TEXTE se rejoue SANS délai : les mutations
+    // arrivent avant le rendu — réappliquer ici, c'est empêcher le
+    // placeholder d'être peint (le petit flash au changement de personnage)
+    var texte = false;
+    for (var it = 0; it < muts.length; it++)
+      if (muts[it].type === 'characterData' || muts[it].type === 'childList') { texte = true; break; }
     var t = new Date().getTime();
-    if (t - dernier > 30) { dernier = t; applyAll(); }
+    if (texte || t - dernier > 30) { dernier = t; applyAll(); }
     clearTimeout(moTimer);
     moTimer = setTimeout(function () {
       if (!editing) { dernier = new Date().getTime(); applyAll(); }
@@ -3628,8 +3634,10 @@ function exportFile() {
     "for(im=0;im<muts.length;im++){mu=muts[im];" +
     "if(mu.type==='characterData'&&mu.target&&mu.target.pkDe){" +
     "try{delete mu.target.pkDe;delete mu.target.pkVal}catch(eD){}}}" +
+    "var tx2=false,it;for(it=0;it<muts.length;it++)" +
+    "if(muts[it].type==='characterData'||muts[it].type==='childList'){tx2=true;break}" +
     "var w=new Date().getTime();" +
-    "if(w-last>30){last=w;ap()}clearTimeout(t);t=setTimeout(function(){last=new Date().getTime();ap()},60)})" +
+    "if(tx2||w-last>30){last=w;ap()}clearTimeout(t);t=setTimeout(function(){last=new Date().getTime();ap()},60)})" +
     ".observe(document,{childList:true,subtree:true,attributes:true,characterData:true," +
     "attributeFilter:['src','style','class','alt','href']});" +
     "[120,400,1200,3000].forEach(function(d){setTimeout(ap,d)});" +
