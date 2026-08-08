@@ -555,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02y';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02z';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -748,6 +748,8 @@ function applyAll() {
   applying = true;
   ensureCss();
   cacheTemoin = null;
+  cacheTitres = null;
+  cacheK = null;
   tour++;
   var orphelins = [];
   patches.forEach(function (p) {
@@ -758,8 +760,16 @@ function applyAll() {
     if (p.kind === 'text' && p.when && !p.aReancrer) {
       var nf = null;
       try { nf = doc.querySelector(p.sel); } catch (eF) {}
-      if (nf && !memeTexte(nf.textContent, p.before) &&
-          !(memeTexte(nf.textContent, p.after) && signatureDe(nf) === p.id)) return;
+      if (nf && !memeTexte(nf.textContent, p.before)) {
+        if (memeTexte(nf.textContent, p.after) && signatureDe(nf) === p.id) {
+          // déjà posé par nous : reste-t-il légitime ? Une résolution SANS la
+          // vérification inverse suffit — on veut juste savoir si le témoin
+          // est encore à l'écran (sinon, remise à l'original plus bas)
+          var enc = null;
+          try { enc = cibleDe(p); } catch (eV) {}
+          if (enc) return;
+        } else return;
+      }
     }
     var n = cibleDe(p);
     if (!n) {
@@ -1104,31 +1114,32 @@ function temoinTexte(n, tOverride) {
     return cl.indexOf('interp') >= 0 || (c.parentElement &&
       (c.parentElement.className || '').toString().indexOf('interp') >= 0);
   };
-  var anc = n.parentElement, best = null, bestFs = 0, bestI = null, bestIFs = 0, prof = 0, vus = [];
+  // le plus haut ancêtre exploré (8 niveaux, sans le body) : la table des
+  // titres est filtrée dessus — mêmes règles qu'avant, en un seul passage
+  var haut = null, anc = n.parentElement, prof = 0;
   for (; anc && prof < 8; anc = anc.parentElement, prof++) {
     if (!anc.tagName || anc.tagName === 'BODY' || anc.tagName === 'HTML') break;
-    var cands = anc.querySelectorAll('h1,h2,h3,h4,h5,h6,span,div,p,strong,b,legend,figcaption');
-    for (var i = 0; i < cands.length; i++) {
-      var c = cands[i];
-      if (c === n || c.contains(n) || n.contains(c) || c.children.length) continue;
-      if (vus.indexOf(c) >= 0) continue;
-      vus.push(c);
-      var t = texteDe(c);
-      if (t.length < 2 || t.length > 60 || t === tCible) continue;
-      if (!(c.compareDocumentPosition(n) & 4)) continue;      // le témoin PRÉCÈDE
-      var st = vw.getComputedStyle(c);
-      if (st.display === 'none' || st.visibility === 'hidden') continue;
-      var fs = parseFloat(st.fontSize) || 14;
-      var gras = (parseInt(st.fontWeight, 10) || 400) >= 600 || /^H[1-6]$/.test(c.tagName);
-      if (!(fs >= fsC * 1.25 || /^H[1-6]$/.test(c.tagName) || (gras && fs >= fsC * 1.05))) continue;
-      if (interp(c)) {
-        if (fs > bestIFs || (fs === bestIFs && bestI && (bestI.compareDocumentPosition(c) & 4))) {
-          bestI = c; bestIFs = fs;
-        }
+    haut = anc;
+  }
+  if (!haut) return null;
+  construireIndex();
+  var best = null, bestFs = 0, bestI = null, bestIFs = 0;
+  for (var i = 0; i < cacheTitres.length; i++) {
+    var e = cacheTitres[i], c = e.n;
+    if (c === n || n.contains(c) || !haut.contains(c)) continue;
+    if (e.t === tCible) continue;
+    if (!(c.compareDocumentPosition(n) & 4)) continue;      // le témoin PRÉCÈDE
+    var inf = titreInfos(e);
+    if (inf.cache) continue;
+    var fs = inf.fs;
+    if (!(fs >= fsC * 1.25 || /^H[1-6]$/.test(c.tagName) || (inf.gras && fs >= fsC * 1.05))) continue;
+    if (interp(c)) {
+      if (fs > bestIFs || (fs === bestIFs && bestI && (bestI.compareDocumentPosition(c) & 4))) {
+        bestI = c; bestIFs = fs;
       }
-      if (fs > bestFs || (fs === bestFs && best && (best.compareDocumentPosition(c) & 4))) {
-        best = c; bestFs = fs;
-      }
+    }
+    if (fs > bestFs || (fs === bestFs && best && (best.compareDocumentPosition(c) & 4))) {
+      best = c; bestFs = fs;
     }
   }
   if (bestI) best = bestI;
@@ -1474,7 +1485,35 @@ function dansFenetre(n) {
     if (doc.defaultView.getComputedStyle(n).position === 'fixed') return true;
   return false;
 }
-var cacheTemoin = null;
+var cacheTemoin = null, cacheTitres = null;
+/* UN balayage par passe : l'index des porteurs (texte -> éléments) et la
+   table des titres candidats (feuilles courtes des balises de titre), avec
+   leurs styles lus une seule fois — trente témoins ne refont pas trente
+   tours de page, et le calcul complet d'un témoin devient un simple filtre */
+function construireIndex() {
+  if (cacheTemoin) return;
+  cacheTemoin = {};
+  cacheTitres = [];
+  var vw = doc.defaultView, all = doc.querySelectorAll('*');
+  for (var i = 0; i < all.length; i++) {
+    var el = all[i], t = texteDe(el);
+    if (!t || t.length > 60) continue;
+    var l = cacheTemoin[t] || (cacheTemoin[t] = []);
+    if (l.length < 8) l.push(el);
+    if (t.length < 2 || el.children.length) continue;
+    if (!/^(H[1-6]|SPAN|DIV|P|STRONG|B|LEGEND|FIGCAPTION)$/.test(el.tagName)) continue;
+    cacheTitres.push({ n: el, t: t, st: null });
+  }
+}
+function titreInfos(e) {
+  if (!e.st) {
+    var st = doc.defaultView.getComputedStyle(e.n);
+    e.st = { cache: st.display === 'none' || st.visibility === 'hidden',
+      fs: parseFloat(st.fontSize) || 14,
+      gras: (parseInt(st.fontWeight, 10) || 400) >= 600 || /^H[1-6]$/.test(e.n.tagName) };
+  }
+  return e.st;
+}
 function bonTemoin(n, w) {
   return !!n && texteDe(n) === w.txt && (!w.fx || dansFenetre(n));
 }
@@ -1486,14 +1525,12 @@ function candidatsTemoin(w) {
     var n = doc.querySelector(w.sel);
     if (bonTemoin(n, w)) out.push(n);
   } catch (e) {}
-  if (!cacheTemoin) cacheTemoin = {};
-  if (cacheTemoin[w.txt] === undefined) {
-    var l = [], all = doc.querySelectorAll('*');
-    for (var i = 0; i < all.length && l.length < 8; i++)
-      if (bonTemoin(all[i], w)) l.push(all[i]);
-    cacheTemoin[w.txt] = l;
-  }
-  cacheTemoin[w.txt].forEach(function (x) { if (out.indexOf(x) < 0) out.push(x); });
+  // l'index de TOUS les textes courts, construit en UN balayage par passe —
+  // trente témoins distincts ne refont pas trente tours de page
+  construireIndex();
+  (cacheTemoin[w.txt] || []).forEach(function (x) {
+    if (out.indexOf(x) < 0 && (!w.fx || dansFenetre(x))) out.push(x);
+  });
   return out;
 }
 function trouveTemoin(w) {
@@ -1503,11 +1540,23 @@ function trouveTemoin(w) {
 /* Une maquette qui évolue décale les positions : un personnage ajouté, et le
    « troisième img » n'est plus le même. On retrouve donc l'entrée par SON
    CHEMIN, qui ne bouge pas ; la position ne sert que de repli. */
+var cacheK = null;
 function parChemin(k) {
   if (!k) return null;
-  try { return doc.querySelector('[data-k="' + k.replace(/"/g, '\\"') + '"]'); } catch (e) { return null; }
+  // l'index des data-k, construit une fois par passe : 150 visuels de
+  // réserve ne refont pas 150 balayages complets de la page
+  if (cacheK) return cacheK[k] || null;
+  try {
+    cacheK = {};
+    var l = doc.querySelectorAll('[data-k]');
+    for (var i = 0; i < l.length; i++) {
+      var kk = l[i].getAttribute('data-k');
+      if (cacheK[kk] === undefined) cacheK[kk] = l[i];
+    }
+    return cacheK[k] || null;
+  } catch (e) { return null; }
 }
-function cibleDe(p) {
+function cibleDe(p, vite) {
   if (p.k) { var d = parChemin(p.k); if (d) return d; }
   if (!p.when) { try { return doc.querySelector(p.sel); } catch (e) { return null; } }
   // chaque porteur du texte témoin est essayé : c'est le chemin relatif
@@ -1524,7 +1573,7 @@ function cibleDe(p) {
     // témoin y est choisi APRÈS l'écriture, d'où l'exclusion de p.after).
     // Coûteuse, mais le chemin rapide d'applyAll ne l'appelle que pour les
     // retouches réellement actives sur la vue affichée.
-    if (p.kind === 'text') {
+    if (p.kind === 'text' && !vite) {
       var wv = null;
       try { wv = temoinTexte(c, p.after); } catch (e2) {}
       if (!wv || wv.txt !== p.when.txt) continue;
@@ -2682,7 +2731,16 @@ function applyOne(p, n) {
     } else if (n.getAttribute('src') === p.after && n.pkOrig) {
       n.setAttribute('src', n.pkOrig);
     }
-    if (bon) cadrer(n, p);
+    if (bon && (p.fit || p.cadre)) {
+      // ne recadre que si le réglage a changé — ou si la maquette a essuyé
+      // les styles en repeignant : relire le layout 150 fois par passe coûte
+      var fsg = (p.fit ? p.fit.x + '/' + p.fit.y + '/' + p.fit.z + '/' + (p.fit.c ? 1 : 0) : '') +
+        '|' + (p.cadre || '');
+      if (n.pkFit !== fsg || !(n.style.objectFit || n.style.backgroundSize)) {
+        cadrer(n, p);
+        n.pkFit = fsg;
+      }
+    }
   } else if (p.kind === 'bg') {
     n.style.backgroundImage = 'url("' + p.after + '")';
     n.style.backgroundRepeat = 'no-repeat';
@@ -3256,11 +3314,33 @@ function exportFile() {
     "function df(n){for(var i=0;n&&i<8;i++,n=n.parentElement)" +
     "if(getComputedStyle(n).position==='fixed')return true;return false}" +
     "function bt(n,w){return !!n&&tx(n)===w.txt&&(!w.fx||df(n))}" +
+    "var CTT=null;" +
+    "function bIdx(){if(CT)return;CT={};CTT=[];" +
+    "var a=document.querySelectorAll('*'),i,t,l,el;" +
+    "for(i=0;i<a.length;i++){el=a[i];t=tx(el);if(!t||t.length>60)continue;" +
+    "l=CT[t]||(CT[t]=[]);if(l.length<8)l.push(el);" +
+    "if(t.length<2||el.children.length)continue;" +
+    "if(!/^(H[1-6]|SPAN|DIV|P|STRONG|B|LEGEND|FIGCAPTION)$/.test(el.tagName))continue;" +
+    "CTT.push({n:el,t:t,st:null})}}" +
+    "function tInf(e){if(!e.st){var st=getComputedStyle(e.n);" +
+    "e.st={cache:st.display==='none'||st.visibility==='hidden'," +
+    "fs:parseFloat(st.fontSize)||14," +
+    "gras:(parseInt(st.fontWeight,10)||400)>=600||/^H[1-6]$/.test(e.n.tagName)}}return e.st}" +
     "function tem(w){var out=[];try{var n=document.querySelector(w.sel);if(bt(n,w))out.push(n)}catch(e){}" +
-    "if(!CT)CT={};if(CT[w.txt]===undefined){var l=[],a=document.querySelectorAll('*'),i;" +
-    "for(i=0;i<a.length&&l.length<8;i++)if(bt(a[i],w))l.push(a[i]);CT[w.txt]=l}" +
-    "CT[w.txt].forEach(function(x){if(out.indexOf(x)<0)out.push(x)});return out}" +
-    "function pk(k){if(!k)return null;try{return document.querySelector('[data-k=\"'+k.replace(/\"/g,'\\\\\"')+'\"]')}catch(e){return null}}" +
+    "bIdx();(CT[w.txt]||[]).forEach(function(x){if(out.indexOf(x)<0&&(!w.fx||df(x)))out.push(x)});return out}" +
+    "var KC=null,IXm=null;" +
+    "function pk(k){if(!k)return null;" +
+    "if(!KC){KC={};try{var lk=document.querySelectorAll('[data-k]'),ik;" +
+    "for(ik=0;ik<lk.length;ik++){var kk=lk[ik].getAttribute('data-k');" +
+    "if(KC[kk]===undefined)KC[kk]=lk[ik]}}catch(e){}}return KC[k]||null}" +
+    "function IX(sr){if(sr==null)return[];" +
+    "if(!IXm){IXm={};var li=document.images,ii;for(ii=0;ii<li.length;ii++){" +
+    "var ss=li[ii].getAttribute('src');(IXm[ss]||(IXm[ss]=[])).push(li[ii])}}" +
+    "return IXm[sr]||[]}" +
+    "function cadG(n,p){if(!p.fit&&!p.cadre)return;var f=p.fit||{};" +
+    "var sg=(f.x||0)+'/'+(f.y||0)+'/'+(f.z||0)+'/'+(f.c?1:0)+'|'+(p.cadre||'');" +
+    "if(n.pkFit===sg&&(n.style.objectFit||n.style.backgroundSize))return;" +
+    "cad(n,p);n.pkFit=sg}" +
     /* le témoin, recalculé côté pack : mêmes règles que l'éditeur (titres qui
        précèdent, préférence aux textes interpolés), pour la vérification
        inverse — le champ trouvé doit désigner ce nom comme SON témoin */
@@ -3271,29 +3351,27 @@ function exportFile() {
     "var fsC=parseFloat(getComputedStyle(n).fontSize)||14;" +
     "var ip=function(c){var cl=(c.className||'').toString();return cl.indexOf('interp')>=0||" +
     "(c.parentElement&&(c.parentElement.className||'').toString().indexOf('interp')>=0)};" +
-    "var anc=n.parentElement,best=null,bF=0,bI=null,bIF=0,prof=0,vus=[];" +
+    "var haut=null,anc=n.parentElement,prof=0;" +
     "for(;anc&&prof<8;anc=anc.parentElement,prof++){" +
-    "if(!anc.tagName||anc.tagName==='BODY'||anc.tagName==='HTML')break;" +
-    "var l=anc.querySelectorAll('h1,h2,h3,h4,h5,h6,span,div,p,strong,b,legend,figcaption'),i2,c;" +
-    "for(i2=0;i2<l.length;i2++){c=l[i2];" +
-    "if(c===n||c.contains(n)||n.contains(c)||c.children.length)continue;" +
-    "if(vus.indexOf(c)>=0)continue;vus.push(c);" +
-    "var t=td(c);if(t.length<2||t.length>60||t===tC)continue;" +
+    "if(!anc.tagName||anc.tagName==='BODY'||anc.tagName==='HTML')break;haut=anc}" +
+    "if(!haut)return null;bIdx();" +
+    "var best=null,bF=0,bI=null,bIF=0,i2,e,c;" +
+    "for(i2=0;i2<CTT.length;i2++){e=CTT[i2];c=e.n;" +
+    "if(c===n||n.contains(c)||!haut.contains(c))continue;" +
+    "if(e.t===tC)continue;" +
     "if(!(c.compareDocumentPosition(n)&4))continue;" +
-    "var st=getComputedStyle(c);if(st.display==='none'||st.visibility==='hidden')continue;" +
-    "var fs=parseFloat(st.fontSize)||14;" +
-    "var gras=(parseInt(st.fontWeight,10)||400)>=600||/^H[1-6]$/.test(c.tagName);" +
-    "if(!(fs>=fsC*1.25||/^H[1-6]$/.test(c.tagName)||(gras&&fs>=fsC*1.05)))continue;" +
+    "var inf=tInf(e);if(inf.cache)continue;var fs=inf.fs;" +
+    "if(!(fs>=fsC*1.25||/^H[1-6]$/.test(c.tagName)||(inf.gras&&fs>=fsC*1.05)))continue;" +
     "if(ip(c)){if(fs>bIF||(fs===bIF&&bI&&(bI.compareDocumentPosition(c)&4))){bI=c;bIF=fs}}" +
-    "if(fs>bF||(fs===bF&&best&&(best.compareDocumentPosition(c)&4))){best=c;bF=fs}}}" +
+    "if(fs>bF||(fs===bF&&best&&(best.compareDocumentPosition(c)&4))){best=c;bF=fs}}" +
     "if(bI)best=bI;return best?td(best):null}" +
-    "function cible(p){if(p.k){var d=pk(p.k);if(d)return d}" +
+    "function cible(p,vite){if(p.k){var d=pk(p.k);if(d)return d}" +
     "if(!p.when){try{return document.querySelector(p.sel)}catch(e){return null}}" +
     "var cs=tem(p.when),ci,i;for(ci=0;ci<cs.length;ci++){var a=cs[ci];" +
     "for(i=0;i<(p.when.up||0)&&a.parentElement;i++)a=a.parentElement;" +
     "var c=a;if(p.when.down){try{c=a.querySelector(':scope>'+p.when.down)}catch(e){c=null}}" +
     "if(!c||(p.when.tag&&c.tagName!==p.when.tag))continue;" +
-    "if(p.kind==='text'){var wv=null;try{wv=tw(c,p.after)}catch(e2){wv=null}" +
+    "if(p.kind==='text'&&!vite){var wv=null;try{wv=tw(c,p.after)}catch(e2){wv=null}" +
     "if(!wv||wv!==p.when.txt)continue}" +
     "return c}return null}" +
     /* le cadrage choisi dans l'éditeur : position en % de ce qui dépasse, zoom
@@ -3352,12 +3430,14 @@ function exportFile() {
     "function(x){x.remove()});l=document.createElement('link');l.setAttribute('rel','icon');" +
     "l.setAttribute('data-pk-ico','1');(document.head||document.documentElement).appendChild(l)}" +
     "if(l.getAttribute('href')!==p.icon)l.setAttribute('href',p.icon)}catch(e){}}" +
-    "function ap(){if(busy)return;busy=true;CT=null;tours++;var orph=[],R=[];" +
+    "function ap(){if(busy)return;busy=true;CT=null;CTT=null;KC=null;IXm=null;tours++;var orph=[],R=[];" +
     "P.forEach(function(p){if(p.kind==='head'){tete(p);return}" +
     /* chemin rapide : si le champ n'affiche ni l'original ni notre résultat,
        rien à faire — la résolution du témoin (coûteuse) est évitée */
     "if(p.kind==='text'&&p.when){var nf=null;try{nf=document.querySelector(p.sel)}catch(eF){}" +
-    "if(nf&&!mt(nf.textContent,p.before)&&!(mt(nf.textContent,p.after)&&sgn(nf)===p.id))return}" +
+    "if(nf&&!mt(nf.textContent,p.before)){" +
+    "if(mt(nf.textContent,p.after)&&sgn(nf)===p.id){var enc=null;" +
+    "try{enc=cible(p)}catch(eV){}if(enc)return}else return}}" +
     "var n=cible(p);" +
     "if(!n){if(p.kind==='video'&&p.when)orph.push(p);" +
     "if(p.kind==='text'&&p.when){try{var rr=document.querySelector(p.sel);" +
@@ -3389,18 +3469,18 @@ function exportFile() {
     "if(au(m))return;m.setAttribute('src',p.after);m.controls=true;m.load()});" +
     "[].forEach.call(document.querySelectorAll('[style*=\"'+p.old+'\"]'),function(m){" +
     "m.setAttribute('style',m.getAttribute('style').split(p.old).join(p.after))});" +
-    "if(p.fit)[].forEach.call(document.querySelectorAll('img[src=\"'+p.old+'\"]'),function(m){" +
-    "if(!au(m)&&m!==n&&!df(m))cad(m,p)})}" +
-    "if(p.fit)[].forEach.call(document.querySelectorAll('img'),function(m){" +
-    "if(m.getAttribute('src')===p.after&&!m.hasAttribute('data-k')&&!m.closest('#rg-assetmap')&&!df(m))cad(m,p)})}" +
+    "if(p.fit){var l1=IX(p.old),i3,m1;for(i3=0;i3<l1.length;i3++){m1=l1[i3];" +
+    "if(!au(m1)&&m1!==n&&!df(m1))cadG(m1,p)}}}" +
+    "if(p.fit){var l2=IX(p.after),i4,m2;for(i4=0;i4<l2.length;i4++){m2=l2[i4];" +
+    "if(!m2.hasAttribute('data-k')&&!m2.closest('#rg-assetmap')&&!df(m2))cadG(m2,p)}}}" +
     "else if(p.kind==='img'&&n.tagName==='IMG'){" +
     "var bon=!p.alt||(n.getAttribute('alt')||'').trim()===p.alt;" +
     "if(bon){if(n.getAttribute('src')!==p.after){if(!n.pkOrig)n.pkOrig=n.getAttribute('src');" +
-    "n.removeAttribute('srcset');n.setAttribute('src',p.after)}cad(n,p)}" +
+    "n.removeAttribute('srcset');n.setAttribute('src',p.after)}cadG(n,p)}" +
     "else if(n.getAttribute('src')===p.after&&n.pkOrig){n.setAttribute('src',n.pkOrig)}}" +
     "else if(p.kind==='bg'){var u='url(\"'+p.after+'\")';if(n.style.backgroundImage!==u){" +
     "n.style.backgroundImage=u;n.style.backgroundSize='cover';n.style.backgroundPosition='center';" +
-    "n.style.backgroundRepeat='no-repeat'}cad(n,p);" +
+    "n.style.backgroundRepeat='no-repeat'}cadG(n,p);" +
     "if(p.hide&&!n.hasAttribute('data-pk-hide'))n.setAttribute('data-pk-hide','1')}" +
     "else if(p.kind==='vsrc'&&n.tagName==='VIDEO'){if(n.getAttribute('src')!==p.after){" +
     "[].slice.call(n.querySelectorAll('source')).forEach(function(s){s.remove()});" +
