@@ -555,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02u';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02v';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -757,8 +757,16 @@ function applyAll() {
         }
         var r = null;
         try { r = doc.querySelector(p.sel); } catch (e) {}
-        if (r && memeTexte(r.textContent, p.after) && !memeTexte(p.after, p.before))
-          r.textContent = p.before || '';
+        if (r && memeTexte(r.textContent, p.after) && !memeTexte(p.after, p.before)) {
+          // même charalead « Lucas » chez deux personnages : si une AUTRE
+          // retouche du même champ affiche légitimement ce texte en ce
+          // moment, ce n'est pas le nôtre qui traîne — on ne touche à rien
+          var aLui = patches.some(function (q) {
+            return q !== p && q.kind === 'text' && q.sel === p.sel &&
+              memeTexte(q.after, r.textContent) && cibleDe(q);
+          });
+          if (!aLui) r.textContent = p.before || '';
+        }
       }
       return;
     }
@@ -3236,8 +3244,12 @@ function exportFile() {
     "P.forEach(function(p){if(p.kind==='head'){tete(p);return}var n=cible(p);" +
     "if(!n){if(p.kind==='video'&&p.when)orph.push(p);" +
     "if(p.kind==='text'&&p.when){try{var rr=document.querySelector(p.sel);" +
-    "if(rr&&mt(rr.textContent,p.after)&&!mt(p.after,p.before))" +
-    "rr.textContent=p.before||''}catch(e){}}return}" +
+    "if(rr&&mt(rr.textContent,p.after)&&!mt(p.after,p.before)){" +
+    /* même valeur chez deux personnages : si une autre retouche du même champ
+       affiche légitimement ce texte, ce n'est pas le nôtre qui traîne */
+    "var aq=false,qi,qq;for(qi=0;qi<P.length;qi++){qq=P[qi];" +
+    "if(qq!==p&&qq.kind==='text'&&qq.sel===p.sel&&mt(qq.after,rr.textContent)&&cible(qq)){aq=true;break}}" +
+    "if(!aq)rr.textContent=p.before||''}}catch(e){}}return}" +
     "if(p.kind==='text'){if(mt(n.textContent,p.before)){n.textContent=p.after;" +
     "if(p.after.indexOf('\\n')>=0)n.style.whiteSpace='pre-line';" +
     "if(/[\\\\\\/]/.test(p.after)||/[\\\\\\/]/.test(p.before||''))cop(n)}}" +
