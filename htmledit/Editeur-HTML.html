@@ -556,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08b';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08c';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1224,7 +1224,14 @@ function onClick(e) {
     e.preventDefault(); e.stopPropagation();
     tip('');
     if (pile.length > 1) choisirImage(pile, hit && hit.kind === 'zone' ? hit.el : null);
-    else if (pile.length === 1) pickImageFor(pile[0].el, pile[0].kind === 'img');
+    else if (pile.length === 1) {
+      // cliquer une image DÉJÀ remplacée sert à la repositionner, pas à
+      // rouvrir l'explorateur — le panneau de droite, lui, remplace toujours
+      var dejaI = pile[0].kind === 'img' && !fichierEnAttente ?
+        retoucheImageDe(pile[0].el) : null;
+      if (dejaI) ouvrirRecadrage(dejaI);
+      else pickImageFor(pile[0].el, pile[0].kind === 'img');
+    }
     else if (hit.kind === 'zone') askForZone(hit.el);
     else pickImageFor(hit.el, hit.kind === 'img');
   } else if (mode === 'vid') {
@@ -1960,14 +1967,7 @@ function retoucheImageDe(el) {
   }
   return null;
 }
-function pickImageFor(el, isImg, hide, forcer) {
-  // cliquer une image DÉJÀ remplacée sert à la repositionner, pas à rouvrir
-  // l'explorateur : le recadrage s'ouvre — « Remplacer… » y est un bouton,
-  // et le glisser-déposer remplace toujours directement
-  if (!forcer && !fichierEnAttente && isImg) {
-    var deja = retoucheImageDe(el);
-    if (deja) { ouvrirRecadrage(deja); return; }
-  }
+function pickImageFor(el, isImg, hide) {
   imgTarget = el; imgIsImg = isImg; imgHide = !!hide;
   if (fichierEnAttente) {
     var f = fichierEnAttente;
@@ -2994,7 +2994,7 @@ $('cropRemp').addEventListener('click', function () {
   if (!recadre) return;
   var n = recadre.n, estImg = n.tagName === 'IMG';
   fermerRecadrage();
-  pickImageFor(n, estImg, false, true);
+  pickImageFor(n, estImg);
 });
 $('cropTout').addEventListener('click', function () {
   if (!recadre) return;
