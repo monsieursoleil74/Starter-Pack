@@ -556,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08e';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08f';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1204,7 +1204,7 @@ function onClick(e) {
     // collé multiligne) : on rouvre le bloc ENTIER, pas un de ses morceaux
     var n = t, deja = t;
     for (var d = 0; deja && d < 6; d++, deja = deja.parentElement)
-      if (deja.dataset && deja.dataset.pkOrig != null) { n = deja; break; }
+      if (deja.dataset && deja.dataset.pkOrig != null && champsEnBloc(deja) < 2) { n = deja; break; }
     if (!(n.dataset && n.dataset.pkOrig != null)) {
       // le clic tombe sur l'ENROBAGE (le fond d'une pastille, la marge d'un
       // encadré) : on vise le texte le plus proche du point cliqué, pas le
@@ -3292,7 +3292,6 @@ function addPatch(p) {
   });
   patches.push(p);
   renderList();
-  toast('Retouche enregistrée — pense à exporter');
 }
 function removePatch(i) {
   patches.splice(i, 1);
