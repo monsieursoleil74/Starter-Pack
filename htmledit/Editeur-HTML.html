@@ -555,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02t';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02u';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -3359,6 +3359,14 @@ function exportFile() {
    enregistrés ne mènent plus au bon endroit. Avant de juger une retouche
    irrécupérable, on la ré-ancre : un texte est retrouvé par son contenu
    d'origine, une image par sa description (alt). */
+/* combien de maillons du chemin coïncident, en partant de la FIN — la fin
+   décrit la structure locale (bouton d'onglet, titre de fiche…) */
+function ressemblance(a, b) {
+  var sa = a.split('>'), sb = b.split('>'), n = 0;
+  while (n < sa.length && n < sb.length &&
+         sa[sa.length - 1 - n] === sb[sb.length - 1 - n]) n++;
+  return n;
+}
 function reancrer(p) {
   if (p.k || p.kind === 'head') return;              // la réserve suit data-k : stable
   var la = null;
@@ -3395,6 +3403,18 @@ function reancrer(p) {
         if (w && w.txt === p.when.txt) { n2 = cands[j]; wOk = w; break; }
       }
     } else if (cands.length === 1) n2 = cands[0];
+    else if (cands.length > 1) {
+      // le même texte à plusieurs endroits (le nom dans l'onglet ET sur la
+      // fiche) : on prend le porteur dont le chemin FINIT comme l'ancien —
+      // la structure locale (bouton d'onglet vs titre de fiche) départage
+      var meilleur = null, score = 0, exaequo = false;
+      for (var q = 0; q < cands.length; q++) {
+        var sq = ressemblance(pathOf(cands[q]), p.sel);
+        if (sq > score) { score = sq; meilleur = cands[q]; exaequo = false; }
+        else if (sq === score) exaequo = true;
+      }
+      if (meilleur && score && !exaequo) n2 = meilleur;
+    }
     if (!n2) return;
     p.sel = pathOf(n2);
     if (wOk) p.when = wOk;                           // témoin recalculé ici
