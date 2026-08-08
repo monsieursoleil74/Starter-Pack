@@ -555,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02v';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-02w';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1051,9 +1051,10 @@ function onDrop(e) {
    pour chaque personnage. Le texte d'origine ne distingue alors plus rien.
    On s'accroche au TITRE le plus proche au-dessus (le nom du personnage, en
    gros caractères) : la retouche ne vaut que quand ce témoin est affiché. */
-function temoinTexte(n) {
+function temoinTexte(n, tOverride) {
   var vw = doc.defaultView;
-  var tCible = texteDe(n) || (n.textContent || '').trim().replace(/\s+/g, ' ');
+  var tCible = tOverride != null ? tOverride.trim().replace(/\s+/g, ' ')
+    : (texteDe(n) || (n.textContent || '').trim().replace(/\s+/g, ' '));
   var fsC = parseFloat(vw.getComputedStyle(n).fontSize) || 14;
   // Parmi tout ce qui précède dans le bloc, on veut LE titre — le texte le
   // plus gros (le nom du personnage), pas le petit libellé collé au champ
@@ -1134,8 +1135,20 @@ function onClick(e) {
     var n = t, deja = t;
     for (var d = 0; deja && d < 6; d++, deja = deja.parentElement)
       if (deja.dataset && deja.dataset.pkOrig != null) { n = deja; break; }
-    if (!(n.dataset && n.dataset.pkOrig != null))
+    if (!(n.dataset && n.dataset.pkOrig != null)) {
+      // le clic tombe sur l'ENROBAGE (le fond d'une pastille, la marge d'un
+      // encadré) : on vise le texte le plus proche du point cliqué, pas le
+      // conteneur entier — sinon l'étiquette « RÉF. CHARALEAD » se fait
+      // avaler avec la valeur qu'elle accompagne
+      if (n.children && n.children.length) {
+        var rp = null;
+        try { rp = doc.caretRangeFromPoint(e.clientX, e.clientY); } catch (x2) {}
+        var tn = rp && rp.startContainer;
+        if (tn && tn.nodeType === 3 && n.contains(tn) && tn.parentElement !== n &&
+            textish(tn.parentElement)) n = tn.parentElement;
+      }
       while (n && !textish(n)) n = n.parentElement;
+    }
     if (!n) {
       // le clic qui VALIDE une édition (à côté du texte) ne doit pas
       // déclencher la maquette — ouvrir la vidéo d'une carte tutoriel, par ex.
@@ -1463,7 +1476,19 @@ function cibleDe(p) {
     for (var i = 0; i < (p.when.up || 0) && a.parentElement; i++) a = a.parentElement;
     var c = a;
     if (p.when.down) { try { c = a.querySelector(':scope>' + p.when.down); } catch (e) { c = null; } }
-    if (c && (!p.when.tag || c.tagName === p.when.tag)) return c;
+    if (!c || (p.when.tag && c.tagName !== p.when.tag)) continue;
+    // vérification INVERSE pour un texte : le champ trouvé doit lui-même
+    // désigner ce nom comme SON témoin (même calcul qu'à la création) —
+    // sinon on est descendu depuis un mauvais porteur (l'onglet, toujours
+    // visible) jusqu'à la fiche d'un AUTRE personnage
+    if (p.kind === 'text') {
+      var wv = null;
+      // même calcul qu'à la création : le témoin y est choisi APRÈS l'écriture
+      // du nouveau texte — on exclut donc p.after de la même façon
+      try { wv = temoinTexte(c, p.after); } catch (e2) {}
+      if (!wv || wv.txt !== p.when.txt) continue;
+    }
+    return c;
   }
   return null;
 }
@@ -3180,12 +3205,41 @@ function exportFile() {
     "for(i=0;i<a.length&&l.length<8;i++)if(bt(a[i],w))l.push(a[i]);CT[w.txt]=l}" +
     "CT[w.txt].forEach(function(x){if(out.indexOf(x)<0)out.push(x)});return out}" +
     "function pk(k){if(!k)return null;try{return document.querySelector('[data-k=\"'+k.replace(/\"/g,'\\\\\"')+'\"]')}catch(e){return null}}" +
+    /* le témoin, recalculé côté pack : même règles que l'éditeur (titres qui
+       précèdent, préférence aux textes interpolés), pour la vérification
+       inverse — le champ trouvé doit désigner ce nom comme SON témoin */
+    "function td(x){var t='',i;for(i=0;i<x.childNodes.length;i++)" +
+    "if(x.childNodes[i].nodeType===3)t+=x.childNodes[i].nodeValue;" +
+    "return t.trim().replace(/\\s+/g,' ')}" +
+    "function tw(n,tO){var tC=(tO!=null?tO:(td(n)||n.textContent||'')).trim().replace(/\\s+/g,' ');" +
+    "var fsC=parseFloat(getComputedStyle(n).fontSize)||14;" +
+    "var ip=function(c){var cl=(c.className||'').toString();return cl.indexOf('interp')>=0||" +
+    "(c.parentElement&&(c.parentElement.className||'').toString().indexOf('interp')>=0)};" +
+    "var anc=n.parentElement,best=null,bF=0,bI=null,bIF=0,prof=0,vus=[];" +
+    "for(;anc&&prof<8;anc=anc.parentElement,prof++){" +
+    "if(!anc.tagName||anc.tagName==='BODY'||anc.tagName==='HTML')break;" +
+    "var l=anc.querySelectorAll('h1,h2,h3,h4,h5,h6,span,div,p,strong,b,legend,figcaption'),i2,c;" +
+    "for(i2=0;i2<l.length;i2++){c=l[i2];" +
+    "if(c===n||c.contains(n)||n.contains(c)||c.children.length)continue;" +
+    "if(vus.indexOf(c)>=0)continue;vus.push(c);" +
+    "var t=td(c);if(t.length<2||t.length>60||t===tC)continue;" +
+    "if(!(c.compareDocumentPosition(n)&4))continue;" +
+    "var st=getComputedStyle(c);if(st.display==='none'||st.visibility==='hidden')continue;" +
+    "var fs=parseFloat(st.fontSize)||14;" +
+    "var gras=(parseInt(st.fontWeight,10)||400)>=600||/^H[1-6]$/.test(c.tagName);" +
+    "if(!(fs>=fsC*1.25||/^H[1-6]$/.test(c.tagName)||(gras&&fs>=fsC*1.05)))continue;" +
+    "if(ip(c)){if(fs>bIF||(fs===bIF&&bI&&(bI.compareDocumentPosition(c)&4))){bI=c;bIF=fs}}" +
+    "if(fs>bF||(fs===bF&&best&&(best.compareDocumentPosition(c)&4))){best=c;bF=fs}}}" +
+    "if(bI)best=bI;return best?td(best):null}" +
     "function cible(p){if(p.k){var d=pk(p.k);if(d)return d}" +
     "if(!p.when){try{return document.querySelector(p.sel)}catch(e){return null}}" +
     "var cs=tem(p.when),ci,i;for(ci=0;ci<cs.length;ci++){var a=cs[ci];" +
     "for(i=0;i<(p.when.up||0)&&a.parentElement;i++)a=a.parentElement;" +
     "var c=a;if(p.when.down){try{c=a.querySelector(':scope>'+p.when.down)}catch(e){c=null}}" +
-    "if(c&&(!p.when.tag||c.tagName===p.when.tag))return c}return null}" +
+    "if(!c||(p.when.tag&&c.tagName!==p.when.tag))continue;" +
+    "if(p.kind==='text'){var wv=null;try{wv=tw(c,p.after)}catch(e2){wv=null}" +
+    "if(!wv||wv!==p.when.txt)continue}" +
+    "return c}return null}" +
     /* le cadrage choisi dans l'éditeur : position en % de ce qui dépasse, zoom
        en % du cadre — jamais de pixels, pour survivre à un changement de taille */
     "function cad(n,p){if(!p.fit&&!p.cadre)return;var f=p.fit||{},x=f.x==null?50:f.x," +
