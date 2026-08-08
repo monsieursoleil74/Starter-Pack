@@ -11,6 +11,8 @@ on:
       - claude/git-github-publish-5u5ayq   # branche par défaut du dépôt
     paths:
       - 'htmledit/Editeur-HTML.html'
+      - 'htmledit/POUR-CLAUDE-DESIGN.md'
+      - 'htmledit/README.md'
       - '.github/workflows/publier-outil.yml'
   workflow_dispatch:
 
@@ -46,9 +48,9 @@ jobs:
           Version publiée depuis le commit ${{ github.sha }}."
           if gh release view outil >/dev/null 2>&1; then
             gh release edit outil --title "L'éditeur — dernière version" --notes "$NOTES" --latest
-            gh release upload outil htmledit/Editeur-HTML.html --clobber
+            gh release upload outil htmledit/Editeur-HTML.html htmledit/POUR-CLAUDE-DESIGN.md htmledit/README.md --clobber
           else
-            gh release create outil htmledit/Editeur-HTML.html \
+            gh release create outil htmledit/Editeur-HTML.html htmledit/POUR-CLAUDE-DESIGN.md htmledit/README.md \
               --title "L'éditeur — dernière version" \
               --notes "$NOTES" --latest
           fi
