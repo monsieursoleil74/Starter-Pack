@@ -556,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08d';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08e';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -922,6 +922,19 @@ function queDeLaMiseEnForme(n, quota) {
   }
   return true;
 }
+/* combien d'enfants directs sont des CHAMPS posés en bloc (du texte, affiché
+   en bloc) — deux champs ou plus = une zone de fiche, pas un paragraphe */
+function champsEnBloc(n) {
+  var c = 0, vw = doc.defaultView;
+  for (var i = 0; i < n.children.length; i++) {
+    var e = n.children[i];
+    if (!e.textContent || !e.textContent.trim()) continue;
+    var d = '';
+    try { d = vw.getComputedStyle(e).display; } catch (x) {}
+    if (d.indexOf('inline') !== 0) c++;
+  }
+  return c;
+}
 function textish(n) {
   if (!n || n.nodeType !== 1) return false;
   if (/^(HTML|BODY|SCRIPT|STYLE|IMG|SVG|VIDEO|IFRAME|CANVAS)$/.test(n.tagName)) return false;
@@ -929,6 +942,9 @@ function textish(n) {
   if (!n.children.length) return true;
   // un vrai paragraphe, pas une section entière faite de spans
   if (n.textContent.length > 800) return false;
+  // une zone à PLUSIEURS champs (étiquette + valeur…) ne s'édite jamais d'un
+  // bloc : l'aplatir puis laisser la maquette repeindre efface tout le monde
+  if (champsEnBloc(n) >= 2) return false;
   return queDeLaMiseEnForme(n, { n: 15 });
 }
 function bgOf(n) {
