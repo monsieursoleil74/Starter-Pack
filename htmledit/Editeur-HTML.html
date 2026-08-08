@@ -555,7 +555,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-02z';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08a';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -749,6 +749,7 @@ function applyAll() {
   ensureCss();
   cacheTemoin = null;
   cacheTitres = null;
+  cacheChasse = null;
   cacheK = null;
   tour++;
   var orphelins = [];
@@ -1485,7 +1486,41 @@ function dansFenetre(n) {
     if (doc.defaultView.getComputedStyle(n).position === 'fixed') return true;
   return false;
 }
-var cacheTemoin = null, cacheTitres = null;
+var cacheTemoin = null, cacheTitres = null, cacheChasse = null;
+/* les retouches EN ATTENTE de recalage cherchent leur texte d'origine dans la
+   page : un seul balayage pour toutes, au lieu d'un tour de page chacune */
+function chasseCandidats(avant) {
+  var cle = (avant || '').replace(/\s+/g, ' ').trim();
+  if (!cle) return [];
+  if (!cacheChasse) {
+    cacheChasse = { __buts: {} };
+    for (var ip = 0; ip < patches.length; ip++) {
+      var q = patches[ip];
+      if (q.kind === 'text' && q.aReancrer && (q.before || '').trim())
+        cacheChasse.__buts[(q.before || '').replace(/\s+/g, ' ').trim()] = 1;
+    }
+    if (Object.keys(cacheChasse.__buts).length) {
+      var tous = doc.querySelectorAll('body *');
+      for (var i = 0; i < tous.length; i++) {
+        var n = tous[i];
+        if (n.tagName === 'SCRIPT' || n.tagName === 'STYLE') continue;
+        var t = (n.textContent || '').replace(/\s+/g, ' ').trim();
+        if (!cacheChasse.__buts[t]) continue;
+        var l = cacheChasse[t] || (cacheChasse[t] = []);
+        if (l.length <= 12) l.push(n);
+      }
+    }
+  }
+  if (cacheChasse.__buts[cle]) return (cacheChasse[cle] || []).slice();
+  // texte hors index (un import vient d'arriver) : balayage ciblé, une fois
+  var res = [], la = doc.querySelectorAll('body *');
+  for (var j = 0; j < la.length && res.length <= 12; j++) {
+    var m = la[j];
+    if (m.tagName === 'SCRIPT' || m.tagName === 'STYLE') continue;
+    if (memeTexte(m.textContent, avant)) res.push(m);
+  }
+  return res;
+}
 /* UN balayage par passe : l'index des porteurs (texte -> éléments) et la
    table des titres candidats (feuilles courtes des balises de titre), avec
    leurs styles lus une seule fois — trente témoins ne refont pas trente
@@ -2613,6 +2648,13 @@ function fitDe(p) {
            z: p.fit && p.fit.z ? p.fit.z : 1,
            c: !!(p.fit && p.fit.c) };
 }
+/* une image à taille FIGÉE par la maquette (la pastille ronde de 44 px) ne
+   doit jamais changer de boîte : ni aspect-ratio, ni transform:scale — le
+   zoom s'y fait par object-view-box (recadrage interne, natif Chromium) */
+function tailleFigee(n) {
+  var fx = /^[0-9.]+(px|rem|em)$/;
+  return n.tagName === 'IMG' && fx.test(n.style.width || '') && fx.test(n.style.height || '');
+}
 function cadrer(n, p) {
   var f = fitDe(p);
   var pose = f.x + '% ' + f.y + '%';
@@ -2629,7 +2671,8 @@ function cadrer(n, p) {
     n.style.backgroundPosition = pose;
     return;
   }
-  if (p.cadre) {                       // cadre pincé : l'image se rogne au lieu
+  var fige = tailleFigee(n);
+  if (p.cadre && !fige) {              // cadre pincé : l'image se rogne au lieu
     n.style.aspectRatio = String(p.cadre);   // de déformer la mise en page
     n.style.height = 'auto';
   }
@@ -2637,11 +2680,19 @@ function cadrer(n, p) {
     n.style.objectFit = 'contain';
     n.style.objectPosition = pose;
     n.style.transform = '';
+    if (fige) n.style.objectViewBox = '';
     return;
   }
   n.style.objectFit = 'cover';
   n.style.objectPosition = pose;
   if (f.z !== 1) {
+    if (fige) {
+      var kz = 1 - 1 / f.z;
+      n.style.objectViewBox = 'inset(' + r2(kz * f.y) + '% ' + r2(kz * (100 - f.x)) + '% ' +
+        r2(kz * (100 - f.y)) + '% ' + r2(kz * f.x) + '%)';
+      n.style.transform = '';
+      return;
+    }
     n.style.transform = 'scale(' + f.z + ')';
     n.style.transformOrigin = pose;
     var pa = n.parentElement;
@@ -2649,8 +2700,9 @@ function cadrer(n, p) {
       if (!pa.dataset.pkClip) pa.dataset.pkClip = '1';
       pa.style.overflow = 'hidden';
     }
-  } else if (n.style.transform.indexOf('scale') === 0) {
-    n.style.transform = '';
+  } else {
+    if (fige) n.style.objectViewBox = '';
+    if (n.style.transform.indexOf('scale') === 0) n.style.transform = '';
   }
 }
 function r2(v) { return Math.round(v * 100) / 100; }
@@ -3376,20 +3428,27 @@ function exportFile() {
     "return c}return null}" +
     /* le cadrage choisi dans l'éditeur : position en % de ce qui dépasse, zoom
        en % du cadre — jamais de pixels, pour survivre à un changement de taille */
+    "function tf(n){var fx=/^[0-9.]+(px|rem|em)$/;" +
+    "return n.tagName==='IMG'&&fx.test(n.style.width||'')&&fx.test(n.style.height||'')}" +
     "function cad(n,p){if(!p.fit&&!p.cadre)return;var f=p.fit||{},x=f.x==null?50:f.x," +
-    "y=f.y==null?50:f.y,z=f.z||1,po=x+'% '+y+'%';" +
+    "y=f.y==null?50:f.y,z=f.z||1,po=x+'% '+y+'%',fg=p.kind!=='bg'&&tf(n);" +
     "if(f.c){if(p.kind==='bg'){n.style.backgroundSize='contain';n.style.backgroundRepeat='no-repeat';" +
     "n.style.backgroundPosition=po;return}" +
-    "if(p.cadre){n.style.aspectRatio=String(p.cadre);n.style.height='auto'}" +
-    "n.style.objectFit='contain';n.style.objectPosition=po;n.style.transform='';return}" +
+    "if(p.cadre&&!fg){n.style.aspectRatio=String(p.cadre);n.style.height='auto'}" +
+    "n.style.objectFit='contain';n.style.objectPosition=po;n.style.transform='';" +
+    "if(fg)n.style.objectViewBox='';return}" +
     "if(p.kind==='bg'){if(z===1)n.style.backgroundSize='cover';else{" +
     "var rc=n.clientWidth&&n.clientHeight?n.clientWidth/n.clientHeight:1;" +
     "n.style.backgroundSize=Math.round(100*z*Math.max(1,(p.ar||rc)/rc)*100)/100+'% auto'}" +
     "n.style.backgroundPosition=po;return}" +
-    "if(p.cadre){n.style.aspectRatio=String(p.cadre);n.style.height='auto'}" +
+    "if(p.cadre&&!fg){n.style.aspectRatio=String(p.cadre);n.style.height='auto'}" +
     "n.style.objectFit='cover';n.style.objectPosition=po;" +
-    "if(z!==1){n.style.transform='scale('+z+')';n.style.transformOrigin=po;" +
-    "var pa=n.parentElement;if(pa&&getComputedStyle(pa).overflow==='visible')pa.style.overflow='hidden'}}" +
+    "if(z!==1){if(fg){var kz=1-1/z;" +
+    "n.style.objectViewBox='inset('+(Math.round(kz*y*100)/100)+'% '+(Math.round(kz*(100-x)*100)/100)+'% '+" +
+    "(Math.round(kz*(100-y)*100)/100)+'% '+(Math.round(kz*x*100)/100)+'%)';n.style.transform='';return}" +
+    "n.style.transform='scale('+z+')';n.style.transformOrigin=po;" +
+    "var pa=n.parentElement;if(pa&&getComputedStyle(pa).overflow==='visible')pa.style.overflow='hidden'}" +
+    "else if(fg)n.style.objectViewBox=''}" +
     /* le bouton « Copier … » voisin d'un chemin retouché copie l'AFFICHÉ */
     "function cop(n){var a=n,b=null,i,j;for(i=0;i<4&&a&&!b;i++,a=a.parentElement){" +
     "if(!a.querySelectorAll)break;var l=a.querySelectorAll('button,[role=button]');" +
@@ -3472,7 +3531,10 @@ function exportFile() {
     "if(p.fit){var l1=IX(p.old),i3,m1;for(i3=0;i3<l1.length;i3++){m1=l1[i3];" +
     "if(!au(m1)&&m1!==n&&!df(m1))cadG(m1,p)}}}" +
     "if(p.fit){var l2=IX(p.after),i4,m2;for(i4=0;i4<l2.length;i4++){m2=l2[i4];" +
-    "if(!m2.hasAttribute('data-k')&&!m2.closest('#rg-assetmap')&&!df(m2))cadG(m2,p)}}}" +
+    "if(!m2.hasAttribute('data-k')&&!m2.closest('#rg-assetmap')&&!df(m2))cadG(m2,p)}" +
+    /* le rond visible porte parfois LUI-MÊME le data-k : lui aussi se cadre */
+    "if(p.k){try{var lkf=document.querySelectorAll('[data-k=\"'+p.k.replace(/\"/g,'\\\\\"')+'\"]'),i5;" +
+    "for(i5=0;i5<lkf.length;i5++)if(lkf[i5].tagName==='IMG'&&!lkf[i5].closest('#rg-assetmap')&&!df(lkf[i5]))cadG(lkf[i5],p)}catch(eK){}}}}" +
     "else if(p.kind==='img'&&n.tagName==='IMG'){" +
     "var bon=!p.alt||(n.getAttribute('alt')||'').trim()===p.alt;" +
     "if(bon){if(n.getAttribute('src')!==p.after){if(!n.pkOrig)n.pkOrig=n.getAttribute('src');" +
@@ -3601,12 +3663,9 @@ function reancrer(p) {
     if (!(p.before || '').trim()) return;
     // le porteur le plus PROFOND du texte : les maquettes générées enrobent
     // leurs phrases dans des <span>, le bloc retouché a donc des enfants
-    var cands = [], tous = doc.querySelectorAll('body *');
-    for (var i = 0; i < tous.length && cands.length <= 12; i++) {
-      var n = tous[i];
-      if (n.tagName === 'SCRIPT' || n.tagName === 'STYLE') continue;
-      if (!memeTexte(n.textContent, p.before)) continue;
-      var enfantPorte = false;
+    var bruts = chasseCandidats(p.before), cands = [];
+    for (var i = 0; i < bruts.length; i++) {
+      var n = bruts[i], enfantPorte = false;
       for (var c = 0; c < n.children.length; c++)
         if (memeTexte(n.children[c].textContent, p.before)) { enfantPorte = true; break; }
       if (!enfantPorte) cands.push(n);
