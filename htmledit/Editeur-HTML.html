@@ -556,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08g';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08h';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -631,7 +631,7 @@ function openFile(file) {
       if (!b || n <= patches.length) return;
       if (confirm('Un travail en cours sur ce fichier a été retrouvé : ' + n +
                   ' retouche(s), ' + ilYA(b.quand) + '.\n\nLe reprendre ?')) {
-        try { patches = JSON.parse(b.patches) || []; } catch (e) {}
+        try { patches = marquerHerites(JSON.parse(b.patches) || []); } catch (e) {}
         dernierEcrit = b.patches;
         renderList();
         render();
@@ -655,9 +655,66 @@ function extractPatch(txt) {
   if (m) {
     try { out.patches = JSON.parse(m[1]) || []; } catch (e) { out.patches = []; }
   }
+  marquerHerites(out.patches);
   // on retire l'ancien correctif : il sera régénéré à l'export
   out.src = txt.replace(new RegExp('\\s*<!--' + MARK + '-->[\\s\\S]*?<!--\\/' + MARK + '-->', 'g'), '');
   return out;
+}
+/* Les vieux fichiers portent des retouches héritées d'un ancien bug : leur
+   « avant » est le RÉSULTAT d'une autre retouche du même champ (cascade
+   d'époque), jamais le texte naturel — elles ne retrouveraient jamais leur
+   fiche. On les marque au chargement : dès que leur fiche s'affiche, elles
+   adoptent le texte naturel comme vrai original et revivent (voir applyAll). */
+function marquerHerites(liste) {
+  // 0. le doublon d'époque : la même retouche (même fiche, même résultat)
+  //    enregistrée deux fois — par la feuille ET par son enrobage. On garde
+  //    celle de la feuille, l'autre ne ferait qu'écraser les rééditions.
+  for (var d = liste.length - 1; d >= 0; d--) {
+    var pd = liste[d];
+    if (!pd || pd.kind !== 'text' || !pd.when || !pd.when.txt) continue;
+    for (var e = 0; e < liste.length; e++) {
+      var qd = liste[e];
+      if (e === d || !qd || qd.kind !== 'text' || !qd.when) continue;
+      if ((qd.when.txt || '').toLowerCase() !== (pd.when.txt || '').toLowerCase()) continue;
+      if (qd.sel === pd.sel || qd.sel.indexOf(pd.sel) !== 0) continue;   // qd = la feuille
+      if (memeTexte(qd.after, pd.after)) { liste.splice(d, 1); break; }
+    }
+  }
+  // 1. l'« avant » empoisonné : il est le résultat de la retouche d'un AUTRE
+  //    personnage sur le même champ (cascade d'époque) — jamais le texte
+  //    naturel. Marquée, la retouche guérira à l'affichage de sa fiche.
+  for (var i = 0; i < liste.length; i++) {
+    var p = liste[i];
+    if (p.kind !== 'text' || !p.when || !p.when.txt || !(p.before || '').trim()) continue;
+    for (var j = 0; j < liste.length; j++) {
+      var q = liste[j];
+      if (q === p || q.kind !== 'text' || !q.when) continue;
+      if ((q.when.txt || '').toLowerCase() === (p.when.txt || '').toLowerCase()) continue;
+      // même champ (ou son porteur/enrobage) seulement
+      if (!(q.sel === p.sel || q.sel.indexOf(p.sel) === 0 || p.sel.indexOf(q.sel) === 0)) continue;
+      if (memeTexte(q.after, p.before)) { p.aGuerir = 1; break; }
+    }
+  }
+  // 2. la chaîne d'époque : le même champ retouché deux fois, une fois par la
+  //    feuille et une fois par son enrobage — la seconde repartait du RÉSULTAT
+  //    de la première au lieu de l'original. On les replie en une seule
+  //    retouche (l'original → le texte final), l'étape intermédiaire s'efface.
+  for (var a = liste.length - 1; a >= 0; a--) {
+    var p2 = liste[a];
+    if (!p2 || p2.kind !== 'text' || !p2.when || !p2.when.txt) continue;
+    for (var b = 0; b < a; b++) {
+      var q2 = liste[b];
+      if (q2.kind !== 'text' || !q2.when) continue;
+      if ((q2.when.txt || '').toLowerCase() !== (p2.when.txt || '').toLowerCase()) continue;
+      if (q2.sel === p2.sel) continue;    // même chemin : addPatch a déjà tranché
+      if (!(q2.sel.indexOf(p2.sel) === 0 || p2.sel.indexOf(q2.sel) === 0)) continue;
+      if (!memeTexte(q2.after, p2.before)) continue;
+      p2.before = q2.before;
+      liste.splice(b, 1);
+      break;                              // p2 sera revu si la chaîne continue
+    }
+  }
+  return liste;
 }
 
 /* ------------------------------------------------------- rendu dans l'iframe */
@@ -753,6 +810,26 @@ function signatureDe(n) {
   if (!f || !f.pkDe) return null;
   return memeTexte(f.pkVal, n.textContent) ? f.pkDe : null;
 }
+/* Écrire textContent sur un élément à enfants détruirait la structure que la
+   maquette repeint (le <span> interpolé d'une fiche : une fois cassé, la
+   description ne suit plus JAMAIS le personnage). Quand tout le texte vit
+   dans un enfant unique, on lit et on écrit sur ce porteur FEUILLE ; un
+   contenu mixte (paragraphe à <em>) reste traité tel quel. */
+function porteurEcriture(n) {
+  var g = n, prof = 0;
+  while (g && g.children.length && prof++ < 6) {
+    var seul = null, propre = true;
+    for (var i = 0; i < g.children.length; i++) {
+      if ((g.children[i].textContent || '').trim()) {
+        if (seul) { propre = false; break; }
+        seul = g.children[i];
+      }
+    }
+    if (!propre || !seul || !memeTexte(seul.textContent, g.textContent)) break;
+    g = seul;
+  }
+  return g || n;
+}
 function applyAll() {
   if (!doc || applying) return;
   applying = true;
@@ -768,9 +845,10 @@ function applyAll() {
     // CHEMIN RAPIDE — la fluidité avant tout : avec 190 retouches, résoudre
     // le témoin de chacune à chaque repeint coûte cher. Si le champ visé
     // n'affiche ni l'original ni notre résultat, il n'y a rien à faire.
-    if (p.kind === 'text' && p.when && !p.aReancrer) {
+    if (p.kind === 'text' && p.when && !p.aReancrer && !p.aGuerir) {
       var nf = null;
       try { nf = doc.querySelector(p.sel); } catch (eF) {}
+      if (nf) nf = porteurEcriture(nf);
       if (nf && !memeTexte(nf.textContent, p.before)) {
         if (memeTexte(nf.textContent, p.after) && signatureDe(nf) === p.id) {
           // déjà posé par nous : reste-t-il légitime ? Une résolution SANS la
@@ -804,6 +882,7 @@ function applyAll() {
         }
         var r = null;
         try { r = doc.querySelector(p.sel); } catch (e) {}
+        if (r) r = porteurEcriture(r);
         if (r && memeTexte(r.textContent, p.after) && !memeTexte(p.after, p.before) &&
             signatureDe(r) === p.id) {
           // seul un texte portant NOTRE signature peut être un reste à nous :
@@ -827,9 +906,24 @@ function applyAll() {
       // jamais PAR-DESSUS le résultat d'une autre retouche : Otto renommé
       // « Bill » ne doit pas déclencher la retouche « Bill → tesst » du vrai
       // Bill — chacune ne s'applique que sur la valeur naturelle de la page
+      n = porteurEcriture(n);
       var sig2 = null;
       try { sig2 = signatureDe(n); } catch (eG) {}
-      if (memeTexte(n.textContent, p.before) && (!sig2 || sig2 === p.id)) applyOne(p, n);
+      if (memeTexte(n.textContent, p.before) && (!sig2 || sig2 === p.id)) {
+        delete p.aGuerir;
+        applyOne(p, n);
+      } else if (p.aGuerir && p.when && !sig2 && (n.textContent || '').trim() &&
+                 !memeTexte(n.textContent, p.after)) {
+        // retouche héritée d'un vieux bug (« avant » = résultat d'une autre
+        // retouche) : le témoin vient d'être vérifié — on est sur SA fiche —
+        // et le champ montre sa valeur naturelle, sans signature. On adopte
+        // ce texte comme le vrai original : la retouche revit, chez elle.
+        // Et elle se ré-ancre sur la FEUILLE : une réédition s'y enchaînera.
+        p.before = n.textContent;
+        try { p.sel = pathOf(n); } catch (eP) {}
+        delete p.aGuerir;
+        applyOne(p, n);
+      }
     } else applyOne(p, n);
   });
   orphelins.forEach(nettoyerLecteurs);
@@ -1870,12 +1964,14 @@ $('askg').addEventListener('click', function (e) { if (e.target === $('askg')) c
 
 /* ------------------------------------------------------------ édition texte */
 function startEdit(n, x, y) {
+  // éditer l'enrobage, c'est éditer son porteur : la retouche s'ancre sur la
+  // feuille, et l'écriture ne cassera jamais le <span> que la maquette repeint
+  n = porteurEcriture(n);
   editing = n;
   // d'où repart-on ? Si le texte affiché est le RÉSULTAT d'une retouche déjà
   // faite, on réédite celle-là : son original reste le point d'ancrage. Sinon
   // le texte affiché est l'original (la fiche a pu passer à un autre
   // personnage : chaque contenu a le sien).
-  var cur = n.innerText != null ? n.innerText : n.textContent;
   // le « avant » vient du texte SOURCE : innerText rend l'affichage
   // (text-transform:uppercase le met en majuscules) et fausserait la garde
   var before = n.textContent, chemin = pathOf(n);
@@ -2817,6 +2913,7 @@ function brancherCopie(n) {
 }
 function applyOne(p, n) {
   if (p.kind === 'text') {
+    n = porteurEcriture(n);
     n.textContent = p.after;
     // notre signature sur le NŒUD DE TEXTE : un repeint de la maquette le
     // remplace et l'efface — la remise à l'original ne touchera jamais à un
@@ -3200,7 +3297,7 @@ function planifierBrouillon() {
 }
 function ecrireBrouillon() {
   if (!src) return;
-  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'tAtt') ? undefined : v; });
+  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'aGuerir' || k === 'tAtt') ? undefined : v; });
   if (data === dernierEcrit) return;
   base(function (b) {
     if (!b) { majEtat('secours indisponible'); return; }
@@ -3410,10 +3507,37 @@ function setMode(m) {
 function exportFile() {
   // « old » est la source de cette ouverture-ci (une URL blob recréée à chaque
   // chargement) : l'exporter figerait une valeur périmée
-  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'tAtt') ? undefined : v; })
+  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'aGuerir' || k === 'tAtt') ? undefined : v; })
     .replace(/<\//g, '<\\/');
   var run = "(function(){var D=document.getElementById('" + MARK + "-data');if(!D)return;" +
     "var P=[];try{P=JSON.parse(D.textContent)||[]}catch(e){return}" +
+    /* miroir de marquerHerites : « avant » empoisonné marqué (p.g), chaînes
+       d'époque repliées — un vieux fichier guérit aussi ouvert tel quel */
+    "function mh(L){var i,j,p,q;" +
+    "for(i=L.length-1;i>=0;i--){p=L[i];" +
+    "if(!p||p.kind!=='text'||!p.when||!p.when.txt)continue;" +
+    "for(j=0;j<L.length;j++){q=L[j];" +
+    "if(j===i||!q||q.kind!=='text'||!q.when)continue;" +
+    "if((q.when.txt||'').toLowerCase()!==(p.when.txt||'').toLowerCase())continue;" +
+    "if(q.sel===p.sel||q.sel.indexOf(p.sel)!==0)continue;" +
+    "if(mt(q.after,p.after)){L.splice(i,1);break}}}" +
+    "for(i=0;i<L.length;i++){p=L[i];" +
+    "if(p.kind!=='text'||!p.when||!p.when.txt||!(p.before||'').trim())continue;" +
+    "for(j=0;j<L.length;j++){q=L[j];" +
+    "if(q===p||q.kind!=='text'||!q.when)continue;" +
+    "if((q.when.txt||'').toLowerCase()===(p.when.txt||'').toLowerCase())continue;" +
+    "if(!(q.sel===p.sel||q.sel.indexOf(p.sel)===0||p.sel.indexOf(q.sel)===0))continue;" +
+    "if(mt(q.after,p.before)){p.g=1;break}}}" +
+    "for(i=L.length-1;i>=0;i--){p=L[i];" +
+    "if(!p||p.kind!=='text'||!p.when||!p.when.txt)continue;" +
+    "for(j=0;j<i;j++){q=L[j];" +
+    "if(q.kind!=='text'||!q.when)continue;" +
+    "if((q.when.txt||'').toLowerCase()!==(p.when.txt||'').toLowerCase())continue;" +
+    "if(q.sel===p.sel)continue;" +
+    "if(!(q.sel.indexOf(p.sel)===0||p.sel.indexOf(q.sel)===0))continue;" +
+    "if(!mt(q.after,p.before))continue;" +
+    "p.before=q.before;L.splice(j,1);break}}}" +
+    "mh(P);" +
     "var busy=false,tours=0;" +
     /* une fenêtre partagée (RIG, TOOLS…) : la retouche ne vaut que quand la
        fenêtre affiche le titre pour lequel elle a été faite */
@@ -3520,6 +3644,17 @@ function exportFile() {
     "(b||'').replace(/\\s+/g,' ').trim().toLowerCase()}" +
     "function sgn(n){var f=n&&!n.children.length?n.firstChild:null;" +
     "if(!f||!f.pkDe)return null;return mt(f.pkVal,n.textContent)?f.pkDe:null}" +
+    /* écrire textContent sur un élément à enfants casserait le <span> que la
+       maquette repeint : on descend au porteur feuille quand tout le texte
+       vit dans un enfant unique (contenu mixte : inchangé) */
+    "function pe(n){var g=n,k=0;while(g&&g.children.length&&k++<6){" +
+    "var s=null,i,c,pr=true;for(i=0;i<g.children.length;i++){c=g.children[i];" +
+    "if((c.textContent||'').trim()){if(s){pr=false;break}s=c}}" +
+    "if(!pr||!s||!mt(s.textContent,g.textContent))break;g=s}return g||n}" +
+    "function wr(p,n){n.textContent=p.after;" +
+    "try{if(n.firstChild){n.firstChild.pkDe=p.id;n.firstChild.pkVal=p.after}}catch(eM){}" +
+    "if(p.after.indexOf('\\n')>=0)n.style.whiteSpace='pre-line';" +
+    "if(/[\\\\\\/]/.test(p.after)||/[\\\\\\/]/.test(p.before||''))cop(n)}" +
     "function copb(b,get){if(b.pkCop)return;b.pkCop=1;" +
     "b.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();" +
     "var t=get(),ok2=false;" +
@@ -3554,13 +3689,15 @@ function exportFile() {
     "P.forEach(function(p){if(p.kind==='head'){tete(p);return}" +
     /* chemin rapide : si le champ n'affiche ni l'original ni notre résultat,
        rien à faire — la résolution du témoin (coûteuse) est évitée */
-    "if(p.kind==='text'&&p.when){var nf=null;try{nf=document.querySelector(p.sel)}catch(eF){}" +
+    "if(p.kind==='text'&&p.when&&!p.g){var nf=null;try{nf=document.querySelector(p.sel)}catch(eF){}" +
+    "if(nf)nf=pe(nf);" +
     "if(nf&&!mt(nf.textContent,p.before)){" +
     "if(mt(nf.textContent,p.after)&&sgn(nf)===p.id){var enc=null;" +
     "try{enc=cible(p)}catch(eV){}if(enc)return}else return}}" +
     "var n=cible(p);" +
     "if(!n){if(p.kind==='video'&&p.when)orph.push(p);" +
     "if(p.kind==='text'&&p.when){try{var rr=document.querySelector(p.sel);" +
+    "if(rr)rr=pe(rr);" +
     /* seul un texte portant NOTRE signature (posée à l'écriture, effacée par
        tout repeint de la page) peut être un reste à nous */
     "if(rr&&mt(rr.textContent,p.after)&&!mt(p.after,p.before)&&sgn(rr)===p.id){" +
@@ -3570,11 +3707,12 @@ function exportFile() {
     "if(qq!==p&&qq.kind==='text'&&qq.sel===p.sel&&mt(qq.after,rr.textContent)&&cible(qq)){aq=true;break}}" +
     "if(!aq)rr.textContent=p.before||''}}catch(e){}}return}" +
     /* jamais par-dessus le résultat d'une autre retouche (voir la signature) */
-    "if(p.kind==='text'){var sg=null;try{sg=sgn(n)}catch(eG){}" +
-    "if(mt(n.textContent,p.before)&&(!sg||sg===p.id)){n.textContent=p.after;" +
-    "try{if(n.firstChild){n.firstChild.pkDe=p.id;n.firstChild.pkVal=p.after}}catch(eM){}" +
-    "if(p.after.indexOf('\\n')>=0)n.style.whiteSpace='pre-line';" +
-    "if(/[\\\\\\/]/.test(p.after)||/[\\\\\\/]/.test(p.before||''))cop(n)}}" +
+    "if(p.kind==='text'){n=pe(n);var sg=null;try{sg=sgn(n)}catch(eG){}" +
+    "if(mt(n.textContent,p.before)&&(!sg||sg===p.id)){delete p.g;wr(p,n)}" +
+    /* retouche héritée (« avant » = résultat d'une autre) : témoin vérifié,
+       champ à sa valeur naturelle, sans signature — on adopte et elle revit */
+    "else if(p.g&&!sg&&(n.textContent||'').trim()&&!mt(n.textContent,p.after)){" +
+    "p.before=n.textContent;delete p.g;wr(p,n)}}" +
     /* entrée d'une réserve d'images : on la retouche, puis on remplace le
        visuel partout où sa source d'origine sert encore — l'appli a pu lire
        sa réserve avant nous */
