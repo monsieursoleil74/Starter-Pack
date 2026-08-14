@@ -556,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08h';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08i';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -941,6 +941,9 @@ function injectCss() {
   var st = doc.createElement('style');
   st.id = 'pk-ui';
   st.textContent =
+    // les gabarits pas encore montés (src="{{ … }}") : un lecteur vidéo brut
+    // s'afficherait en attendant que la maquette se monte — on les masque
+    'video[src*="{{"],img[src*="{{"]{visibility:hidden!important}' +
     'body.pk-text *:not(html):not(body):hover{outline:2px solid rgba(91,140,255,.9)!important;' +
     'outline-offset:1px;cursor:text!important}' +
     'body.pk-img{cursor:copy}' +
@@ -3538,6 +3541,11 @@ function exportFile() {
     "if(!mt(q.after,p.before))continue;" +
     "p.before=q.before;L.splice(j,1);break}}}" +
     "mh(P);" +
+    /* les gabarits pas encore montés (src="{{ … }}") : sans ça, un lecteur
+       vidéo brut reste affiché pendant tout le montage de la page */
+    "try{var pb=document.createElement('style');" +
+    "pb.textContent=\"video[src*='{{'],img[src*='{{']{visibility:hidden!important}\";" +
+    "(document.head||document.documentElement).appendChild(pb)}catch(ePB){}" +
     "var busy=false,tours=0;" +
     /* une fenêtre partagée (RIG, TOOLS…) : la retouche ne vaut que quand la
        fenêtre affiche le titre pour lequel elle a été faite */
