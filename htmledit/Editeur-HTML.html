@@ -556,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08i';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08j';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -564,7 +564,6 @@ var patches = [];        // [{sel, kind:'text'|'img'|'bg', before, after, label}
 var mode = 'text';
 var doc = null;          // document de l'iframe
 var editing = null;      // élément en cours d'édition
-var finEdition = 0;       // quand la dernière édition s'est validée (clic à côté)
 
 /* ------------------------------------------------------------------ outils */
 function toast(msg) {
@@ -1327,9 +1326,10 @@ function onClick(e) {
       while (n && !textish(n)) n = n.parentElement;
     }
     if (!n) {
-      // le clic qui VALIDE une édition (à côté du texte) ne doit pas
-      // déclencher la maquette — ouvrir la vidéo d'une carte tutoriel, par ex.
-      if (Date.now() - finEdition < 600) { e.preventDefault(); e.stopPropagation(); }
+      // en mode Texte, un clic qui n'édite rien ne déclenche JAMAIS la
+      // maquette : la vignette d'une carte tutoriel ouvrirait sa vidéo, une
+      // carte à lien suivrait son lien — alors qu'on modifie juste le texte
+      e.preventDefault(); e.stopPropagation();
       return;
     }
     // déjà en train d'éditer CE texte ? on laisse le navigateur faire son
@@ -1337,6 +1337,10 @@ function onClick(e) {
     // — mais la maquette, elle, ne doit pas recevoir ce clic (une carte
     // tutoriel ouvrirait sa vidéo à chaque déplacement du curseur)
     if (editing && (n === editing || editing.contains(t))) { e.stopPropagation(); return; }
+    // on éditait, et ce clic tombe AILLEURS (une sélection à la souris qui
+    // déborde, le clic qui referme) : il ferme l'édition, rien d'autre —
+    // la carte en dessous ne doit pas se réveiller
+    if (editing) { e.preventDefault(); e.stopPropagation(); return; }
     e.preventDefault(); e.stopPropagation();
     startEdit(n, e.clientX, e.clientY);
   } else if (mode === 'img') {
@@ -2035,7 +2039,6 @@ function startEdit(n, x, y) {
     n.removeEventListener('paste', onPaste);
     n.removeEventListener('blur', done);
     editing = null;
-    finEdition = Date.now();
     var after = n.innerText != null ? n.innerText : n.textContent;
     after = after.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+\n/g, '\n');
     if (memeTexte(after, before)) {
