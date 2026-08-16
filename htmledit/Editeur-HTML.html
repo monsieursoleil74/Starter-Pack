@@ -556,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08j';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08l';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -910,6 +910,13 @@ function applyAll() {
       try { sig2 = signatureDe(n); } catch (eG) {}
       if (memeTexte(n.textContent, p.before) && (!sig2 || sig2 === p.id)) {
         delete p.aGuerir;
+        // témoin d'antan à travers les sections : tant qu'il vit encore, on en
+        // profite pour ré-ancrer la retouche PRÈS de son champ — une fois
+        if (p.when && /section:nth-of-type/.test(p.when.down || '')) {
+          var wPx = null;
+          try { wPx = temoinTexte(n); } catch (eX) {}
+          if (wPx && !/section:nth-of-type/.test(wPx.down || '')) p.when = wPx;
+        }
         applyOne(p, n);
       } else if (p.aGuerir && p.when && !sig2 && (n.textContent || '').trim() &&
                  !memeTexte(n.textContent, p.after)) {
@@ -1239,14 +1246,23 @@ function temoinTexte(n, tOverride) {
   };
   // le plus haut ancêtre exploré (8 niveaux, sans le body) : la table des
   // titres est filtrée dessus — mêmes règles qu'avant, en un seul passage
-  var haut = null, anc = n.parentElement, prof = 0;
+  var haut = null, anc = n.parentElement, prof = 0, chaine = [];
   for (; anc && prof < 8; anc = anc.parentElement, prof++) {
     if (!anc.tagName || anc.tagName === 'BODY' || anc.tagName === 'HTML') break;
     haut = anc;
+    chaine.push(anc);
   }
   if (!haut) return null;
   construireIndex();
   var best = null, bestFs = 0, bestI = null, bestIFs = 0;
+  // et le témoin INTERPOLÉ le plus PROCHE : un nom de fiche à trois sections
+  // de là distingue les personnages, mais meurt au premier changement de vue —
+  // le titre de la carte du champ, lui, est stable ET distinctif
+  var pres = null, presNiv = 99, presFs = 0;
+  var niveauDe = function (c) {
+    for (var k = 0; k < chaine.length; k++) if (chaine[k].contains(c)) return k;
+    return 98;
+  };
   for (var i = 0; i < cacheTitres.length; i++) {
     var e = cacheTitres[i], c = e.n;
     if (c === n || n.contains(c) || !haut.contains(c)) continue;
@@ -1257,6 +1273,11 @@ function temoinTexte(n, tOverride) {
     var fs = inf.fs;
     if (!(fs >= fsC * 1.25 || /^H[1-6]$/.test(c.tagName) || (inf.gras && fs >= fsC * 1.05))) continue;
     if (interp(c)) {
+      var nv = niveauDe(c);
+      if (nv < presNiv || (nv === presNiv && (fs > presFs ||
+          (fs === presFs && pres && (pres.compareDocumentPosition(c) & 4))))) {
+        pres = c; presNiv = nv; presFs = fs;
+      }
       if (fs > bestIFs || (fs === bestIFs && bestI && (bestI.compareDocumentPosition(c) & 4))) {
         bestI = c; bestIFs = fs;
       }
@@ -1265,12 +1286,17 @@ function temoinTexte(n, tOverride) {
       best = c; bestFs = fs;
     }
   }
-  if (bestI) best = bestI;
-  if (!best) return null;
-  var com = communAvec(best, n);
+  var ancien = bestI || best;                // le choix des versions passées
+  var choisi = pres || ancien;               // désormais : l'interpolé le plus proche
+  if (!choisi) return null;
+  var com = communAvec(choisi, n);
   if (!com) return null;
-  return { sel: pathOf(best), txt: texteDe(best), up: com.up,
-           down: pathRel(n, com.anc), tag: n.tagName };
+  var w = { sel: pathOf(choisi), txt: texteDe(choisi), up: com.up,
+            down: pathRel(n, com.anc), tag: n.tagName };
+  // le texte qu'auraient choisi les anciennes versions : les retouches
+  // existantes se vérifient contre l'un OU l'autre (jamais stocké à l'export)
+  if (ancien && ancien !== choisi) w.t2 = texteDe(ancien);
+  return w;
 }
 
 /* Une croix de fermeture n'est pas un emplacement à retoucher : on la laisse
@@ -1747,7 +1773,9 @@ function cibleDe(p, vite) {
     if (p.kind === 'text' && !vite) {
       var wv = null;
       try { wv = temoinTexte(c, p.after); } catch (e2) {}
-      if (!wv || wv.txt.toLowerCase() !== (p.when.txt || '').toLowerCase()) continue;
+      var attT = (p.when.txt || '').toLowerCase();
+      if (!wv || (wv.txt.toLowerCase() !== attT &&
+                  (wv.t2 || '').toLowerCase() !== attT)) continue;
     }
     return c;
   }
@@ -3303,7 +3331,7 @@ function planifierBrouillon() {
 }
 function ecrireBrouillon() {
   if (!src) return;
-  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'aGuerir' || k === 'tAtt') ? undefined : v; });
+  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'aGuerir' || k === 't2' || k === 'tAtt') ? undefined : v; });
   if (data === dernierEcrit) return;
   base(function (b) {
     if (!b) { majEtat('secours indisponible'); return; }
@@ -3513,7 +3541,7 @@ function setMode(m) {
 function exportFile() {
   // « old » est la source de cette ouverture-ci (une URL blob recréée à chaque
   // chargement) : l'exporter figerait une valeur périmée
-  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'aGuerir' || k === 'tAtt') ? undefined : v; })
+  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'aGuerir' || k === 't2' || k === 'tAtt') ? undefined : v; })
     .replace(/<\//g, '<\\/');
   var run = "(function(){var D=document.getElementById('" + MARK + "-data');if(!D)return;" +
     "var P=[];try{P=JSON.parse(D.textContent)||[]}catch(e){return}" +
@@ -3598,20 +3626,25 @@ function exportFile() {
     "var fsC=parseFloat(getComputedStyle(n).fontSize)||14;" +
     "var ip=function(c){var cl=(c.className||'').toString();return cl.indexOf('interp')>=0||" +
     "(c.parentElement&&(c.parentElement.className||'').toString().indexOf('interp')>=0)};" +
-    "var haut=null,anc=n.parentElement,prof=0;" +
+    "var haut=null,anc=n.parentElement,prof=0,ch=[];" +
     "for(;anc&&prof<8;anc=anc.parentElement,prof++){" +
-    "if(!anc.tagName||anc.tagName==='BODY'||anc.tagName==='HTML')break;haut=anc}" +
+    "if(!anc.tagName||anc.tagName==='BODY'||anc.tagName==='HTML')break;haut=anc;ch.push(anc)}" +
     "if(!haut)return null;bIdx();" +
     "var best=null,bF=0,bI=null,bIF=0,i2,e,c;" +
+    "var pr=null,prN=99,prF=0;" +
+    "var nivD=function(x){for(var k=0;k<ch.length;k++)if(ch[k].contains(x))return k;return 98};" +
     "for(i2=0;i2<CTT.length;i2++){e=CTT[i2];c=e.n;" +
     "if(c===n||n.contains(c)||!haut.contains(c))continue;" +
     "if(e.t.toLowerCase()===tC.toLowerCase())continue;" +
     "if(!(c.compareDocumentPosition(n)&4))continue;" +
     "var inf=tInf(e);if(inf.cache)continue;var fs=inf.fs;" +
     "if(!(fs>=fsC*1.25||/^H[1-6]$/.test(c.tagName)||(inf.gras&&fs>=fsC*1.05)))continue;" +
-    "if(ip(c)){if(fs>bIF||(fs===bIF&&bI&&(bI.compareDocumentPosition(c)&4))){bI=c;bIF=fs}}" +
+    "if(ip(c)){var nv=nivD(c);" +
+    "if(nv<prN||(nv===prN&&(fs>prF||(fs===prF&&pr&&(pr.compareDocumentPosition(c)&4))))){pr=c;prN=nv;prF=fs}" +
+    "if(fs>bIF||(fs===bIF&&bI&&(bI.compareDocumentPosition(c)&4))){bI=c;bIF=fs}}" +
     "if(fs>bF||(fs===bF&&best&&(best.compareDocumentPosition(c)&4))){best=c;bF=fs}}" +
-    "if(bI)best=bI;return best?td(best):null}" +
+    "var anc2=bI||best,chx=pr||anc2;if(!chx)return null;" +
+    "return{a:td(chx),b:anc2?td(anc2):''}}" +
     "function cible(p,vite){if(p.k){var d=pk(p.k);if(d)return d}" +
     "if(!p.when){try{return document.querySelector(p.sel)}catch(e){return null}}" +
     "var cs=tem(p.when),ci,i;for(ci=0;ci<cs.length;ci++){var a=cs[ci];" +
@@ -3619,7 +3652,8 @@ function exportFile() {
     "var c=a;if(p.when.down){try{c=a.querySelector(':scope>'+p.when.down)}catch(e){c=null}}" +
     "if(!c||(p.when.tag&&c.tagName!==p.when.tag))continue;" +
     "if(p.kind==='text'&&!vite){var wv=null;try{wv=tw(c,p.after)}catch(e2){wv=null}" +
-    "if(!wv||wv.toLowerCase()!==(p.when.txt||'').toLowerCase())continue}" +
+    "var atT=(p.when.txt||'').toLowerCase();" +
+    "if(!wv||((wv.a||'').toLowerCase()!==atT&&(wv.b||'').toLowerCase()!==atT))continue}" +
     "return c}return null}" +
     /* le cadrage choisi dans l'éditeur : position en % de ce qui dépasse, zoom
        en % du cadre — jamais de pixels, pour survivre à un changement de taille */
@@ -3870,7 +3904,9 @@ function reancrer(p) {
       // on le recalcule sur place — si c'est bien la fiche du bon personnage
       var wLa = null;
       try { wLa = temoinTexte(la); } catch (eW) {}
-      if (wLa && wLa.txt.toLowerCase() === (p.when.txt || '').toLowerCase()) { p.when = wLa; return; }
+      var attR = (p.when.txt || '').toLowerCase();
+      if (wLa && (wLa.txt.toLowerCase() === attR ||
+                  (wLa.t2 || '').toLowerCase() === attR)) { p.when = wLa; return; }
     }
     if (!(p.before || '').trim()) return;
     // le porteur le plus PROFOND du texte : les maquettes générées enrobent
@@ -3889,7 +3925,9 @@ function reancrer(p) {
       for (var j = 0; j < cands.length; j++) {
         var w = null;
         try { w = temoinTexte(cands[j]); } catch (e2) {}
-        if (w && w.txt.toLowerCase() === (p.when.txt || '').toLowerCase()) { n2 = cands[j]; wOk = w; break; }
+        var attC = (p.when.txt || '').toLowerCase();
+        if (w && (w.txt.toLowerCase() === attC ||
+                  (w.t2 || '').toLowerCase() === attC)) { n2 = cands[j]; wOk = w; break; }
       }
     } else if (cands.length === 1) n2 = cands[0];
     else if (cands.length > 1) {
@@ -3975,9 +4013,10 @@ $('pickImp').addEventListener('change', function (e) {
       pris++;
     });
     renderList();
-    applyAll();
-    if (mode === 'img') renderGallery();
-    majOnglet();
+    // rechargement COMPLET, pas une simple passe : la maquette lit sa réserve
+    // d'images au démarrage — appliquer après coup laissait les visuels repris
+    // invisibles jusqu'au prochain rechargement (supprimer une retouche…)
+    render(true);
     var msg = pris + ' retouche(s) reprise(s)';
     if (laisses.length) msg += ' — ' + laisses.length + ' laissée(s) de côté';
     toast(msg);
