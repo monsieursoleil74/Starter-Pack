@@ -556,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08n';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08o';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -3592,7 +3592,7 @@ function exportFile() {
     "try{var pb=document.createElement('style');" +
     "pb.textContent=\"video[src*='{{'],img[src*='{{']{visibility:hidden!important}\";" +
     "(document.head||document.documentElement).appendChild(pb)}catch(ePB){}" +
-    "var busy=false,tours=0;" +
+    "var busy=false,tours=0,DR=true,DRC=true,DRX=true;" +
     /* une fenêtre partagée (RIG, TOOLS…) : la retouche ne vaut que quand la
        fenêtre affiche le titre pour lequel elle a été faite */
     /* Une fenêtre partagée (RIG, TOOLS…) n'existe que le temps qu'elle est
@@ -3755,7 +3755,16 @@ function exportFile() {
     "function(x){x.remove()});l=document.createElement('link');l.setAttribute('rel','icon');" +
     "l.setAttribute('data-pk-ico','1');(document.head||document.documentElement).appendChild(l)}" +
     "if(l.getAttribute('href')!==p.icon)l.setAttribute('href',p.icon)}catch(e){}}" +
-    "function ap(){if(busy)return;busy=true;CT=null;CTT=null;KC=null;IXm=null;tours++;var orph=[],R=[];" +
+    /* rien n'a bougé depuis la dernière passe (l'observateur n'a rien vu) :
+       la page est exactement dans l'état qu'on a laissé — aucun travail.
+       Sans ça, une passe COMPLÈTE tournait chaque seconde sur un DOM énorme */
+    "function ap(){if(busy||!DR)return;DR=false;busy=true;" +
+    /* les index (textes, réserve) ne se reconstruisent que si la nature des
+       mutations l'exige : une animation qui ne touche qu'aux styles ne coûte
+       plus une passe lourde toutes les secondes */
+    "if(DRC){CT=null;CTT=null;KC=null;IXm=null;DRC=false;DRX=false}" +
+    "else if(DRX){KC=null;IXm=null;DRX=false}" +
+    "tours++;var orph=[],R=[];" +
     "P.forEach(function(p){if(p.kind==='head'){tete(p);return}" +
     /* chemin rapide : si le champ n'affiche ni l'original ni notre résultat,
        rien à faire — la résolution du témoin (coûteuse) est évitée */
@@ -3864,14 +3873,22 @@ function exportFile() {
     "ap();if(document.readyState!=='complete')window.addEventListener('load',ap);" +
     /* tout de suite, pas seulement après la pause : une maquette qui LIT le DOM
        au démarrage (réserve d'images) doit y trouver la version retouchée */
-    "var t=null,last=0;new MutationObserver(function(muts){var im,mu;" +
+    "var t=null,last=0,boot=new Date().getTime();" +
+    "var LOURD=D.textContent.length>5000000;" +
+    "new MutationObserver(function(muts){DR=true;var im,mu;" +
+    "for(im=0;im<muts.length;im++){mu=muts[im];" +
+    "if(mu.type!=='attributes'||mu.attributeName==='class'){DRC=true;break}" +
+    "if(mu.attributeName==='src')DRX=true}" +
     "for(im=0;im<muts.length;im++){mu=muts[im];" +
     "if(mu.type==='characterData'&&mu.target&&mu.target.pkDe){" +
     "try{delete mu.target.pkDe;delete mu.target.pkVal}catch(eD){}}}" +
     "var tx2=false,it;for(it=0;it<muts.length;it++)" +
     "if(muts[it].type==='characterData'||muts[it].type==='childList'){tx2=true;break}" +
-    "var w=new Date().getTime();" +
-    "if(tx2||w-last>30){last=w;ap()}clearTimeout(t);t=setTimeout(function(){last=new Date().getTime();ap()},60)})" +
+    "var w=new Date().getTime();var mont=LOURD&&w-boot<4000;" +
+    /* pendant le montage initial, on laisse la page se construire : passes
+       espacées — l'anti-flash immédiat ne vaut que pour la navigation */
+    "if(!mont&&(tx2||w-last>30)){last=w;ap()}clearTimeout(t);" +
+    "t=setTimeout(function(){last=new Date().getTime();ap()},mont?250:60)})" +
     ".observe(document,{childList:true,subtree:true,attributes:true,characterData:true," +
     "attributeFilter:['src','style','class','alt','href']});" +
     "[120,400,1200,3000].forEach(function(d){setTimeout(ap,d)});" +
