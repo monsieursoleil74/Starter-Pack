@@ -556,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08l';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08n';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -2014,6 +2014,7 @@ function startEdit(n, x, y) {
   // réédite celle-là. Un texte sans signature est la valeur naturelle de la
   // page — même si une retouche d'une AUTRE fiche affiche la même chose
   // (Otto renommé « Bill » face au vrai Bill), on ne s'y accroche pas.
+  var avantAffiche = n.textContent;
   var sig = null;
   try { sig = signatureDe(n); } catch (eS) {}
   for (var i = 0; i < patches.length; i++) {
@@ -2095,8 +2096,13 @@ function startEdit(n, x, y) {
     // si CE texte servait de témoin à d'autres retouches (on vient de renommer
     // le personnage), elles suivent le nouveau nom
     var nb = before.trim().replace(/\s+/g, ' '), na = after.trim().replace(/\s+/g, ' ');
+    // …retouches accrochées à l'ORIGINAL, mais aussi celles déjà propagées
+    // vers le texte AFFICHÉ (re-renommer un titre ne perd plus ses suiveurs)
+    var nAff = (avantAffiche || '').trim().replace(/\s+/g, ' ');
     if (nb.toLowerCase() !== na.toLowerCase()) patches.forEach(function (o) {
-      if (o.when && (o.when.txt || '').toLowerCase() === nb.toLowerCase()) o.when.txt = na;
+      if (!o.when) return;
+      var wt = (o.when.txt || '').toLowerCase();
+      if (wt === nb.toLowerCase() || (nAff && wt === nAff.toLowerCase())) o.when.txt = na;
     });
   };
   n.addEventListener('blur', done);
@@ -3432,7 +3438,16 @@ function addPatch(p) {
   renderList();
 }
 function removePatch(i) {
+  var p = patches[i];
   patches.splice(i, 1);
+  // annuler le renommage d'un titre : les retouches accrochées à ce nom
+  // suivent le texte qui REVIENT — sinon elles restent orphelines à jamais
+  if (p && p.kind === 'text' && (p.after || '').trim() && (p.before || '').trim()) {
+    var na = p.after.trim().replace(/\s+/g, ' '), nb = p.before.trim().replace(/\s+/g, ' ');
+    if (na.toLowerCase() !== nb.toLowerCase()) patches.forEach(function (o) {
+      if (o.when && (o.when.txt || '').toLowerCase() === na.toLowerCase()) o.when.txt = nb;
+    });
+  }
   renderList();
   render(true);            // on recharge pour revenir à l'état d'origine
 }
@@ -3696,6 +3711,16 @@ function exportFile() {
     "var s=null,i,c,pr=true;for(i=0;i<g.children.length;i++){c=g.children[i];" +
     "if((c.textContent||'').trim()){if(s){pr=false;break}s=c}}" +
     "if(!pr||!s||!mt(s.textContent,g.textContent))break;g=s}return g||n}" +
+    /* un visuel embarqué (data URI de plusieurs Mo) ne se manipule qu'en
+       URL blob COURTE : coller la data URI dans les src et le CSS à chaque
+       passe noyait les machines modestes — page blanche figée */
+    "function bu(p){if(p.pkBu)return p.pkBu;" +
+    "try{var i=p.after.indexOf(','),mm=(p.after.slice(5,i).split(';')[0])||'application/octet-stream';" +
+    "var bn=atob(p.after.slice(i+1)),a=new Uint8Array(bn.length),k;" +
+    "for(k=0;k<bn.length;k++)a[k]=bn.charCodeAt(k);" +
+    "p.pkBu=URL.createObjectURL(new Blob([a],{type:mm}))}catch(e){p.pkBu=p.after}return p.pkBu}" +
+    "function vu(p){return p.after&&p.after.indexOf('data:')===0&&" +
+    "p.after.length>300000?bu(p):p.after}" +
     "function wr(p,n){n.textContent=p.after;" +
     "try{if(n.firstChild){n.firstChild.pkDe=p.id;n.firstChild.pkVal=p.after}}catch(eM){}" +
     "if(p.after.indexOf('\\n')>=0)n.style.whiteSpace='pre-line';" +
@@ -3720,7 +3745,7 @@ function exportFile() {
     "document.body.appendChild(bu);setTimeout(function(){bu.remove()},1200)}catch(e2){}" +
     "},true)}" +
     "function net(p){[].forEach.call(document.querySelectorAll('video.pk-vid'),function(v){" +
-    "if(v.getAttribute('src')!==p.after||v.pkTour===tours)return;var pa=v.parentElement;v.remove();" +
+    "var sn=v.getAttribute('src');if((sn!==p.after&&sn!==p.pkBu)||v.pkTour===tours)return;var pa=v.parentElement;v.remove();" +
     "if(pa&&!pa.querySelector(':scope > video.pk-vid'))pa.removeAttribute('data-pk-hide')})}" +
     /* l'onglet : icône et titre, remis à chaque passage — une page qui
        reconstruit son head les emporterait sinon */
@@ -3762,42 +3787,45 @@ function exportFile() {
        visuel partout où sa source d'origine sert encore — l'appli a pu lire
        sa réserve avant nous */
     "else if(p.src==='reserve'&&(n.tagName==='IMG'||n.tagName==='VIDEO')){" +
-    "var o=n.getAttribute('src');if(o&&o!==p.after){if(!p.old)p.old=o;" +
-    "n.removeAttribute('srcset');n.setAttribute('src',p.after)}" +
+    "var pv=vu(p);" +
+    "var o=n.getAttribute('src');if(o&&o!==p.after&&o!==pv){if(!p.old)p.old=o;" +
+    "n.removeAttribute('srcset');n.setAttribute('src',pv)}" +
     /* l'appli retrouve ses visuels en comparant les src : on ne réécrit JAMAIS
        celui d'une copie affichée. Le remplacement se pose par-dessus, en CSS. */
     "var au=function(m){return m!==n&&(m.hasAttribute('data-k')||!!m.closest('#rg-assetmap'))};" +
-    "if(p.old){R.push('img[src=\"'+p.old.replace(/\"/g,'\\\\\"')+'\"]:not([data-k]){content:url(\"'+p.after+'\")}');" +
+    "if(p.old){R.push('img[src=\"'+p.old.replace(/\"/g,'\\\\\"')+'\"]:not([data-k]){content:url(\"'+pv+'\")}');" +
     "[].forEach.call(document.querySelectorAll('video[src=\"'+p.old+'\"]'),function(m){" +
-    "if(au(m))return;m.setAttribute('src',p.after);m.controls=true;m.load()});" +
+    "if(au(m))return;m.setAttribute('src',pv);m.controls=true;m.load()});" +
     "[].forEach.call(document.querySelectorAll('[style*=\"'+p.old+'\"]'),function(m){" +
-    "m.setAttribute('style',m.getAttribute('style').split(p.old).join(p.after))});" +
+    "m.setAttribute('style',m.getAttribute('style').split(p.old).join(pv))});" +
     "if(p.fit){var l1=IX(p.old),i3,m1;for(i3=0;i3<l1.length;i3++){m1=l1[i3];" +
     "if(!au(m1)&&m1!==n&&!df(m1))cadG(m1,p)}}}" +
-    "if(p.fit){var l2=IX(p.after),i4,m2;for(i4=0;i4<l2.length;i4++){m2=l2[i4];" +
+    "if(p.fit){var l2=IX(pv),i4,m2;for(i4=0;i4<l2.length;i4++){m2=l2[i4];" +
     "if(!m2.hasAttribute('data-k')&&!m2.closest('#rg-assetmap')&&!df(m2))cadG(m2,p)}" +
     /* le rond visible porte parfois LUI-MÊME le data-k : lui aussi se cadre */
     "if(p.k){try{var lkf=document.querySelectorAll('[data-k=\"'+p.k.replace(/\"/g,'\\\\\"')+'\"]'),i5;" +
     "for(i5=0;i5<lkf.length;i5++)if(lkf[i5].tagName==='IMG'&&!lkf[i5].closest('#rg-assetmap')&&!df(lkf[i5]))cadG(lkf[i5],p)}catch(eK){}}}}" +
     "else if(p.kind==='img'&&n.tagName==='IMG'){" +
-    "var bon=!p.alt||(n.getAttribute('alt')||'').trim()===p.alt;" +
-    "if(bon){if(n.getAttribute('src')!==p.after){if(!n.pkOrig)n.pkOrig=n.getAttribute('src');" +
-    "n.removeAttribute('srcset');n.setAttribute('src',p.after)}cadG(n,p)}" +
-    "else if(n.getAttribute('src')===p.after&&n.pkOrig){n.setAttribute('src',n.pkOrig)}}" +
-    "else if(p.kind==='bg'){var u='url(\"'+p.after+'\")';if(n.style.backgroundImage!==u){" +
+    "var bon=!p.alt||(n.getAttribute('alt')||'').trim()===p.alt;var pi=vu(p),si=n.getAttribute('src');" +
+    "if(bon){if(si!==pi&&si!==p.after){if(!n.pkOrig)n.pkOrig=si;" +
+    "n.removeAttribute('srcset');n.setAttribute('src',pi)}cadG(n,p)}" +
+    "else if((si===pi||si===p.after)&&n.pkOrig){n.setAttribute('src',n.pkOrig)}}" +
+    "else if(p.kind==='bg'){var u='url(\"'+vu(p)+'\")';if(n.style.backgroundImage!==u){" +
     "n.style.backgroundImage=u;n.style.backgroundSize='cover';n.style.backgroundPosition='center';" +
     "n.style.backgroundRepeat='no-repeat'}cadG(n,p);" +
     "if(p.hide&&!n.hasAttribute('data-pk-hide'))n.setAttribute('data-pk-hide','1')}" +
-    "else if(p.kind==='vsrc'&&n.tagName==='VIDEO'){if(n.getAttribute('src')!==p.after){" +
+    "else if(p.kind==='vsrc'&&n.tagName==='VIDEO'){var pw=vu(p),sw=n.getAttribute('src');" +
+    "if(sw!==pw&&sw!==p.after){" +
     "[].slice.call(n.querySelectorAll('source')).forEach(function(s){s.remove()});" +
-    "n.setAttribute('src',p.after);n.controls=true;n.load()}}" +
+    "n.setAttribute('src',pw);n.controls=true;n.load()}}" +
     "else if(p.kind==='video'){var v=n.querySelector(':scope > video.pk-vid');if(!v){" +
     "v=document.createElement('video');v.className='pk-vid';v.setAttribute('controls','');" +
     "v.setAttribute('playsinline','');v.setAttribute('style','position:absolute;inset:0;width:100%;" +
     "height:100%;object-fit:contain;background:#000;z-index:9');" +
     "if(getComputedStyle(n).position==='static')n.style.position='relative';" +
     "n.setAttribute('data-pk-hide','1');n.appendChild(v)}" +
-    "if(v.getAttribute('src')!==p.after)v.setAttribute('src',p.after);v.pkTour=tours}" +
+    "var pl=vu(p),sl=v.getAttribute('src');" +
+    "if(sl!==pl&&sl!==p.after)v.setAttribute('src',pl);v.pkTour=tours}" +
     "else if(p.kind==='link'){" +
     /* la carte copiait un chemin codé en dur : son bouton copie le nôtre */
     "if(p.cp){var lb=n.querySelectorAll?n.querySelectorAll('button,[role=button]'):[],bc=null,jc;" +
