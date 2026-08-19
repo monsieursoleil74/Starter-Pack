@@ -556,7 +556,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08o';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08p';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1865,7 +1865,8 @@ $('pickVid').addEventListener('change', function (e) {
     besoins[rel] = f.name;
     renderList();
     toast(chRes
-      ? 'Lecture possible ici ; à l’arrivée, la vidéo doit s’appeler « ' + chRes + ' »'
+      ? 'Lecture possible ici ; à l’arrivée, mets « ' + chRes.split('/').pop() +
+        ' » dans un sous-dossier videos/ à côté de ton HTML (ou au chemin « ' + chRes + ' »)'
       : 'Lecture possible ici ; pense à copier « ' + f.name + ' » dans un dossier videos/ à côté de ton HTML');
     return;
   }
@@ -3486,7 +3487,7 @@ function renderList() {
   var av = $('besoins');
   if (noms.length) {
     av.classList.remove('hidden');
-    av.innerHTML = '<b>À copier à côté de ton HTML :</b><br>' +
+    av.innerHTML = '<b>À copier à côté de ton HTML (ou tout à plat dans un sous-dossier videos/) :</b><br>' +
       noms.map(function (rel) { return '• ' + esc(besoins[rel]) + ' → <code>' + esc(rel) + '</code>'; }).join('<br>');
   } else av.classList.add('hidden');
   $('count').textContent = patches.length ? patches.length + ' retouche(s)' : 'aucune retouche';
@@ -3721,6 +3722,17 @@ function exportFile() {
     "p.pkBu=URL.createObjectURL(new Blob([a],{type:mm}))}catch(e){p.pkBu=p.after}return p.pkBu}" +
     "function vu(p){return p.after&&p.after.indexOf('data:')===0&&" +
     "p.after.length>300000?bu(p):p.after}" +
+    /* une vidéo « fichier local » se cherche : au chemin annoncé, puis dans
+       un sous-dossier videos/ (ou video/) à côté du HTML — on peut ranger
+       toutes les vidéos à plat dans un seul dossier */
+    "function fx(v,rel){if(v.pkFx===rel)return;v.pkFx=rel;" +
+    "var base=rel.split('/').pop();var alts=[rel];" +
+    "if('videos/'+base!==rel)alts.push('videos/'+base);" +
+    "if('video/'+base!==rel)alts.push('video/'+base);" +
+    "var ai=0;v.addEventListener('error',function(){" +
+    "if(v.pkFx!==rel)return;if(ai<alts.length-1){ai++;v.setAttribute('src',alts[ai]);v.load()}});" +
+    "v.setAttribute('src',alts[0]);v.load()}" +
+    "function abs(u){return /^(data:|blob:|https?:)/.test(u||'')}" +
     "function wr(p,n){n.textContent=p.after;" +
     "try{if(n.firstChild){n.firstChild.pkDe=p.id;n.firstChild.pkVal=p.after}}catch(eM){}" +
     "if(p.after.indexOf('\\n')>=0)n.style.whiteSpace='pre-line';" +
@@ -3745,7 +3757,7 @@ function exportFile() {
     "document.body.appendChild(bu);setTimeout(function(){bu.remove()},1200)}catch(e2){}" +
     "},true)}" +
     "function net(p){[].forEach.call(document.querySelectorAll('video.pk-vid'),function(v){" +
-    "var sn=v.getAttribute('src');if((sn!==p.after&&sn!==p.pkBu)||v.pkTour===tours)return;var pa=v.parentElement;v.remove();" +
+    "var sn=v.getAttribute('src');if((sn!==p.after&&sn!==p.pkBu&&v.pkFx!==p.after)||v.pkTour===tours)return;var pa=v.parentElement;v.remove();" +
     "if(pa&&!pa.querySelector(':scope > video.pk-vid'))pa.removeAttribute('data-pk-hide')})}" +
     /* l'onglet : icône et titre, remis à chaque passage — une page qui
        reconstruit son head les emporterait sinon */
@@ -3797,14 +3809,16 @@ function exportFile() {
        sa réserve avant nous */
     "else if(p.src==='reserve'&&(n.tagName==='IMG'||n.tagName==='VIDEO')){" +
     "var pv=vu(p);" +
-    "var o=n.getAttribute('src');if(o&&o!==p.after&&o!==pv){if(!p.old)p.old=o;" +
-    "n.removeAttribute('srcset');n.setAttribute('src',pv)}" +
+    "var o=n.getAttribute('src');if(o&&o!==p.after&&o!==pv&&n.pkFx!==pv){if(!p.old)p.old=o;" +
+    "n.removeAttribute('srcset');" +
+    "if(n.tagName==='VIDEO'&&!abs(pv))fx(n,pv);else n.setAttribute('src',pv)}" +
     /* l'appli retrouve ses visuels en comparant les src : on ne réécrit JAMAIS
        celui d'une copie affichée. Le remplacement se pose par-dessus, en CSS. */
     "var au=function(m){return m!==n&&(m.hasAttribute('data-k')||!!m.closest('#rg-assetmap'))};" +
     "if(p.old){R.push('img[src=\"'+p.old.replace(/\"/g,'\\\\\"')+'\"]:not([data-k]){content:url(\"'+pv+'\")}');" +
     "[].forEach.call(document.querySelectorAll('video[src=\"'+p.old+'\"]'),function(m){" +
-    "if(au(m))return;m.setAttribute('src',pv);m.controls=true;m.load()});" +
+    "if(au(m))return;m.controls=true;" +
+    "if(!abs(pv))fx(m,pv);else{m.setAttribute('src',pv);m.load()}});" +
     "[].forEach.call(document.querySelectorAll('[style*=\"'+p.old+'\"]'),function(m){" +
     "m.setAttribute('style',m.getAttribute('style').split(p.old).join(pv))});" +
     "if(p.fit){var l1=IX(p.old),i3,m1;for(i3=0;i3<l1.length;i3++){m1=l1[i3];" +
@@ -3824,7 +3838,10 @@ function exportFile() {
     "n.style.backgroundRepeat='no-repeat'}cadG(n,p);" +
     "if(p.hide&&!n.hasAttribute('data-pk-hide'))n.setAttribute('data-pk-hide','1')}" +
     "else if(p.kind==='vsrc'&&n.tagName==='VIDEO'){var pw=vu(p),sw=n.getAttribute('src');" +
-    "if(sw!==pw&&sw!==p.after){" +
+    "if(!abs(pw)){if(n.pkFx!==pw){" +
+    "[].slice.call(n.querySelectorAll('source')).forEach(function(s){s.remove()});" +
+    "n.controls=true;fx(n,pw)}}" +
+    "else if(sw!==pw&&sw!==p.after){" +
     "[].slice.call(n.querySelectorAll('source')).forEach(function(s){s.remove()});" +
     "n.setAttribute('src',pw);n.controls=true;n.load()}}" +
     "else if(p.kind==='video'){var v=n.querySelector(':scope > video.pk-vid');if(!v){" +
@@ -3834,7 +3851,8 @@ function exportFile() {
     "if(getComputedStyle(n).position==='static')n.style.position='relative';" +
     "n.setAttribute('data-pk-hide','1');n.appendChild(v)}" +
     "var pl=vu(p),sl=v.getAttribute('src');" +
-    "if(sl!==pl&&sl!==p.after)v.setAttribute('src',pl);v.pkTour=tours}" +
+    "if(!abs(pl))fx(v,pl);" +
+    "else if(sl!==pl&&sl!==p.after)v.setAttribute('src',pl);v.pkTour=tours}" +
     "else if(p.kind==='link'){" +
     /* la carte copiait un chemin codé en dur : son bouton copie le nôtre */
     "if(p.cp){var lb=n.querySelectorAll?n.querySelectorAll('button,[role=button]'):[],bc=null,jc;" +
