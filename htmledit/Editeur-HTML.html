@@ -511,6 +511,9 @@ header .sp{flex:1}
     <button id="askvEmbed"><b>Embarquer la vidéo dans le fichier</b>
       <span>la page se suffit à elle-même, mais elle grossit d’environ 1,4 × le poids
       de la vidéo — à réserver aux clips courts</span></button>
+    <button id="askvLien"><b>J’indique moi-même le chemin</b>
+      <span>tape l’emplacement exact, ex. <code>videos/mavideo.mp4</code> (relatif au HTML)
+      ou une adresse <code>https://…</code> — aucun renommage, aucune devinette</span></button>
   </div>
   <button class="cancel" id="askvNo">Annuler</button>
 </div></div>
@@ -556,7 +559,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08q';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08r';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1827,6 +1830,35 @@ function closeAskv() { $('askv').classList.add('hidden'); vidEl = null; vidQuand
 $('askvNo').addEventListener('click', closeAskv);
 $('askv').addEventListener('click', function (e) { if (e.target === $('askv')) closeAskv(); });
 $('askvFile').addEventListener('click', function () { vidEmbed = false; $('askv').classList.add('hidden'); pickVideo(); });
+$('askvLien').addEventListener('click', function () {
+  $('askv').classList.add('hidden');
+  var el = vidEl, kind = vidKind, quand = vidQuand;
+  var val = prompt('Chemin (relatif au HTML) ou adresse de la vidéo :\n' +
+    'ex. videos/mavideo.mp4   ou   https://…', 'videos/');
+  if (!val || !val.trim() || val.trim() === 'videos/') { vidEl = null; return; }
+  vidEl = null;
+  val = val.trim().replace(/\\/g, '/');
+  // un chemin absolu (C:/…, file://…) ne survivrait pas au changement de
+  // machine : on garde le nom, rangé dans videos/
+  if (/^([a-z]:\/|file:)/i.test(val)) {
+    val = 'videos/' + val.split('/').pop();
+    toast('Chemin absolu remplacé par « ' + val + ' » — mets le fichier là, à côté du HTML');
+  }
+  var res = kind === 'vsrc' ? reserveDe(jumeaux(el)) : null;
+  var cible = res || el;
+  var p = { kind: res ? 'vsrc' : (kind === 'vsrc' ? 'vsrc' : 'video'),
+            sel: pathOf(cible), before: '', after: val, label: short(val, 36),
+            when: res ? undefined : (quand || undefined) };
+  if (res) { p.src = 'reserve'; p.k = cheminDe(res) || undefined; p.old = el.getAttribute('src'); }
+  else if (quand) p.label += ' — ' + short(quand.txt, 22);
+  applyOne(p, cible);
+  addPatch(p);
+  if (res) propagerReserve();
+  renderList();
+  toast(/^https?:/i.test(val)
+    ? 'La vidéo se lira depuis cette adresse dans le fichier exporté'
+    : 'La vidéo se lira depuis « ' + val + ' » (relatif au HTML) dans le fichier exporté');
+});
 $('askvEmbed').addEventListener('click', function () { vidEmbed = true; $('askv').classList.add('hidden'); pickVideo(); });
 function pickVideo() { $('pickVid').value = ''; $('pickVid').click(); }
 
@@ -1862,12 +1894,13 @@ $('pickVid').addEventListener('change', function (e) {
     var rel = chRes || ('videos/' + f.name.replace(/[^\w.\- ]/g, '_'));
     apercuFichiers[pathOf(res || el)] = f;
     finish(rel, short(rel, 36));
+    // le nom du fichier CHOISI : l'export saura le retrouver dans videos/
+    // sans qu'il soit renommé au nom que la maquette attendait
+    patches[patches.length - 1].fn = f.name;
     besoins[rel] = f.name;
     renderList();
-    toast(chRes
-      ? 'Lecture possible ici ; à l’arrivée, mets « ' + chRes.split('/').pop() +
-        ' » dans un sous-dossier videos/ à côté de ton HTML (ou au chemin « ' + chRes + ' »)'
-      : 'Lecture possible ici ; pense à copier « ' + f.name + ' » dans un dossier videos/ à côté de ton HTML');
+    toast('Lecture possible ici ; à l’arrivée, mets « ' + f.name +
+      ' » (tel quel) dans un sous-dossier videos/ à côté de ton HTML');
     return;
   }
   if (f.size > 60 * 1024 * 1024 &&
@@ -3591,10 +3624,11 @@ function exportFile() {
     /* les seuls fichiers que le filet vidéo a le droit de chercher : ceux des
        retouches « fichier local » — jamais les vidéos propres de la maquette,
        dont le src sert d'identité (quelle vidéo ouvrir ?) */
-    "var RELS={};P.forEach(function(q){var a2=q&&q.after;" +
+    "var RELS={},FNS={};P.forEach(function(q){var a2=q&&q.after;" +
     "if((q.kind==='vsrc'||q.kind==='video'||q.src==='reserve')&&a2&&" +
     "typeof a2==='string'&&!/^(data:|blob:|https?:)/.test(a2)&&/\.(mp4|webm|ogv|ogg|m4v|mov)$/i.test(a2)){" +
-    "RELS[a2]=1;RELS[a2.split('/').pop()]=1}});" +
+    "RELS[a2]=1;RELS[a2.split('/').pop()]=1;" +
+    "if(q.fn){RELS[q.fn]=1;FNS[a2]=q.fn;FNS[a2.split('/').pop()]=q.fn}}});" +
     /* les gabarits pas encore montés (src="{{ … }}") : sans ça, un lecteur
        vidéo brut reste affiché pendant tout le montage de la page */
     "try{var pb=document.createElement('style');" +
@@ -3734,16 +3768,19 @@ function exportFile() {
        fichiers à plat dans un dossier, même pour les lecteurs que la page
        crée elle-même à partir de sa réserve */
     "function vd(u,rel){if(!u||!rel)return false;var b=String(rel).split('/').pop();" +
-    "return u==='videos/'+b||u==='video/'+b}" +
+    "if(u==='videos/'+b||u==='video/'+b)return true;" +
+    "var f2=FNS[rel]||FNS[b];return !!f2&&(u===f2||u==='videos/'+f2||u==='video/'+f2)}" +
     "document.addEventListener('error',function(ev){var v=ev.target;" +
     "if(!v||v.tagName!=='VIDEO')return;var u=v.getAttribute('src')||'';" +
     "if(!u||/^(data:|blob:|https?:)/.test(u))return;" +
     "if(!RELS[u]&&!RELS[u.split('/').pop()]&&" +
     "String(v.className||'').indexOf('pk-vid')<0)return;" +
     "var b=u.split('/').pop();var t=v.pkTry||(v.pkTry={});t[u]=1;" +
-    "var next=null;" +
-    "if(u!=='videos/'+b&&!t['videos/'+b])next='videos/'+b;" +
-    "else if(u!=='video/'+b&&!t['video/'+b])next='video/'+b;" +
+    "var fn=FNS[u]||FNS[b]||'';" +
+    "var cand=['videos/'+b,'video/'+b];" +
+    "if(fn){cand.push('videos/'+fn,'video/'+fn,fn)}" +
+    "var next=null,ci;for(ci=0;ci<cand.length;ci++)" +
+    "if(cand[ci]!==u&&!t[cand[ci]]){next=cand[ci];break}" +
     "if(next){t[next]=1;v.setAttribute('src',next);v.load()}},true);" +
     "function wr(p,n){n.textContent=p.after;" +
     "try{if(n.firstChild){n.firstChild.pkDe=p.id;n.firstChild.pkVal=p.after}}catch(eM){}" +

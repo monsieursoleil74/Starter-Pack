@@ -304,22 +304,26 @@ Si la vidéo s'ouvre **dans une fenêtre** (bouton *RIG*, *Sa présentation*…)
 **clique ce bouton** : l'outil ouvre la fenêtre et vise l'emplacement du
 lecteur à l'intérieur — pas le bouton.
 
-**Deux façons, et le choix compte :**
+**Trois façons, et le choix compte :**
 
 | | Le fichier HTML | La vidéo |
 |---|---|---|
-| **Posée à côté** *(recommandé)* | reste léger | à copier à l'endroit indiqué |
+| **Posée à côté** *(recommandé)* | reste léger | dans un sous-dossier `videos/`, **avec son nom d'origine** |
 | **Embarquée** | grossit d'environ 1,4 × le poids de la vidéo | dans le fichier |
+| **Chemin tapé à la main** | reste léger | exactement là où tu l'as écrit |
 
 Pour un pack diffusé sur le serveur du studio, **« posée à côté »** est presque
-toujours le bon choix. Le panneau de droite te rappelle **la liste des fichiers
-à copier et sous quel nom**.
+toujours le bon choix : tu ranges tes fichiers **tels quels** dans un
+sous-dossier `videos/` à côté du HTML, sans les renommer — le pack les
+retrouve tout seul (il essaie aussi `video/` et le chemin d'origine de la
+maquette). Le panneau de droite te rappelle la liste des fichiers à copier.
+Et si tu préfères tout contrôler, **« j'indique moi-même le chemin »** :
+tu tapes `videos/ma-video.mp4` (relatif au HTML) ou une adresse `https://…`,
+et c'est ce chemin-là qui est utilisé, sans aucune devinette.
 
 **Si la maquette range ses vidéos dans une réserve**, l'outil branche la tienne
-sur l'entrée du fichier : chaque tuto, chaque personnage garde la sienne. Et il
-**reprend le chemin que la maquette attend** — `ma-video.mp4 →
-assets_nda/tutos/rig.mp4`. Tu déposes le fichier au bon endroit, le pack est
-complet.
+sur l'entrée du fichier : chaque tuto, chaque personnage garde la sienne — et
+là aussi, ton fichier rangé dans `videos/` sous son nom d'origine suffit.
 
 **Une seule fenêtre, plusieurs boutons.** Quand la maquette n'a qu'une fenêtre
 vidéo partagée et pas de réserve, l'outil retient **le titre qu'elle affiche**
