@@ -325,6 +325,11 @@ et c'est ce chemin-là qui est utilisé, sans aucune devinette.
 sur l'entrée du fichier : chaque tuto, chaque personnage garde la sienne — et
 là aussi, ton fichier rangé dans `videos/` sous son nom d'origine suffit.
 
+**Les identifiants d'un outil** (Login, Mot de passe) sont posés dans une
+carte qui est un lien : tu les modifies comme n'importe quel texte, et dans
+le pack final **un clic dessus les sélectionne et les copie** — sans ouvrir
+la page. Le reste de la carte, lui, ouvre toujours son lien.
+
 **Une seule fenêtre, plusieurs boutons.** Quand la maquette n'a qu'une fenêtre
 vidéo partagée et pas de réserve, l'outil retient **le titre qu'elle affiche**
 au moment où tu poses la vidéo : chaque bouton garde ainsi la sienne.

@@ -559,7 +559,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08s';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08u';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -936,6 +936,7 @@ function applyAll() {
     } else applyOne(p, n);
   });
   orphelins.forEach(nettoyerLecteurs);
+  try { marquerIdentifiants(); } catch (eI) {}
   propagerReserve();
   applying = false;
 }
@@ -966,12 +967,56 @@ function injectCss() {
   (doc.head || doc.documentElement).appendChild(st);
 }
 
+/* Les identifiants d'un outil (Login / Mot de passe) sont posés DANS une
+   carte qui est un lien : impossible de les sélectionner pour les copier.
+   On les repère (une étiquette « Login », « Mot de passe »… suivie de sa
+   valeur) pour que l'Aperçu les rende sélectionnables et copiables — comme
+   le fera le fichier exporté. */
+var RXIDENT = /^\s*(login|identifiant|utilisateur|user(name)?|e-?mail|courriel|mot de passe|mots de passe|mdp|password|pass|code)\s*:?\s*$/i;
+function marquerIdentifiants() {
+  if (!doc) return;
+  var cartes = doc.querySelectorAll('a,button,[role=button]');
+  for (var i = 0; i < cartes.length; i++) {
+    var ca = cartes[i], els = ca.querySelectorAll('*');
+    for (var j = 0; j < els.length; j++) {
+      var e = els[j];
+      if (e.children.length || !RXIDENT.test(e.textContent || '')) continue;
+      var v = e.nextElementSibling;
+      if (!v && e.parentElement) v = e.parentElement.nextElementSibling;
+      while (v && v.children.length === 1) v = v.firstElementChild;
+      if (!v || v.children.length || !(v.textContent || '').trim()) continue;
+      if (v.dataset.pkCred) continue;
+      v.dataset.pkCred = '1';
+      v.style.userSelect = 'text';
+      v.style.cursor = 'text';
+      try { ca.setAttribute('draggable', 'false'); } catch (eD) {}
+    }
+  }
+}
 /* Ta page est affichée sans adresse à elle : un lien « #tutoriels » se
    résoudrait contre l'adresse de l'outil et rechargerait l'OUTIL dans le
    cadre. On fait donc défiler nous-mêmes, et on retient les liens qui
    feraient quitter l'aperçu — dans le fichier exporté, ils marchent seuls. */
 function navigation(e) {
   if (e.defaultPrevented) return;
+  // un identifiant dans une carte-lien : le clic le sélectionne et le copie,
+  // il n'ouvre pas la page (c'est ce que fera aussi le fichier exporté)
+  var cr = e.target.closest ? e.target.closest('[data-pk-cred]') : null;
+  if (cr && mode === 'view') {
+    e.preventDefault(); e.stopPropagation();
+    var t = (cr.textContent || '').trim();
+    try {
+      var sl = doc.defaultView.getSelection(), rg = doc.createRange();
+      rg.selectNodeContents(cr);
+      sl.removeAllRanges(); sl.addRange(rg);
+    } catch (eS) {}
+    // on copie LA SÉLECTION elle-même : une zone technique la remplacerait
+    var okC = false;
+    try { okC = doc.execCommand('copy'); } catch (eC) {}
+    if (!okC) try { navigator.clipboard.writeText(t); } catch (eW) {}
+    toast('Copié : ' + short(t, 40));
+    return;
+  }
   var a = e.target.closest ? e.target.closest('a[href]') : null;
   if (!a) return;
   var h = a.getAttribute('href') || '';
@@ -1365,7 +1410,14 @@ function onClick(e) {
     // travail : placer le curseur au clic, sélectionner à la souris…
     // — mais la maquette, elle, ne doit pas recevoir ce clic (une carte
     // tutoriel ouvrirait sa vidéo à chaque déplacement du curseur)
-    if (editing && (n === editing || editing.contains(t))) { e.stopPropagation(); return; }
+    if (editing && (n === editing || editing.contains(t))) {
+      e.stopPropagation();
+      // un champ à l'intérieur d'une carte-lien (les identifiants d'un outil…) :
+      // le second clic d'un double-clic SUIT le lien et fait quitter l'aperçu —
+      // le curseur, lui, est déjà posé, on ne perd rien à refuser la navigation
+      if (t.closest && t.closest('a[href]')) e.preventDefault();
+      return;
+    }
     // on éditait, et ce clic tombe AILLEURS (une sélection à la souris qui
     // déborde, le clic qui referme) : il ferme l'édition, rien d'autre —
     // la carte en dessous ne doit pas se réveiller
@@ -2059,6 +2111,13 @@ function startEdit(n, x, y) {
   }
   n.dataset.pkOrig = before;
   n.setAttribute('contenteditable', 'true');
+  // dans une carte-lien, un glisser de sélection démarre le GLISSER DU LIEN :
+  // le temps de l'édition, le lien ne se laisse plus emporter
+  var lienHote = n.closest ? n.closest('a[href]') : null;
+  if (lienHote && !lienHote.hasAttribute('draggable')) {
+    lienHote.setAttribute('draggable', 'false');
+    lienHote.pkDrag = 1;
+  }
   n.focus();
   // le curseur se pose LÀ où on a cliqué — corriger un mot ne doit pas
   // commencer par « tout est sélectionné ». Ctrl+A reste là pour tout refaire.
@@ -2100,6 +2159,7 @@ function startEdit(n, x, y) {
   n.addEventListener('paste', onPaste);
   var done = function () {
     n.removeAttribute('contenteditable');
+    if (lienHote && lienHote.pkDrag) { lienHote.removeAttribute('draggable'); delete lienHote.pkDrag; }
     n.removeEventListener('paste', onPaste);
     n.removeEventListener('blur', done);
     editing = null;
@@ -3812,6 +3872,41 @@ function exportFile() {
     "pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.35)');" +
     "document.body.appendChild(bu);setTimeout(function(){bu.remove()},1200)}catch(e2){}" +
     "},true)}" +
+    /* Les identifiants d'un outil (Login / Mot de passe) sont posés DANS une
+       carte qui est un lien : impossible de les sélectionner pour les copier,
+       le moindre geste ouvrait la page. Ils deviennent sélectionnables, et un
+       clic dessus copie la valeur au lieu de suivre le lien. */
+    "var RXID=/^\\s*(login|identifiant|utilisateur|user(name)?|e-?mail|courriel|" +
+    "mot de passe|mots de passe|mdp|password|pass|code)\\s*:?\\s*$/i;" +
+    "function bul(r,msg){try{var bu=document.createElement('div');bu.textContent=msg;" +
+    "bu.setAttribute('data-pk-bulle','1');" +
+    "bu.setAttribute('style','position:fixed;left:'+(r.left+r.width/2)+'px;top:'+(r.top-8)+" +
+    "'px;transform:translate(-50%,-100%);background:#1d2129;color:#fff;" +
+    "font:600 12px/1 sans-serif;padding:7px 10px;border-radius:8px;z-index:2147483647;" +
+    "pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.35)');" +
+    "document.body.appendChild(bu);setTimeout(function(){bu.remove()},1200)}catch(e){}}" +
+    "function cred(v,carte){if(v.pkCred)return;v.pkCred=1;" +
+    "v.style.userSelect='text';v.style.webkitUserSelect='text';v.style.cursor='text';" +
+    "try{carte.setAttribute('draggable','false')}catch(e){}" +
+    "v.addEventListener('mousedown',function(ev){ev.stopPropagation()},true);" +
+    "v.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();" +
+    "var t=(v.textContent||'').trim();" +
+    "try{var sl=window.getSelection(),rg=document.createRange();rg.selectNodeContents(v);" +
+    "sl.removeAllRanges();sl.addRange(rg)}catch(e2){}" +
+    /* on copie LA SÉLECTION : elle reste visible, prête pour un Ctrl+C */
+    "var ok3=false;try{ok3=document.execCommand('copy')}catch(e3){}" +
+    "if(!ok3&&navigator.clipboard&&navigator.clipboard.writeText)" +
+    "navigator.clipboard.writeText(t)['catch'](function(){});" +
+    "bul(v.getBoundingClientRect(),'Copié \u2713')},true)}" +
+    "function ident(){var cs=document.querySelectorAll('a,button,[role=button]'),i,j;" +
+    "for(i=0;i<cs.length;i++){var ca=cs[i],els=ca.querySelectorAll('*');" +
+    "for(j=0;j<els.length;j++){var e=els[j];" +
+    "if(e.children.length||!RXID.test(e.textContent||''))continue;" +
+    "var v=e.nextElementSibling;" +
+    "if(!v&&e.parentElement)v=e.parentElement.nextElementSibling;" +
+    "while(v&&v.children.length===1)v=v.firstElementChild;" +
+    "if(!v||v.children.length||!(v.textContent||'').trim())continue;" +
+    "cred(v,ca)}}}" +
     "function net(p){[].forEach.call(document.querySelectorAll('video.pk-vid'),function(v){" +
     "var sn=v.getAttribute('src');if((sn!==p.after&&sn!==p.pkBu&&!vd(sn,p.after))||v.pkTour===tours)return;var pa=v.parentElement;v.remove();" +
     "if(pa&&!pa.querySelector(':scope > video.pk-vid'))pa.removeAttribute('data-pk-hide')})}" +
@@ -3929,6 +4024,7 @@ function exportFile() {
     "var css=R.join('\\n');if(SP.textContent!==css)SP.textContent=css}" +
     "else if(SP)SP.parentNode.removeChild(SP);" +
     /* trace discrète : « le correctif a bien tourné N fois » */
+    "try{ident()}catch(eI){}" +
     "try{document.documentElement.setAttribute('data-pack-edit',tours)}catch(e){}" +
     "busy=false}" +
     /* la règle de masquage est vérifiée à CHAQUE passage : une page qui se
