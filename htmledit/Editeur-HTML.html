@@ -559,7 +559,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08r';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08s';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1857,7 +1857,8 @@ $('askvLien').addEventListener('click', function () {
   renderList();
   toast(/^https?:/i.test(val)
     ? 'La vidéo se lira depuis cette adresse dans le fichier exporté'
-    : 'La vidéo se lira depuis « ' + val + ' » (relatif au HTML) dans le fichier exporté');
+    : 'Branché sur « ' + val + ' » — l’aperçu ne peut pas le lire ici, ' +
+      'mais le fichier exporté posé à côté de ton dossier videos/ le lira');
 });
 $('askvEmbed').addEventListener('click', function () { vidEmbed = true; $('askv').classList.add('hidden'); pickVideo(); });
 function pickVideo() { $('pickVid').value = ''; $('pickVid').click(); }
@@ -3107,13 +3108,19 @@ function putVideo(n, p, d) {
 function veilleVideo(v, p) {
   v.addEventListener('error', function () {
     var c = v.error ? v.error.code : 0;
+    if (!apercuFichiers[p.sel]) {
+      // chemin tapé ou fichier « à côté » : l'aperçu ne PEUT PAS le lire ici,
+      // ce n'est ni une erreur ni un problème de format — la vidéo se lira
+      // dans le fichier exporté, posé à côté du dossier
+      toast('Aperçu indisponible ici pour « ' + p.after + ' » — la vidéo se lira ' +
+            'dans le fichier exporté, posé à côté du dossier videos/');
+      return;
+    }
     // 4 = le navigateur a bien reçu le fichier mais ne sait pas le décoder
-    if (c === 4 && apercuFichiers[p.sel])
+    if (c === 4)
       toast('Ce navigateur ne sait pas lire cette vidéo — exporte-la en MP4 (H.264) ou en WebM');
-    else if (apercuFichiers[p.sel])
-      toast('Lecture impossible dans l’aperçu — vérifie le fichier');
     else
-      toast('Vidéo introuvable : copie le fichier dans « ' + p.after + ' » à côté du HTML');
+      toast('Lecture impossible dans l’aperçu — vérifie le fichier');
     var b = $('besoins');
     b.classList.remove('hidden');
     b.innerHTML = (b.classList.contains('hidden') ? '' : b.innerHTML) +
