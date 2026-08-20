@@ -146,19 +146,23 @@ ignorée au lieu d'écraser le nouveau contenu.
 
 ## 3. Images
 
-### Remplacer une image
+### Recadrer ou remplacer une image
 
-Clique-la. Le survol te dit à l'avance ce qu'un clic va faire :
+Clique-la : le **recadrage** s'ouvre — repositionner, zoomer, *« Toute
+l'image »*. L'explorateur de fichiers ne s'ouvre plus tout seul : c'est le
+bouton **« Remplacer… »** de la barre de recadrage qui le demande (ou lâche
+simplement le nouveau fichier sur l'image). Tant que tu ne changes rien,
+aucune retouche n'est créée : refermer laisse l'image exactement comme elle
+était.
 
-- **cadre vert plein** → une image : clic = la remplacer ;
+Le survol te dit à l'avance ce qu'un clic va faire :
+
+- **cadre vert plein** → une image : clic = la recadrer (ou la remplacer) ;
 - **cadre orange pointillé** → une zone sans image : clic = **y poser** une
   image (voir plus bas) ;
 - *« 3 images ici — clique pour choisir »* → plusieurs images sont superposées.
-
-**Une image que tu as déjà remplacée** : re-cliquer dessus ouvre directement
-le **recadrage** (repositionner, zoomer) — pas l'explorateur de fichiers. Pour
-changer de fichier : le bouton **« Remplacer… »** dans la barre de recadrage,
-ou lâche simplement le nouveau fichier dessus.
+  Là, choisir une image dans la liste **la remplace directement** : le choix
+  est déjà fait. Le panneau de droite aussi.
 
 ### Glisser-déposer
 
