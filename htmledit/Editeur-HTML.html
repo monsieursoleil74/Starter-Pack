@@ -559,7 +559,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08u';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08y';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -629,12 +629,18 @@ function openFile(file) {
       var b = null;
       for (var i = 0; i < l.length; i++) if (l[i].cle === cle) b = l[i];
       var n = 0;
-      try { n = b ? (JSON.parse(b.patches) || []).length : 0; } catch (e) {}
+      try {
+        n = b ? (b.n != null ? b.n :
+          ((typeof b.patches === 'string' ? JSON.parse(b.patches) : b.patches) || []).length) : 0;
+      } catch (e) {}
       if (!b || n <= patches.length) return;
       if (confirm('Un travail en cours sur ce fichier a été retrouvé : ' + n +
                   ' retouche(s), ' + ilYA(b.quand) + '.\n\nLe reprendre ?')) {
-        try { patches = marquerHerites(JSON.parse(b.patches) || []); } catch (e) {}
-        dernierEcrit = b.patches;
+        try {
+          patches = marquerHerites(
+            (typeof b.patches === 'string' ? JSON.parse(b.patches) : b.patches) || []);
+        } catch (e) {}
+        dernierEcrit = empreintePatches();
         renderList();
         render();
         toast('Travail repris — ' + patches.length + ' retouche(s)');
@@ -761,6 +767,17 @@ function render(keepScroll) {
    personnage…) : on rejoue alors les retouches, exactement comme le fera le
    fichier exporté. Jamais pendant une saisie, pour ne pas écraser la frappe. */
 var moTimer = null, applying = false, dernier = 0;
+/* Nos propres retouches d'habillage (cadrage en direct, surbrillance) font
+   bouger le style : l'observateur les prenait pour un repeint de la maquette
+   et relançait une passe complète — un simple clic sur une image en
+   déclenchait sept. On tient donc le verrou le temps que les mutations
+   soient livrées (elles le sont avant le prochain minuteur). */
+function sansReveil(fn) {
+  if (applying) { try { fn(); } catch (e) {} return; }
+  applying = true;
+  try { fn(); } catch (e) {}
+  setTimeout(function () { applying = false; }, 0);
+}
 function watchDoc() {
   if (!doc || !window.MutationObserver) return;
   new MutationObserver(function (muts) {
@@ -782,11 +799,16 @@ function watchDoc() {
     for (var it = 0; it < muts.length; it++)
       if (muts[it].type === 'characterData' || muts[it].type === 'childList') { texte = true; break; }
     var t = new Date().getTime();
-    if (texte || t - dernier > 30) { dernier = t; applyAll(); }
+    // une vague d'HABILLAGE seule (images qui se chargent en défilant, styles
+    // qui s'animent) ne change aucun contenu : sur un gros pack, la rejouer
+    // toutes les 30 ms coûtait plus cher que tout le reste. Le texte, lui,
+    // garde son application immédiate (aucun placeholder n'est jamais peint).
+    var creneau = texte ? 0 : (patches.length > 120 ? 350 : 60);
+    if (texte || t - dernier > creneau) { dernier = t; applyAll(); }
     clearTimeout(moTimer);
     moTimer = setTimeout(function () {
       if (!editing) { dernier = new Date().getTime(); applyAll(); }
-    }, 90);
+    }, texte ? 90 : 380);
     // on surveille le DOCUMENT, pas le <html> : certaines maquettes remplacent
     // la balise racine, et la surveillance mourrait avec elle
   }).observe(doc, { childList: true, subtree: true, attributes: true,
@@ -1431,16 +1453,11 @@ function onClick(e) {
     e.preventDefault(); e.stopPropagation();
     tip('');
     if (pile.length > 1) choisirImage(pile, hit && hit.kind === 'zone' ? hit.el : null);
-    else if (pile.length === 1) {
-      // cliquer une image DÉJÀ remplacée sert à la repositionner, pas à
-      // rouvrir l'explorateur — le panneau de droite, lui, remplace toujours
-      var dejaI = pile[0].kind === 'img' && !fichierEnAttente ?
-        retoucheImageDe(pile[0].el) : null;
-      if (dejaI) ouvrirRecadrage(dejaI);
-      else pickImageFor(pile[0].el, pile[0].kind === 'img');
-    }
+    // cliquer une image ouvre son CADRAGE (avec « Remplacer… » sous la main) :
+    // repositionner ne doit pas commencer par l'explorateur de fichiers
+    else if (pile.length === 1) ouvrirSurImage(pile[0].el, pile[0].kind === 'img');
     else if (hit.kind === 'zone') askForZone(hit.el);
-    else pickImageFor(hit.el, hit.kind === 'img');
+    else ouvrirSurImage(hit.el, hit.kind === 'img');
   } else if (mode === 'vid') {
     // un bouton n'est pas l'emplacement de la vidéo : c'est ce qu'il OUVRE.
     // On l'ouvre donc pour lui, et on vise la fenêtre qui apparaît.
@@ -1530,7 +1547,7 @@ $('asklOk').addEventListener('click', function () {
   var p = { kind: 'link', sel: pathOf(el), before: '', after: url, blank: blank,
             label: short(url || cp, 34) };
   if (cp) p.cp = cp;
-  applyOne(p, el);
+  sansReveil(function () { applyOne(p, el); });
   addPatch(p);
   if (mode === 'link') renderLinks();
 });
@@ -1936,7 +1953,7 @@ $('pickVid').addEventListener('change', function (e) {
               when: res ? undefined : (quand || undefined) };
     if (res) { p.src = 'reserve'; p.k = chRes || undefined; p.old = el.getAttribute('src'); }
     else if (quand) p.label += ' — ' + short(quand.txt, 22);
-    applyOne(p, cible);
+    sansReveil(function () { applyOne(p, cible); });
     addPatch(p);
     if (res) propagerReserve();
     renderList();
@@ -2065,6 +2082,8 @@ function renderChoix() {
     b.appendChild(v); b.appendChild(nm); b.appendChild(su);
     b.addEventListener('click', function () {
       flash(c.el);
+      // choisir une image DANS la pile est déjà un choix explicite : on
+      // remplace, et le panneau reste ouvert pour enchaîner le carrousel
       pickImageFor(c.el, c.kind === 'img');
     });
     g.appendChild(b);
@@ -2219,7 +2238,7 @@ function retoucheImageDe(el) {
     if (p.kind !== 'img' && p.kind !== 'bg') continue;
     if (p.k && kEl && p.k === kEl) return p;
     if (p.kind === 'img' && p.after && srcEl &&
-        (srcEl === p.after || srcEl === apercu(p.sel))) return p;
+        (srcEl === p.after || srcEl === p.pkBu || srcEl === apercu(p.sel))) return p;
     try {
       if (doc.querySelector(p.sel) === el &&
           (!p.alt || (el.getAttribute('alt') || '').trim() === p.alt)) return p;
@@ -2228,6 +2247,9 @@ function retoucheImageDe(el) {
   return null;
 }
 function pickImageFor(el, isImg, hide) {
+  // une autre action commence : un cadrage resté ouvert (provisoire ou non)
+  // se referme proprement, sans laisser de retouche fantôme derrière lui
+  if (recadre && recadre.n !== el) fermerRecadrage();
   imgTarget = el; imgIsImg = isImg; imgHide = !!hide;
   if (fichierEnAttente) {
     var f = fichierEnAttente;
@@ -2336,7 +2358,8 @@ function dejaFait(node, sel) {
     if (p.sel === (sel || pathOf(node)) && (!p.alt || p.alt === alt)) return true;
     // une copie affichée garde son src d'ORIGINE (p.old) : elle est retouchée
     // quand même — le remplacement se pose par-dessus en CSS
-    return !!cur && (p.after === cur || (p.src === 'reserve' && p.old === cur));
+    return !!cur && (p.after === cur || p.pkBu === cur ||
+      (p.src === 'reserve' && p.old === cur));
   });
 }
 /* ------------------------------------------- la réserve comme table des matières
@@ -2625,13 +2648,36 @@ $('galQx').addEventListener('click', function () {
 });
 
 /* montre où se trouve l'image dans la page avant de la remplacer */
+/* Une image embarquée pèse plusieurs Mo en toutes lettres. La comparer au
+   src à chaque passe (« a-t-elle changé ? ») revenait à relire des Mo,
+   soixante fois par passe : c'est ce qui alourdissait l'éditeur dès qu'il y
+   avait beaucoup d'images. On l'affiche donc via une adresse interne courte,
+   créée une fois — la retouche, elle, garde son contenu intact pour l'export. */
+function vuImg(p) {
+  if (!p || !p.after || p.after.indexOf('data:') !== 0 || p.after.length <= 300000) {
+    return p ? p.after : '';
+  }
+  if (!p.pkBu) {
+    try {
+      var i = p.after.indexOf(','), mm = p.after.slice(5, i).split(';')[0] || 'image/png';
+      var bn = atob(p.after.slice(i + 1)), a = new Uint8Array(bn.length), k;
+      for (k = 0; k < bn.length; k++) a[k] = bn.charCodeAt(k);
+      p.pkBu = URL.createObjectURL(new Blob([a], { type: mm }));
+    } catch (e) { p.pkBu = p.after; }
+  }
+  return p.pkBu;
+}
 function flash(n) {
   try {
     n.scrollIntoView({ block: 'center', behavior: 'smooth' });
     var old = n.style.outline, oldO = n.style.opacity;
-    n.style.outline = '3px solid #3ecf8e';
-    if (doc.defaultView.getComputedStyle(n).opacity === '0') n.style.opacity = '1';
-    setTimeout(function () { n.style.outline = old; n.style.opacity = oldO; }, 1200);
+    sansReveil(function () {
+      n.style.outline = '3px solid #3ecf8e';
+      if (doc.defaultView.getComputedStyle(n).opacity === '0') n.style.opacity = '1';
+    });
+    setTimeout(function () {
+      sansReveil(function () { n.style.outline = old; n.style.opacity = oldO; });
+    }, 1200);
   } catch (e) {}
 }
 /* ------------------------------------------------- la réserve d'images
@@ -2680,12 +2726,12 @@ function propagerReserve() {
   patches.forEach(function (p) {
     if (p.src !== 'reserve') return;
     // à l'écran on lit le fichier choisi ; le fichier exporté garde le chemin
-    var vu = apercu(p.sel) || p.after;
+    var vu = apercu(p.sel) || vuImg(p);
     var n = p.k ? parChemin(p.k) : null;
     if (!n) { try { n = doc.querySelector(p.sel); } catch (e) { return; } }
     if (n) {
       var o = n.getAttribute('src');
-      if (o && o !== p.after && o !== vu) {
+      if (o && o !== p.after && o !== vu && o !== p.pkBu) {
         if (!p.old) p.old = o;
         n.removeAttribute('srcset');
         n.setAttribute('src', p.after);
@@ -2902,7 +2948,7 @@ function poser(data, nom, el, isImg, hide, ar) {
       var alt = (el.getAttribute('alt') || '').trim();
       if (alt) { p.alt = alt; p.label += ' — ' + short(alt, 18); }
     }
-    applyOne(p, el);
+    sansReveil(function () { applyOne(p, el); });
     addPatch(p);
   }
   // en lot, on ne redessine et on ne recadre qu'une fois, à la fin : dix
@@ -3061,13 +3107,14 @@ function applyOne(p, n) {
     // on pose notre image quand c'est le bon, et on REMET celle d'origine
     // quand ce n'en est plus un — sinon elle déborderait sur les autres.
     var bon = !p.alt || (n.getAttribute('alt') || '').trim() === p.alt;
+    var vI = vuImg(p), sI = n.getAttribute('src');
     if (bon) {
-      if (n.getAttribute('src') !== p.after) {
-        if (!n.pkOrig) n.pkOrig = n.getAttribute('src');
+      if (sI !== vI && sI !== p.after) {
+        if (!n.pkOrig) n.pkOrig = sI;
         n.removeAttribute('srcset');
-        n.setAttribute('src', p.after);
+        n.setAttribute('src', vI);
       }
-    } else if (n.getAttribute('src') === p.after && n.pkOrig) {
+    } else if ((sI === vI || sI === p.after) && n.pkOrig) {
       n.setAttribute('src', n.pkOrig);
     }
     if (bon && (p.fit || p.cadre)) {
@@ -3081,7 +3128,7 @@ function applyOne(p, n) {
       }
     }
   } else if (p.kind === 'bg') {
-    n.style.backgroundImage = 'url("' + p.after + '")';
+    n.style.backgroundImage = 'url("' + vuImg(p) + '")';
     n.style.backgroundRepeat = 'no-repeat';
     if (p.hide) n.setAttribute('data-pk-hide', '1');
     cadrer(n, p);
@@ -3216,7 +3263,7 @@ function noeudVisible(p) {
     // la copie affichée garde son src d'origine (p.old) — le remplacement se
     // pose par-dessus en CSS. Selon le moment, elle peut aussi porter la
     // nouvelle valeur (page repeinte depuis l'entrée).
-    var vu = apercu(p.sel) || p.after;
+    var vu = apercu(p.sel) || vuImg(p);
     var cands = [p.old, vu, p.after], l = [];
     for (var c = 0; c < cands.length; c++) {
       if (!cands[c]) continue;
@@ -3228,10 +3275,38 @@ function noeudVisible(p) {
   }
   return cibleDe(p);
 }
+/* Cliquer une image ouvre son cadrage — même si elle n'a jamais été
+   remplacée : on prépare alors une retouche PROVISOIRE, qui ne rejoint la
+   liste que si le cadrage bouge (ou si l'image est remplacée). Sans ça,
+   chaque clic ouvrait l'explorateur de fichiers, ce qui rendait le simple
+   repositionnement pénible. */
+function retoucheProvisoire(el) {
+  var src = el.getAttribute ? el.getAttribute('src') : null;
+  var p = { kind: el.tagName === 'IMG' ? 'img' : 'bg',
+            sel: pathOf(el), after: src || '',
+            label: short((src || '').split('/').pop() || 'image', 34),
+            prov: 1 };
+  var alt = el.getAttribute && (el.getAttribute('alt') || '').trim();
+  if (alt) p.alt = alt;
+  var k = cheminDe(el);
+  if (k) p.k = k;
+  return p;
+}
+function ouvrirSurImage(el, isImg) {
+  // un fichier vient d'être lâché dessus : on remplace, évidemment
+  if (fichierEnAttente) { pickImageFor(el, isImg); return; }
+  var deja = retoucheImageDe(el);
+  if (deja) { ouvrirRecadrage(deja); return; }
+  if (!isImg || !el.getAttribute || !el.getAttribute('src')) { pickImageFor(el, isImg); return; }
+  ouvrirRecadrage(retoucheProvisoire(el));
+}
 function ouvrirRecadrage(p) {
   var n = noeudVisible(p);
   if (!n) { toast('Cette image n’est pas affichée en ce moment'); return; }
   recadre = { p: p, n: n };
+  // sur une retouche provisoire, on retient l'habillage EXACT de l'image :
+  // refermer sans rien changer doit la laisser rigoureusement intacte
+  if (p.prov) recadre.styleAvant = n.getAttribute('style');
   if (!p.fit) p.fit = { x: 50, y: 50, z: 1 };
   flash(n);
   n.style.cursor = 'move';
@@ -3251,7 +3326,25 @@ function majBarreCadre(p) {
   $('cropZ').parentElement.style.opacity = c ? '.4' : '';
 }
 function fermerRecadrage() {
-  if (recadre) { try { recadre.n.style.cursor = ''; } catch (e) {} }
+  if (recadre) {
+    try { recadre.n.style.cursor = ''; } catch (e) {}
+    var p = recadre.p;
+    if (p.prov) {
+      if (recadre.touche) {
+        // le cadrage a bougé : la retouche devient vraie
+        delete p.prov;
+        addPatch(p);
+      } else {
+        // rien n'a changé : on remet l'image exactement comme on l'a trouvée
+        delete p.fit;
+        try {
+          if (recadre.styleAvant == null) recadre.n.removeAttribute('style');
+          else recadre.n.setAttribute('style', recadre.styleAvant);
+          delete recadre.n.pkFit;
+        } catch (eC) {}
+      }
+    }
+  }
   recadre = null;
   $('crop').classList.add('hidden');
   renderList();
@@ -3260,28 +3353,32 @@ $('cropOk').addEventListener('click', fermerRecadrage);
 $('cropRemp').addEventListener('click', function () {
   if (!recadre) return;
   var n = recadre.n, estImg = n.tagName === 'IMG';
+  if (recadre.p.prov) recadre.touche = false;    // le remplacement fera foi
   fermerRecadrage();
   pickImageFor(n, estImg);
 });
 $('cropTout').addEventListener('click', function () {
   if (!recadre) return;
   var f = recadre.p.fit;
+  recadre.touche = 1;
   if (f.c) { delete f.c; }
   else { f.c = 1; f.x = 50; f.y = 50; f.z = 1; $('cropZ').value = 100; }
   majBarreCadre(recadre.p);
-  cadrer(recadre.n, recadre.p);
+  sansReveil(function () { cadrer(recadre.n, recadre.p); });
 });
 $('cropReset').addEventListener('click', function () {
   if (!recadre) return;
   recadre.p.fit = { x: 50, y: 50, z: 1 };
+  recadre.touche = 1;
   $('cropZ').value = 100;
   majBarreCadre(recadre.p);
-  cadrer(recadre.n, recadre.p);
+  sansReveil(function () { cadrer(recadre.n, recadre.p); });
 });
 $('cropZ').addEventListener('input', function () {
   if (!recadre) return;
   recadre.p.fit.z = r2(parseInt(this.value, 10) / 100);
-  cadrer(recadre.n, recadre.p);
+  recadre.touche = 1;
+  sansReveil(function () { cadrer(recadre.n, recadre.p); });
 });
 /* les gestes se passent DANS la page : on les branche à chaque chargement */
 function brancherRecadrage() {
@@ -3301,6 +3398,7 @@ function brancherRecadrage() {
   }, true);
   doc.addEventListener('pointermove', function (e) {
     if (!glisse || !recadre) return;
+    recadre.touche = 1;
     e.preventDefault(); e.stopPropagation();
     var d = debordement(recadre.n, recadre.p);
     if (!d) return;
@@ -3310,7 +3408,7 @@ function brancherRecadrage() {
     if (d.dy > 1) f.y = Math.max(0, Math.min(100, glisse.fy - (e.clientY - glisse.y) / d.dy * 100));
     else if (d.gy > 1) f.y = Math.max(0, Math.min(100, glisse.fy + (e.clientY - glisse.y) / d.gy * 100));
     f.x = r2(f.x); f.y = r2(f.y);
-    cadrer(recadre.n, recadre.p);
+    sansReveil(function () { cadrer(recadre.n, recadre.p); });
   }, true);
   doc.addEventListener('pointerup', function () { glisse = null; }, true);
   doc.addEventListener('wheel', function (e) {
@@ -3319,8 +3417,9 @@ function brancherRecadrage() {
     if (fitDe(recadre.p).c) return;
     var z = r2(Math.max(1, Math.min(4, fitDe(recadre.p).z * (e.deltaY < 0 ? 1.08 : 1 / 1.08))));
     recadre.p.fit.z = z;
+    recadre.touche = 1;
     $('cropZ').value = Math.round(z * 100);
-    cadrer(recadre.n, recadre.p);
+    sansReveil(function () { cadrer(recadre.n, recadre.p); });
   }, { capture: true, passive: false });
 }
 
@@ -3431,23 +3530,62 @@ function base(cb) {
   } catch (e) { baseKO = true; cb(null); }
 }
 function cleDoc() { return fileName + '|' + src.length; }
-var brouillonT = null, dernierEcrit = '';
+var brouillonT = null, dernierEcrit = '', dureeEcrit = 0;
 function planifierBrouillon() {
   clearTimeout(brouillonT);
-  brouillonT = setTimeout(ecrireBrouillon, 1200);
+  // une sauvegarde qui coûte cher (beaucoup d'images embarquées) s'espace :
+  // sinon l'éditeur passait son temps à recopier des dizaines de Mo
+  brouillonT = setTimeout(ecrireBrouillon, dureeEcrit > 400 ? 4000 : 1200);
+}
+/* Une empreinte LÉGÈRE des retouches : elle change dès qu'une retouche
+   change, sans relire les Mo d'une image embarquée (les recopier à chaque
+   frappe figeait l'éditeur sur un gros pack). */
+function empreintePatches() {
+  var out = [];
+  for (var i = 0; i < patches.length; i++) {
+    var p = patches[i], a = p.after == null ? '' : String(p.after);
+    out.push(p.id + '~' + p.kind + '~' + p.sel + '~' +
+      (p.when ? p.when.txt : '') + '~' + (p.before || '').length + '~' +
+      (a.length > 300 ? a.length + ':' + a.slice(0, 48) : a) + '~' +
+      (p.fit ? p.fit.x + ',' + p.fit.y + ',' + p.fit.z + ',' + (p.fit.c ? 1 : 0) : '') + '~' +
+      (p.cadre || '') + '~' + (p.cp || '') + '~' + (p.blank === false ? 0 : 1));
+  }
+  return out.join('|');
 }
 function ecrireBrouillon() {
   if (!src) return;
-  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'aGuerir' || k === 't2' || k === 'tAtt') ? undefined : v; });
-  if (data === dernierEcrit) return;
+  var emp = empreintePatches();
+  if (emp === dernierEcrit) return;
+  var t0 = Date.now();
+  // on range les retouches TELLES QUELLES (le navigateur les recopie lui-même,
+  // sans repasser par du texte) et la page d'origine une seule fois : la
+  // recopier à chaque geste bloquait tout sur un pack chargé d'images
+  var tab = [];
+  for (var iB = 0; iB < patches.length; iB++) {
+    var pB = patches[iB], cp = {};
+    for (var kB in pB) {
+      if (!Object.prototype.hasOwnProperty.call(pB, kB)) continue;
+      if (kB === 'old' || kB === 'aReancrer' || kB === 'aGuerir' || kB === 't2' ||
+          kB === 'pkBu' || kB === 'prov' || kB === 'tAtt') continue;
+      cp[kB] = pB[kB];
+    }
+    tab.push(cp);
+  }
   base(function (b) {
     if (!b) { majEtat('secours indisponible'); return; }
     try {
       var t = b.transaction('brouillons', 'readwrite');
-      t.objectStore('brouillons').put(
-        { nom: fileName, quand: Date.now(), n: patches.length, src: src, patches: data },
-        cleDoc());
-      t.oncomplete = function () { dernierEcrit = data; majEtat('sauvegardé'); };
+      var st = t.objectStore('brouillons');
+      st.put({ nom: fileName, quand: Date.now(), n: patches.length, patches: tab },
+             cleDoc());
+      var cle = cleDoc();
+      if (ecrireBrouillon.srcFait !== cle) st.put({ src: src }, cle + '|src');
+      t.oncomplete = function () {
+        ecrireBrouillon.srcFait = cle;
+        dernierEcrit = emp;
+        dureeEcrit = Date.now() - t0;
+        majEtat('sauvegardé');
+      };
       t.onerror = function () {
         majEtat('secours impossible (place manquante)');
         if (!ecrireBrouillon.dit) { ecrireBrouillon.dit = 1;
@@ -3468,11 +3606,19 @@ function lireBrouillons(cb) {
     if (!b) return cb([]);
     try {
       var t = b.transaction('brouillons', 'readonly').objectStore('brouillons');
-      var out = [], q = t.openCursor();
+      var out = [], sources = {}, q = t.openCursor();
       q.onsuccess = function () {
         var c = q.result;
-        if (!c) { out.sort(function (a, z) { return z.quand - a.quand; }); return cb(out); }
-        var v = c.value; v.cle = c.key; out.push(v);
+        if (!c) {
+          // la page d'origine est rangée à part (elle ne change jamais)
+          for (var iS = 0; iS < out.length; iS++)
+            if (!out[iS].src && sources[String(out[iS].cle)]) out[iS].src = sources[String(out[iS].cle)];
+          out.sort(function (a, z) { return z.quand - a.quand; });
+          return cb(out);
+        }
+        var v = c.value; v.cle = c.key;
+        if (/\|src$/.test(String(c.key))) sources[String(c.key).replace(/\|src$/, '')] = v.src;
+        else out.push(v);
         c.continue();
       };
       q.onerror = function () { cb([]); };
@@ -3497,7 +3643,10 @@ function proposerReprise() {
     var b = l[0];
     if (!b || !b.src) return;
     var n = 0;
-    try { n = (JSON.parse(b.patches) || []).length; } catch (e) {}
+    try {
+      n = b.n != null ? b.n :
+        ((typeof b.patches === 'string' ? JSON.parse(b.patches) : b.patches) || []).length;
+    } catch (e) {}
     if (!n) return;
     $('repriseQuoi').textContent = 'Reprendre « ' + short(b.nom, 40) + ' »';
     $('repriseQuand').textContent = n + ' retouche(s), ' + ilYA(b.quand);
@@ -3505,8 +3654,11 @@ function proposerReprise() {
     $('repriseOui').onclick = function () {
       src = b.src;
       fileName = b.nom;
-      try { patches = JSON.parse(b.patches) || []; } catch (e) { patches = []; }
-      dernierEcrit = b.patches;
+      try {
+        patches = marquerHerites(
+          (typeof b.patches === 'string' ? JSON.parse(b.patches) : b.patches) || []);
+      } catch (e) { patches = []; }
+      dernierEcrit = empreintePatches();
       $('reprise').classList.add('hidden');
       demarrer();
       toast('Travail repris — ' + patches.length + ' retouche(s)');
@@ -3618,6 +3770,7 @@ function localiser(p) {
 
 /* --------------------------------------------------------------- les modes */
 function setMode(m) {
+  if (recadre) fermerRecadrage();
   mode = m;
   ['mText', 'mImg', 'mVid', 'mLink', 'mView'].forEach(function (id) { $(id).classList.remove('on'); });
   $({ text: 'mText', img: 'mImg', vid: 'mVid', link: 'mLink', view: 'mView' }[m]).classList.add('on');
@@ -3657,7 +3810,7 @@ function setMode(m) {
 function exportFile() {
   // « old » est la source de cette ouverture-ci (une URL blob recréée à chaque
   // chargement) : l'exporter figerait une valeur périmée
-  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'aGuerir' || k === 't2' || k === 'tAtt') ? undefined : v; })
+  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'aGuerir' || k === 't2' || k === 'pkBu' || k === 'prov' || k === 'tAtt') ? undefined : v; })
     .replace(/<\//g, '<\\/');
   var run = "(function(){var D=document.getElementById('" + MARK + "-data');if(!D)return;" +
     "var P=[];try{P=JSON.parse(D.textContent)||[]}catch(e){return}" +
