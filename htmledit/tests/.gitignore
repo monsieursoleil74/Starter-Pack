@@ -1,0 +1,14 @@
+# Tout ce que la batterie fabrique en tournant : maquettes d'essai, exports,
+# fichiers d'appui (fixtures.js les recrée), journaux.
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.webm
+*.mp4
+*.html
+*.log
+lecture/
+e2e29/
+e2e80/

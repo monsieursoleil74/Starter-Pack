@@ -559,7 +559,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-09b';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-09c';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1018,6 +1018,21 @@ function masquerGabarits() {
     if (!m[i].querySelector("video[src*='{{'],img[src*='{{']") &&
         (m[i].textContent || '').indexOf('{{') < 0) m[i].removeAttribute('data-pk-gab');
 }
+/* Le porteur du texte : on descend les enrobages, et aussi les boîtes dont
+   un seul enfant porte du texte (une pastille, une icône posée à côté). */
+function feuilleTexte(v, prof) {
+  if (!v || prof > 6) return null;
+  while (v && v.children.length === 1) v = v.firstElementChild;
+  if (!v) return null;
+  if (!v.children.length) return (v.textContent || '').trim() ? v : null;
+  var t = (v.textContent || '').trim(), k = null, n = 0, i, c;
+  for (i = 0; i < v.children.length; i++) {
+    c = v.children[i];
+    if ((c.textContent || '').trim()) { k = c; n++; }
+  }
+  if (n === 1 && (k.textContent || '').trim() === t) return feuilleTexte(k, prof + 1);
+  return null;
+}
 function marquerIdentifiants() {
   if (!doc) return;
   var cartes = doc.querySelectorAll('a,button,[role=button]');
@@ -1025,33 +1040,38 @@ function marquerIdentifiants() {
     var ca = cartes[i], els = ca.querySelectorAll('*');
     for (var j = 0; j < els.length; j++) {
       var e = els[j];
-      if (e.children.length || !RXIDENT.test(e.textContent || '')) continue;
-      var v = e.nextElementSibling;
-      if (!v && e.parentElement) v = e.parentElement.nextElementSibling;
-      while (v && v.children.length === 1) v = v.firstElementChild;
-      if (!v || v.children.length || !(v.textContent || '').trim()) continue;
-      if (v.dataset.pkCred) continue;
+      if (!RXIDENT.test(e.textContent || '')) continue;
+      var v = feuilleTexte(e.nextElementSibling, 0);
+      if (!v && e.parentElement) v = feuilleTexte(e.parentElement.nextElementSibling, 0);
+      if (!v || v.dataset.pkCred) continue;
       v.dataset.pkCred = '1';
       v.style.userSelect = 'text';
       v.style.cursor = 'text';
       try { ca.setAttribute('draggable', 'false'); } catch (eD) {}
-      // surligner à la souris finit par un clic attribué à la CARTE : une
-      // sélection faite dedans annule ce clic, sinon la page s'ouvrait au
-      // moment où on relâche la souris
-      if (!ca.pkSel) {
-        ca.pkSel = 1;
-        ca.addEventListener('click', function (ev) {
-          if (mode !== 'view') return;
-          var sl = null;
-          try { sl = doc.defaultView.getSelection(); } catch (e3) {}
-          if (!sl || sl.isCollapsed || !String(sl).trim()) return;
-          if (!(sl.anchorNode && ca.contains(sl.anchorNode)) &&
-              !(sl.focusNode && ca.contains(sl.focusNode))) return;
-          ev.preventDefault(); ev.stopPropagation();
-        }, true);
-      }
     }
   }
+}
+/* Surligner à la souris finit toujours par un clic — attribué à la CARTE qui
+   porte le texte, pas au champ. Sur une carte-lien, relâcher la souris
+   ouvrait donc la page au lieu de laisser la sélection tranquille. Dès qu'un
+   GLISSÉ a laissé une sélection dans l'élément cliquable visé, ce clic-là ne
+   vaut pas. La garde ne dépend d'aucune étiquette reconnue : elle protège
+   tout texte surligné dans une carte, comme le fera le fichier exporté. */
+var pkDescente = null;
+function glisseSelection(e) {
+  if (mode !== 'view' || !pkDescente) return;
+  var dx = e.clientX - pkDescente.x, dy = e.clientY - pkDescente.y;
+  if (dx * dx + dy * dy < 36) return;
+  var sl = null;
+  try { sl = doc.defaultView.getSelection(); } catch (e1) {}
+  if (!sl || sl.isCollapsed || !String(sl).trim()) return;
+  var c = e.target && e.target.closest ?
+    e.target.closest('a,button,[role=button],[onclick],[data-pk-cred]') : null;
+  if (!c) return;
+  if (!(sl.anchorNode && c.contains(sl.anchorNode)) &&
+      !(sl.focusNode && c.contains(sl.focusNode))) return;
+  e.preventDefault(); e.stopPropagation();
+  if (e.stopImmediatePropagation) e.stopImmediatePropagation();
 }
 /* Ta page est affichée sans adresse à elle : un lien « #tutoriels » se
    résoudrait contre l'adresse de l'outil et rechargerait l'OUTIL dans le
@@ -1101,6 +1121,13 @@ function navigation(e) {
 /* Surbrillance + capture des clics dans la page, selon le mode. */
 function injectUi() {
   injectCss();
+  // posées sur la FENÊTRE de l'aperçu, en capture : elles passent avant tout
+  // ce que la maquette a pu brancher elle-même sur le document ou la carte
+  var vue = doc.defaultView;
+  vue.addEventListener('mousedown', function (e) {
+    pkDescente = { x: e.clientX, y: e.clientY };
+  }, true);
+  vue.addEventListener('click', glisseSelection, true);
   doc.addEventListener('click', onClick, true);
   doc.addEventListener('click', navigation, false);
   brancherRecadrage();
@@ -4114,16 +4141,8 @@ function exportFile() {
     "v.style.userSelect='text';v.style.webkitUserSelect='text';v.style.cursor='text';" +
     "try{v.setAttribute('data-pk-cred','1')}catch(eA){}" +
     "try{carte.setAttribute('draggable','false')}catch(e){}" +
-    /* surligner à la souris finit par un clic attribué à la CARTE (pas au
-       champ) : sans ça, relâcher la souris ouvrait la page. Une sélection
-       faite dans la carte annule donc le clic. */
-    "if(!carte.pkSel){carte.pkSel=1;" +
-    "carte.addEventListener('click',function(ev){var sl=null;" +
-    "try{sl=window.getSelection()}catch(e3){}" +
-    "if(!sl||sl.isCollapsed||!String(sl).trim())return;" +
-    "var a1=sl.anchorNode,f1=sl.focusNode;" +
-    "if(!(a1&&carte.contains(a1))&&!(f1&&carte.contains(f1)))return;" +
-    "ev.preventDefault();ev.stopPropagation()},true)}" +
+    /* le geste de surlignage lui-même est protégé par gsel(), plus bas :
+       il ne dépend pas de la reconnaissance de l'étiquette */
     "v.addEventListener('mousedown',function(ev){ev.stopPropagation()},true);" +
     "v.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();" +
     "var t=(v.textContent||'').trim();" +
@@ -4134,15 +4153,43 @@ function exportFile() {
     "if(!ok3&&navigator.clipboard&&navigator.clipboard.writeText)" +
     "navigator.clipboard.writeText(t)['catch'](function(){});" +
     "bul(v.getBoundingClientRect(),'Copié \u2713')},true)}" +
+    /* le porteur du texte : on descend les enrobages, et aussi les boîtes
+       dont un seul enfant porte du texte (une pastille, une icône à côté) */
+    "function feu(v,d){if(!v||d>6)return null;" +
+    "while(v&&v.children.length===1)v=v.firstElementChild;" +
+    "if(!v)return null;if(!v.children.length)return (v.textContent||'').trim()?v:null;" +
+    "var t=(v.textContent||'').trim(),k=null,n=0,i,c;" +
+    "for(i=0;i<v.children.length;i++){c=v.children[i];" +
+    "if((c.textContent||'').trim()){k=c;n++}}" +
+    "if(n===1&&(k.textContent||'').trim()===t)return feu(k,d+1);return null}" +
     "function ident(){var cs=document.querySelectorAll('a,button,[role=button]'),i,j;" +
     "for(i=0;i<cs.length;i++){var ca=cs[i],els=ca.querySelectorAll('*');" +
     "for(j=0;j<els.length;j++){var e=els[j];" +
-    "if(e.children.length||!RXID.test(e.textContent||''))continue;" +
-    "var v=e.nextElementSibling;" +
-    "if(!v&&e.parentElement)v=e.parentElement.nextElementSibling;" +
-    "while(v&&v.children.length===1)v=v.firstElementChild;" +
-    "if(!v||v.children.length||!(v.textContent||'').trim())continue;" +
-    "cred(v,ca)}}}" +
+    "if(!RXID.test(e.textContent||''))continue;" +
+    "var v=feu(e.nextElementSibling,0);" +
+    "if(!v&&e.parentElement)v=feu(e.parentElement.nextElementSibling,0);" +
+    "if(!v)continue;cred(v,ca)}}}" +
+    /* Surligner à la souris finit toujours par un clic — attribué à la CARTE
+       qui porte le texte, pas au champ. Sur une carte-lien, relâcher la souris
+       ouvrait donc la page. Dès qu'un GLISSÉ a laissé une sélection dans
+       l'élément cliquable visé, ce clic-là ne vaut pas : la sélection reste,
+       prête pour le Ctrl+C. Cette garde ne dépend d'aucune reconnaissance
+       d'étiquette : elle protège tout texte surligné dans une carte. */
+    /* posée sur la FENÊTRE, en capture : elle passe donc avant tout ce que la
+       maquette a pu brancher elle-même sur le document ou sur la carte */
+    "var MD=null;" +
+    "function gsel(){" +
+    "window.addEventListener('mousedown',function(ev){MD={x:ev.clientX,y:ev.clientY}},true);" +
+    "window.addEventListener('click',function(ev){if(!MD)return;" +
+    "var dx=ev.clientX-MD.x,dy=ev.clientY-MD.y;if(dx*dx+dy*dy<36)return;" +
+    "var sl=null;try{sl=window.getSelection()}catch(e1){}" +
+    "if(!sl||sl.isCollapsed||!String(sl).trim())return;" +
+    "var c=ev.target&&ev.target.closest?" +
+    "ev.target.closest('a,button,[role=button],[onclick],[data-pk-cred]'):null;" +
+    "if(!c)return;var a1=sl.anchorNode,f1=sl.focusNode;" +
+    "if(!(a1&&c.contains(a1))&&!(f1&&c.contains(f1)))return;" +
+    "ev.preventDefault();ev.stopPropagation();ev.stopImmediatePropagation()},true)}" +
+    "try{gsel()}catch(eG2){}" +
     /* La visionneuse de la maquette existe AVANT d'être montée : au démarrage
        elle s'affichait en grand, toute noire, avec ses gabarits ({{ vidLabel }}).
        Tant qu'une fenêtre contient un gabarit, elle reste invisible. */
