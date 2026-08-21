@@ -13,6 +13,10 @@ const fs = require('fs');
 
 const TOOL = process.argv[2] || '/home/user/Starter-Pack/htmledit/Editeur-HTML.html';
 const FICHIER = path.resolve(__dirname, 'fichier_user.html');
+if (!fs.existsSync(FICHIER)) {
+  console.log('SAUTÉ : ce test rejoue un vrai fichier (fichier_user.html), qui n’est pas versionné.');
+  process.exit(0);
+}
 const OUT = path.resolve(__dirname, 'e2e74_export.html');
 const SELF = 'section:nth-of-type(4)>div:nth-of-type(2)>div:nth-of-type(3)>div:nth-of-type(2)>p:nth-of-type(1)';
 const PREF = 'body>div:nth-of-type(1)>div:nth-of-type(1)>div:nth-of-type(1)>';

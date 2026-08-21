@@ -7,6 +7,10 @@ const fs = require('fs');
 
 const TOOL = process.argv[2] || '/home/user/Starter-Pack/htmledit/Editeur-HTML.html';
 const MAQ = path.resolve(__dirname, 'maq_ronds.html');
+if (!fs.existsSync(MAQ)) {
+  console.log('SAUTÉ : ce test rejoue un vrai fichier (maq_ronds.html), qui n’est pas versionné.');
+  process.exit(0);
+}
 const OUT = path.resolve(__dirname, 'audit_export.html');
 const PNG = path.resolve(__dirname, 'alt_a.png');
 

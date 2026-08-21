@@ -6,6 +6,10 @@ const path = require('path');
 
 const TOOL = process.argv[2] || '/home/user/Starter-Pack/htmledit/Editeur-HTML.html';
 const FICHIER = path.resolve(__dirname, 'fichier_user.html');
+if (!require('fs').existsSync(FICHIER)) {
+  console.log('SAUTÉ : ce test rejoue un vrai fichier (fichier_user.html), qui n’est pas versionné.');
+  process.exit(0);
+}
 
 (async () => {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });

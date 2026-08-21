@@ -3,11 +3,16 @@
    sont communs, et ils ne sont pas versionnés. À lancer une fois avant la
    batterie : node fixtures.js */
 const { chromium } = require('playwright-core');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
 const ici = (n) => path.resolve(__dirname, n);
 const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+
+/* e2e77 compare la version d'aujourd'hui à celle d'AVANT le correctif des
+   retouches d'équipe : on la ressort de l'historique. */
+const ANCIENNES = { 'outil_j.html': '63c18f6' };
 
 // images : nom -> [largeur, hauteur, couleur]
 const IMAGES = {
@@ -25,6 +30,17 @@ const IMAGES = {
 const VIDEOS = { 'vraie.webm': 7, 'seconde.webm': 11, 'clip.mp4': 5 };
 
 (async () => {
+  for (const nom of Object.keys(ANCIENNES)) {
+    try {
+      const t = execFileSync('git', ['show', ANCIENNES[nom] + ':htmledit/Editeur-HTML.html'],
+        { cwd: path.resolve(__dirname, '..', '..'), maxBuffer: 64 * 1024 * 1024 });
+      fs.writeFileSync(ici(nom), t);
+      console.log(nom + ' : ' + fs.statSync(ici(nom)).size + ' octets (depuis ' + ANCIENNES[nom] + ')');
+    } catch (e) {
+      console.log(nom + ' : introuvable dans l’historique — e2e77 sera à sauter');
+    }
+  }
+
   const browser = await chromium.launch({ executablePath: CHROME });
   const p = await (await browser.newContext()).newPage();
   await p.goto('about:blank');

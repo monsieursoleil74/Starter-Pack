@@ -5,6 +5,10 @@ const { chromium } = require('playwright-core');
 const path = require('path');
 
 const MAQ = path.resolve(__dirname, process.argv[3] || 'maq_ronds.html');
+if (!require('fs').existsSync(MAQ)) {
+  console.log('SAUTÉ : ce test rejoue un vrai fichier (maq_ronds.html), qui n’est pas versionné.');
+  process.exit(0);
+}
 
 (async () => {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
