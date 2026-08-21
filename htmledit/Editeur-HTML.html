@@ -559,7 +559,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-09a';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-09b';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -959,6 +959,7 @@ function applyAll() {
   });
   orphelins.forEach(nettoyerLecteurs);
   try { marquerIdentifiants(); } catch (eI) {}
+  try { masquerGabarits(); } catch (eG) {}
   propagerReserve();
   applying = false;
 }
@@ -976,6 +977,7 @@ function injectCss() {
     // les gabarits pas encore montés (src="{{ … }}") : un lecteur vidéo brut
     // s'afficherait en attendant que la maquette se monte — on les masque
     'video[src*="{{"],img[src*="{{"]{visibility:hidden!important}' +
+    '[data-pk-gab]{visibility:hidden!important}' +
     'body.pk-text *:not(html):not(body):hover{outline:2px solid rgba(91,140,255,.9)!important;' +
     'outline-offset:1px;cursor:text!important}' +
     'body.pk-img{cursor:copy}' +
@@ -995,6 +997,27 @@ function injectCss() {
    valeur) pour que l'Aperçu les rende sélectionnables et copiables — comme
    le fera le fichier exporté. */
 var RXIDENT = /^\s*(login|identifiant|utilisateur|user(name)?|e-?mail|courriel|mot de passe|mots de passe|mdp|password|pass|code)\s*:?\s*$/i;
+/* La visionneuse de la maquette existe avant d'être montée : sans ça, elle
+   s'affiche en grand avec ses gabarits ({{ vidLabel }}) le temps du montage. */
+function masquerGabarits() {
+  if (!doc) return;
+  var vue = doc.defaultView, l, i, k, a, st;
+  l = doc.querySelectorAll("video[src*='{{'],img[src*='{{']");
+  for (i = 0; i < l.length; i++) {
+    for (k = 0, a = l[i]; a && k < 8; a = a.parentElement, k++) {
+      st = vue.getComputedStyle(a);
+      if ((st.position === 'fixed' || st.position === 'absolute') &&
+          a.getBoundingClientRect().width > vue.innerWidth * 0.5) {
+        a.setAttribute('data-pk-gab', '1');
+        break;
+      }
+    }
+  }
+  var m = doc.querySelectorAll('[data-pk-gab]');
+  for (i = 0; i < m.length; i++)
+    if (!m[i].querySelector("video[src*='{{'],img[src*='{{']") &&
+        (m[i].textContent || '').indexOf('{{') < 0) m[i].removeAttribute('data-pk-gab');
+}
 function marquerIdentifiants() {
   if (!doc) return;
   var cartes = doc.querySelectorAll('a,button,[role=button]');
@@ -3898,9 +3921,12 @@ function exportFile() {
     /* les gabarits pas encore montés (src="{{ … }}") : sans ça, un lecteur
        vidéo brut reste affiché pendant tout le montage de la page */
     "try{var pb=document.createElement('style');" +
-    "pb.textContent=\"video[src*='{{'],img[src*='{{']{visibility:hidden!important}\";" +
+    "pb.textContent=\"video[src*='{{'],img[src*='{{']{visibility:hidden!important}\\n\" +" +
+    "\"[data-pk-gab]{visibility:hidden!important}\";" +
     "(document.head||document.documentElement).appendChild(pb)}catch(ePB){}" +
     "var busy=false,tours=0,DR=true,DRC=true,DRX=true;" +
+    "setTimeout(function(){try{gab()}catch(e){}},0);" +
+    "[60,200,500,1200].forEach(function(d){setTimeout(function(){try{gab()}catch(e){}},d)});" +
     /* une fenêtre partagée (RIG, TOOLS…) : la retouche ne vaut que quand la
        fenêtre affiche le titre pour lequel elle a été faite */
     /* Une fenêtre partagée (RIG, TOOLS…) n'existe que le temps qu'elle est
@@ -4117,6 +4143,20 @@ function exportFile() {
     "while(v&&v.children.length===1)v=v.firstElementChild;" +
     "if(!v||v.children.length||!(v.textContent||'').trim())continue;" +
     "cred(v,ca)}}}" +
+    /* La visionneuse de la maquette existe AVANT d'être montée : au démarrage
+       elle s'affichait en grand, toute noire, avec ses gabarits ({{ vidLabel }}).
+       Tant qu'une fenêtre contient un gabarit, elle reste invisible. */
+    "function gab(){try{" +
+    "var l=document.querySelectorAll(\"video[src*='{{'],img[src*='{{'],[src='{{ vidSrc }}']\"),i,k,a,st;" +
+    "for(i=0;i<l.length;i++){for(k=0,a=l[i];a&&k<8;a=a.parentElement,k++){" +
+    "st=getComputedStyle(a);" +
+    "if((st.position==='fixed'||st.position==='absolute')&&" +
+    "a.getBoundingClientRect().width>innerWidth*0.5){a.setAttribute('data-pk-gab','1');break}}}" +
+    "var m=document.querySelectorAll('[data-pk-gab]');" +
+    "for(i=0;i<m.length;i++)" +
+    "if(!m[i].querySelector(\"video[src*='{{'],img[src*='{{']\")&&" +
+    "(m[i].textContent||'').indexOf('{{')<0)m[i].removeAttribute('data-pk-gab');" +
+    "}catch(e){}}" +
     "function net(p){[].forEach.call(document.querySelectorAll('video.pk-vid'),function(v){" +
     "var sn=v.getAttribute('src');if((sn!==p.after&&sn!==p.pkBu&&!vd(sn,p.after))||v.pkTour===tours)return;var pa=v.parentElement;v.remove();" +
     "if(pa&&!pa.querySelector(':scope > video.pk-vid'))pa.removeAttribute('data-pk-hide')})}" +
@@ -4236,6 +4276,7 @@ function exportFile() {
     "else if(SP)SP.parentNode.removeChild(SP);" +
     /* trace discrète : « le correctif a bien tourné N fois » */
     "try{ident()}catch(eI){}" +
+    "try{gab()}catch(eG2){}" +
     "if(VO&&(POS>0||!P.length))setTimeout(pretVoile,80);" +
     "try{document.documentElement.setAttribute('data-pack-edit',tours)}catch(e){}" +
     "busy=false}" +
@@ -4283,7 +4324,14 @@ function exportFile() {
   if (i < 0) i = src.lastIndexOf('</html>');
   out = i < 0 ? src + block : src.slice(0, i) + block + src.slice(i);
 
-  var name = fileName.replace(/\.html?$/i, '') + ' - modifie.html';
+  // « Pack - modifie (2) - modifie (1).html » : à force de redéposer son
+  // travail, le nom s'allongeait à chaque export. On enlève les marques
+  // déjà présentes avant d'en poser une seule.
+  var base = fileName.replace(/\.html?$/i, '')
+    .replace(/(\s*-\s*modifi[ée]s?)(\s*\(\d+\))?/gi, '')
+    .replace(/\s*\(\d+\)\s*$/, '')
+    .trim();
+  var name = (base || 'pack') + ' - modifie.html';
   var blob = new Blob([out], { type: 'text/html' });
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);

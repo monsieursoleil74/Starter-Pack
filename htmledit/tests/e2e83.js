@@ -65,11 +65,18 @@ fs.writeFileSync(MAQ, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>P
 <script>
   setTimeout(function () {
     document.getElementById('app').innerHTML =
-      '<video id="gabarit" src="{{ vidSrc }}" controls style="width:520px;height:290px;background:#000"></video>' +
+      '<div id="visionneuse" style="position:fixed;inset:0;background:rgba(10,12,10,.96);' +
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50">' +
+      '<video id="gabarit" src="{{ vidSrc }}" controls style="width:70vw;height:60vh;background:#222"></video>' +
+      '<div id="etiqVid">{{ vidLabel }} <span>Échap ou clic à côté pour fermer</span></div></div>' +
       '<div id="visu" style="width:520px;height:150px;background:#2f3b2f;color:#cfe;' +
       'display:flex;align-items:center;justify-content:center;font-size:24px">VISUEL PROTO</div>' +
       '<img id="planche" src="assets/planche.jpg" alt="Planche proto" style="width:220px;height:140px;background:#ddd">' +
       '<h1 id="titre">Titre d\\'origine</h1>';
+    setTimeout(function () {
+      var v = document.getElementById('visionneuse');
+      if (v) v.style.display = 'none';
+    }, 1200);
   }, 1500);
 <\/script>
 </body></html>`);
@@ -122,7 +129,10 @@ fs.writeFileSync(MAQ, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>P
   await p.waitForTimeout(400);
   const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#save')]);
   await dl.saveAs(OUT);
-  ok('pack exporté (1 texte + 1 image)');
+  const nomPropose = dl.suggestedFilename();
+  if (/modifi[ée].*modifi[ée]/i.test(nomPropose))
+    fail('le nom du fichier empile les « - modifie » : ' + nomPropose);
+  ok('pack exporté (1 texte + 1 image), nommé « ' + nomPropose + ' »');
 
   // ---------- ouverture, sur une machine lente ----------
   const v = await ctx.newPage();
@@ -157,7 +167,8 @@ fs.writeFileSync(MAQ, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>P
         couvert: false,
         // l'image d'ORIGINE encore en place alors qu'elle est visible
         proto: vis(im) && /assets\/planche\.jpg$/.test(im.getAttribute('src') || ''),
-        lecteur: vis(document.getElementById('gabarit')),
+        lecteur: vis(document.getElementById('gabarit')) ||
+          vis(document.getElementById('visionneuse')),
         origine: !!t && vis(t) && /Titre d’origine|Titre d'origine/.test(t.textContent || ''),
         pret: !!t && /Mon pack à moi/.test(t.textContent || ''),
       };
