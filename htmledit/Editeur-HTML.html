@@ -559,7 +559,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08y';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-08z';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1012,6 +1012,21 @@ function marquerIdentifiants() {
       v.style.userSelect = 'text';
       v.style.cursor = 'text';
       try { ca.setAttribute('draggable', 'false'); } catch (eD) {}
+      // surligner à la souris finit par un clic attribué à la CARTE : une
+      // sélection faite dedans annule ce clic, sinon la page s'ouvrait au
+      // moment où on relâche la souris
+      if (!ca.pkSel) {
+        ca.pkSel = 1;
+        ca.addEventListener('click', function (ev) {
+          if (mode !== 'view') return;
+          var sl = null;
+          try { sl = doc.defaultView.getSelection(); } catch (e3) {}
+          if (!sl || sl.isCollapsed || !String(sl).trim()) return;
+          if (!(sl.anchorNode && ca.contains(sl.anchorNode)) &&
+              !(sl.focusNode && ca.contains(sl.focusNode))) return;
+          ev.preventDefault(); ev.stopPropagation();
+        }, true);
+      }
     }
   }
 }
@@ -4040,7 +4055,18 @@ function exportFile() {
     "document.body.appendChild(bu);setTimeout(function(){bu.remove()},1200)}catch(e){}}" +
     "function cred(v,carte){if(v.pkCred)return;v.pkCred=1;" +
     "v.style.userSelect='text';v.style.webkitUserSelect='text';v.style.cursor='text';" +
+    "try{v.setAttribute('data-pk-cred','1')}catch(eA){}" +
     "try{carte.setAttribute('draggable','false')}catch(e){}" +
+    /* surligner à la souris finit par un clic attribué à la CARTE (pas au
+       champ) : sans ça, relâcher la souris ouvrait la page. Une sélection
+       faite dans la carte annule donc le clic. */
+    "if(!carte.pkSel){carte.pkSel=1;" +
+    "carte.addEventListener('click',function(ev){var sl=null;" +
+    "try{sl=window.getSelection()}catch(e3){}" +
+    "if(!sl||sl.isCollapsed||!String(sl).trim())return;" +
+    "var a1=sl.anchorNode,f1=sl.focusNode;" +
+    "if(!(a1&&carte.contains(a1))&&!(f1&&carte.contains(f1)))return;" +
+    "ev.preventDefault();ev.stopPropagation()},true)}" +
     "v.addEventListener('mousedown',function(ev){ev.stopPropagation()},true);" +
     "v.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();" +
     "var t=(v.textContent||'').trim();" +
