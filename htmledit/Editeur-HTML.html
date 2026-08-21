@@ -559,7 +559,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-08z';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-09a';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -3856,6 +3856,37 @@ function exportFile() {
     "if(!mt(q.after,p.before))continue;" +
     "p.before=q.before;L.splice(j,1);break}}}" +
     "mh(P);" +
+    /* Ouverture propre : la page se dévoile UNE FOIS les retouches posées.
+       Sans ça on voyait défiler le lecteur vidéo du gabarit, puis les visuels
+       « proto » de la maquette, avant que le pack prenne son vrai visage. */
+    "var VO=null,POS=0;" +
+    "try{VO=document.createElement('div');VO.id='" + MARK + "-voile';" +
+    "var fd='#fff';try{var cb=getComputedStyle(document.body).backgroundColor;" +
+    "if(cb&&!/rgba\\(0, 0, 0, 0\\)|transparent/.test(cb))fd=cb}catch(eB){}" +
+    "VO.setAttribute('style','position:fixed;inset:0;z-index:2147483646;background:'+fd+';" +
+    "transition:opacity .3s ease;opacity:1;pointer-events:none');" +
+    "(document.body||document.documentElement).appendChild(VO)}catch(eV){}" +
+    "function finVoile(){if(!VO)return;var v=VO;VO=null;" +
+    "try{v.style.opacity='0';setTimeout(function(){try{v.remove()}catch(e){}},340)}" +
+    "catch(e2){try{v.remove()}catch(e3){}}}" +
+    /* filet : quoi qu'il arrive la page se montre — mais le compte à rebours
+       ne part qu'une fois la maquette montée (un très gros pack met du temps
+       à se dépaqueter, et on ne va pas dévoiler un écran vide) */
+    "var tDeb=new Date().getTime(),tMon=0,itV=setInterval(function(){" +
+    "if(!VO){clearInterval(itV);return}var b=document.body;" +
+    "if(!tMon&&b&&b.children.length>1&&(b.innerText||'').length>60)tMon=new Date().getTime();" +
+    "var m=new Date().getTime();" +
+    "if((tMon&&m-tMon>5000)||m-tDeb>25000){clearInterval(itV);finVoile()}},250);" +
+    /* on attend en plus que les visuels affichés soient chargés (une image
+       embarquée met un instant à se décoder) — sans jamais s'éterniser */
+    "function pretVoile(){if(!VO)return;var li=document.images,i,att=[];" +
+    "for(i=0;i<li.length;i++){var im=li[i];" +
+    "if(!im.complete&&im.getBoundingClientRect().width>4)att.push(im)}" +
+    "if(!att.length)return finVoile();" +
+    "var n=att.length,f1=function(){if(--n<=0)finVoile()};" +
+    "for(i=0;i<att.length;i++){att[i].addEventListener('load',f1,{once:true});" +
+    "att[i].addEventListener('error',f1,{once:true})}" +
+    "setTimeout(finVoile,2500)}" +
     /* les seuls fichiers que le filet vidéo a le droit de chercher : ceux des
        retouches « fichier local » — jamais les vidéos propres de la maquette,
        dont le src sert d'identité (quelle vidéo ouvrir ?) */
@@ -4116,6 +4147,7 @@ function exportFile() {
     "if(mt(nf.textContent,p.after)&&sgn(nf)===p.id){var enc=null;" +
     "try{enc=cible(p)}catch(eV){}if(enc)return}else return}}" +
     "var n=cible(p);" +
+    "if(n)POS++;" +
     "if(!n){if(p.kind==='video'&&p.when)orph.push(p);" +
     "if(p.kind==='text'&&p.when){try{var rr=document.querySelector(p.sel);" +
     "if(rr)rr=pe(rr);" +
@@ -4204,6 +4236,7 @@ function exportFile() {
     "else if(SP)SP.parentNode.removeChild(SP);" +
     /* trace discrète : « le correctif a bien tourné N fois » */
     "try{ident()}catch(eI){}" +
+    "if(VO&&(POS>0||!P.length))setTimeout(pretVoile,80);" +
     "try{document.documentElement.setAttribute('data-pack-edit',tours)}catch(e){}" +
     "busy=false}" +
     /* la règle de masquage est vérifiée à CHAQUE passage : une page qui se
