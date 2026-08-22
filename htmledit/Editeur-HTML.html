@@ -569,7 +569,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-10';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-10b';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1885,23 +1885,42 @@ function trouveTemoin(w) {
    « troisième img » n'est plus le même. On retrouve donc l'entrée par SON
    CHEMIN, qui ne bouge pas ; la position ne sert que de repli. */
 var cacheK = null;
-function parChemin(k) {
+/* Un même chemin de fichier est parfois porté par DEUX éléments : l'entrée
+   de la réserve (une image cachée) et l'emplacement affiché. Selon ce qu'on
+   retouche — le visuel d'une image, ou le fond d'un emplacement — ce n'est
+   pas le même qu'il faut. */
+function bonPorteur(n, kind) {
+  return kind === 'img' ? n.tagName === 'IMG'
+       : kind === 'bg' ? (n.tagName !== 'IMG' && n.tagName !== 'VIDEO') : true;
+}
+function parChemin(k, kind) {
   if (!k) return null;
   // l'index des data-k, construit une fois par passe : 150 visuels de
   // réserve ne refont pas 150 balayages complets de la page
-  if (cacheK) return cacheK[k] || null;
-  try {
-    cacheK = {};
-    var l = doc.querySelectorAll('[data-k]');
-    for (var i = 0; i < l.length; i++) {
-      var kk = l[i].getAttribute('data-k');
-      if (cacheK[kk] === undefined) cacheK[kk] = l[i];
-    }
-    return cacheK[k] || null;
-  } catch (e) { return null; }
+  if (!cacheK) {
+    try {
+      cacheK = {};
+      var l = doc.querySelectorAll('[data-k]');
+      for (var i = 0; i < l.length; i++) {
+        var kk = l[i].getAttribute('data-k');
+        (cacheK[kk] || (cacheK[kk] = [])).push(l[i]);
+      }
+    } catch (e) { cacheK = {}; return null; }
+  }
+  var c = cacheK[k];
+  if (!c || !c.length) return null;
+  if (!kind) return c[0];
+  var j, n;
+  for (j = 0; j < c.length; j++) {          // le bon porteur, et affiché
+    n = c[j];
+    if (bonPorteur(n, kind) && n.getClientRects().length) return n;
+  }
+  for (j = 0; j < c.length; j++) if (bonPorteur(c[j], kind)) return c[j];
+  return c[0];
 }
 function cibleDe(p, vite) {
-  if (p.k) { var d = parChemin(p.k); if (d) return d; }
+  // une retouche de réserve vise l'entrée de la réserve : on ne trie pas
+  if (p.k) { var d = parChemin(p.k, p.src === 'reserve' ? '' : p.kind); if (d) return d; }
   if (!p.when) { try { return doc.querySelector(p.sel); } catch (e) { return null; } }
   // chaque porteur du texte témoin est essayé : c'est le chemin relatif
   // strict qui décide lequel est le vrai (la fiche, pas l'onglet)
@@ -3082,6 +3101,11 @@ function poser(data, nom, el, isImg, hide, ar) {
       var alt = (el.getAttribute('alt') || '').trim();
       if (alt) { p.alt = alt; p.label += ' — ' + short(alt, 18); }
     }
+    // et quand la maquette écrit le chemin du fichier sur l'emplacement
+    // lui-même, on s'ancre DESSUS : une grille de personnages reconstruite
+    // dans un autre ordre emmènerait sinon la retouche chez le voisin
+    var kEmpl = el.getAttribute('data-k');
+    if (kEmpl && /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(kEmpl)) p.k = kEmpl;
     sansReveil(function () { applyOne(p, el); });
     addPatch(p);
   }
@@ -3846,6 +3870,11 @@ function addPatch(p) {
     // un texte est reconnu à son ORIGINAL : l'arc de Pipo et celui de Bruno
     // passent dans la même fiche, ce sont deux retouches
     if (p.kind === 'text') return !memeTexte(o.before, p.before);
+    // celle-ci va être remplacée : le CADRAGE réglé pour cet emplacement
+    // survit au changement de fichier — sinon chaque nouvelle image
+    // repartait plein cadre et centrée, réglage à refaire
+    if (p.fit === undefined && o.fit) p.fit = o.fit;
+    if (p.cadre === undefined && o.cadre) p.cadre = o.cadre;
     return false;
   });
   patches.push(p);
@@ -4077,10 +4106,19 @@ function exportFile() {
     "function tem(w){var out=[];try{var n=document.querySelector(w.sel);if(bt(n,w))out.push(n)}catch(e){}" +
     "bIdx();(CT[(w.txt||'').toLowerCase()]||[]).forEach(function(x){if(out.indexOf(x)<0&&(!w.fx||df(x)))out.push(x)});return out}" +
     "var KC=null,IXm=null;" +
-    "function pk(k){if(!k)return null;" +
+    /* Un même chemin de fichier est parfois porté par DEUX éléments :
+       l'entrée de la réserve (image cachée) et l'emplacement affiché. Selon
+       ce qu'on retouche — le visuel d'une image, ou le fond d'un
+       emplacement — ce n'est pas le même qu'il faut. */
+    "function bp(n,kd){return kd==='img'?n.tagName==='IMG':" +
+    "kd==='bg'?(n.tagName!=='IMG'&&n.tagName!=='VIDEO'):true}" +
+    "function pk(k,kd){if(!k)return null;" +
     "if(!KC){KC={};try{var lk=document.querySelectorAll('[data-k]'),ik;" +
     "for(ik=0;ik<lk.length;ik++){var kk=lk[ik].getAttribute('data-k');" +
-    "if(KC[kk]===undefined)KC[kk]=lk[ik]}}catch(e){}}return KC[k]||null}" +
+    "(KC[kk]||(KC[kk]=[])).push(lk[ik])}}catch(e){}}" +
+    "var c=KC[k];if(!c||!c.length)return null;if(!kd)return c[0];var j;" +
+    "for(j=0;j<c.length;j++)if(bp(c[j],kd)&&c[j].getClientRects().length)return c[j];" +
+    "for(j=0;j<c.length;j++)if(bp(c[j],kd))return c[j];return c[0]}" +
     "function IX(sr){if(sr==null)return[];" +
     "if(!IXm){IXm={};var li=document.images,ii;for(ii=0;ii<li.length;ii++){" +
     "var ss=li[ii].getAttribute('src');(IXm[ss]||(IXm[ss]=[])).push(li[ii])}}" +
@@ -4118,7 +4156,8 @@ function exportFile() {
     "if(fs>bF||(fs===bF&&best&&(best.compareDocumentPosition(c)&4))){best=c;bF=fs}}" +
     "var anc2=bI||best,chx=pr||anc2;if(!chx)return null;" +
     "return{a:td(chx),b:anc2?td(anc2):''}}" +
-    "function cible(p,vite){if(p.k){var d=pk(p.k);if(d)return d}" +
+    /* une retouche de réserve vise l'entrée de la réserve : pas de tri */
+    "function cible(p,vite){if(p.k){var d=pk(p.k,p.src==='reserve'?'':p.kind);if(d)return d}" +
     "if(!p.when){try{return document.querySelector(p.sel)}catch(e){return null}}" +
     "var cs=tem(p.when),ci,i;for(ci=0;ci<cs.length;ci++){var a=cs[ci];" +
     "for(i=0;i<(p.when.up||0)&&a.parentElement;i++)a=a.parentElement;" +
