@@ -364,6 +364,16 @@ header .sp{flex:1}
 #askgGrid .gi.done .nm{color:var(--ok)}
 #askgGrid .gi.zone{grid-column:1/-1}
 #askgGrid .gi.zone .box{aspect-ratio:auto;height:34px}
+/* sous chaque vignette : recadrer sur place, ou remplacer par un fichier */
+#askgGrid .gi .act,#gal .g .act{display:flex;gap:5px;margin-top:6px}
+#askgGrid .gi .act button,#gal .g .act button{flex:1;min-width:0;background:var(--panel3);
+  border:1px solid var(--line);color:var(--fg);font:inherit;font-size:11px;font-weight:600;
+  padding:5px 4px;border-radius:8px;cursor:pointer;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;transition:border-color .13s,background .13s,color .13s}
+#askgGrid .gi .act button:hover,#gal .g .act button:hover{border-color:var(--accent);
+  color:var(--accent)}
+#askgGrid .gi .act button[disabled],#gal .g .act button[disabled]{opacity:.38;cursor:default;
+  border-color:var(--line);color:var(--fg)}
 </style>
 </head>
 <body>
@@ -559,7 +569,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-09c';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-10';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -2116,17 +2126,38 @@ function choisirImage(l, zone) {
   renderChoix();
   $('askg').classList.remove('hidden');
 }
-function closeAskg() { $('askg').classList.add('hidden'); pileSel = null; pileZone = null; fichierEnAttente = null; }
+function closeAskg() {
+  $('askg').classList.add('hidden');
+  pileSel = null; pileZone = null; pileRepli = false; fichierEnAttente = null;
+}
+/* Le cadrage se règle à la souris SUR la page : la fenêtre de choix s'efface
+   le temps du réglage, puis revient — on enchaîne les autres images de la
+   pile sans avoir à re-viser la planche. */
+var pileRepli = false;
+function cadrerDepuisPile(c) {
+  if (!peutCadrer(c.el, c.kind === 'img')) return false;
+  $('askg').classList.add('hidden');
+  flash(c.el);
+  if (!cadrerImage(c.el, c.kind === 'img')) { $('askg').classList.remove('hidden'); return false; }
+  pileRepli = true;
+  return true;
+}
+function rouvrirChoix() {
+  if (!pileSel) return;
+  renderChoix();
+  $('askg').classList.remove('hidden');
+}
 function renderChoix() {
   var g = $('askgGrid');
   g.innerHTML = '';
   if (!pileSel) return;
   $('askgWhat').textContent = pileSel.length + ' images sont superposées ici — carrousel, ' +
-    'visuel posé sous un texte… Clique celle que tu veux remplacer.';
+    'visuel posé sous un texte… Choisis laquelle : « Cadrer » pour la ' +
+    'déplacer ou la recentrer, « Remplacer » pour poser un autre fichier.';
   pileSel.forEach(function (c, i) {
     var alt = (c.el.getAttribute('alt') || '').trim();
     var fait = dejaFait(c.el);
-    var b = document.createElement('button');
+    var b = document.createElement('div');
     b.className = 'gi' + (fait ? ' done' : '');
     var v = document.createElement('div');
     v.className = 'box';
@@ -2145,11 +2176,29 @@ function renderChoix() {
     su.textContent = c.kind === 'bg' ? 'image de fond'
       : estCachee(c.el) ? 'pas affichée en ce moment' : 'affichée';
     b.appendChild(v); b.appendChild(nm); b.appendChild(su);
+    // deux gestes distincts sous chaque vignette : régler la position de
+    // l'image en place, ou la remplacer par un fichier
+    var remplacer = function () { flash(c.el); pickImageFor(c.el, c.kind === 'img'); };
+    var act = document.createElement('div');
+    act.className = 'act';
+    var bc = document.createElement('button');
+    bc.type = 'button';
+    bc.textContent = 'Cadrer';
+    var pourquoi = raisonCadrage(c.el, c.kind === 'img');
+    bc.title = pourquoi || 'Déplacer, recentrer ou zoomer cette image — sans la remplacer';
+    if (pourquoi) bc.disabled = true;
+    bc.addEventListener('click', function (ev) { ev.stopPropagation(); cadrerDepuisPile(c); });
+    var br = document.createElement('button');
+    br.type = 'button';
+    br.textContent = 'Remplacer';
+    br.title = 'Choisir un fichier à mettre à la place';
+    br.addEventListener('click', function (ev) { ev.stopPropagation(); remplacer(); });
+    act.appendChild(bc); act.appendChild(br);
+    b.appendChild(act);
+    // la vignette elle-même ouvre le cadrage, comme un clic sur l'image dans
+    // la page : plus d'explorateur de fichiers imposé au moindre clic
     b.addEventListener('click', function () {
-      flash(c.el);
-      // choisir une image DANS la pile est déjà un choix explicite : on
-      // remplace, et le panneau reste ouvert pour enchaîner le carrousel
-      pickImageFor(c.el, c.kind === 'img');
+      if (!cadrerDepuisPile(c)) remplacer();
     });
     g.appendChild(b);
   });
@@ -2656,7 +2705,7 @@ function renderGallery() {
 
     i++;
     var done = dejaFait(m.node, m.sel);
-    var b = document.createElement('button');
+    var b = document.createElement('div');
     b.className = 'g' + (done ? ' done' : '');
     var vis = document.createElement('div');
     vis.className = 'box';
@@ -2673,10 +2722,30 @@ function renderGallery() {
     if (m.fichier) b.dataset.k = m.fichier;
     b.title = (m.name || ('Image ' + i)) + (m.fichier ? '\n' + m.fichier : '') +
               '\nLâche un fichier ici pour le poser — plusieurs pour remplir la suite';
-    b.addEventListener('click', function () {
+    // les deux mêmes gestes qu'ailleurs : régler la position, ou remplacer
+    var remp = function () { flash(m.node); pickImageFor(m.node, m.kind === 'img'); };
+    var cadre = function () {
+      if (!peutCadrer(m.node, m.kind === 'img')) return false;
       flash(m.node);
-      pickImageFor(m.node, m.kind === 'img');
-    });
+      return cadrerImage(m.node, m.kind === 'img');
+    };
+    var ga = document.createElement('div');
+    ga.className = 'act';
+    var gc = document.createElement('button');
+    gc.type = 'button';
+    gc.textContent = 'Cadrer';
+    var gpq = raisonCadrage(m.node, m.kind === 'img');
+    gc.title = gpq || 'Déplacer, recentrer ou zoomer cette image — sans la remplacer';
+    if (gpq) gc.disabled = true;
+    gc.addEventListener('click', function (ev) { ev.stopPropagation(); cadre(); });
+    var gr = document.createElement('button');
+    gr.type = 'button';
+    gr.textContent = 'Remplacer';
+    gr.title = 'Choisir un fichier à mettre à la place';
+    gr.addEventListener('click', function (ev) { ev.stopPropagation(); remp(); });
+    ga.appendChild(gc); ga.appendChild(gr);
+    b.appendChild(ga);
+    b.addEventListener('click', function () { if (!cadre()) remp(); });
     brancherDepotGalerie(b, suite, rang < 0 ? 0 : rang, m.name || 'cet emplacement');
     box.appendChild(b);
   });
@@ -3357,17 +3426,37 @@ function retoucheProvisoire(el) {
   if (k) p.k = k;
   return p;
 }
+/* Cette image se prête-t-elle au cadrage ? Renvoie '' si oui, sinon la
+   raison, à afficher sur le bouton grisé. On règle le cadrage à la souris
+   sur la page : il faut donc voir l'image, et avoir un visuel à déplacer. */
+function raisonCadrage(el, isImg) {
+  if (!el) return 'Image introuvable';
+  try {
+    var r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return 'Cette image n’est pas affichée en ce moment';
+  } catch (e) {}
+  if (estCachee(el)) return 'Cette image n’est pas affichée en ce moment';
+  if (retoucheImageDe(el)) return '';
+  if (isImg && el.getAttribute && el.getAttribute('src')) return '';
+  return 'Ce fond n’a pas encore de visuel à toi : remplace-le d’abord';
+}
+function peutCadrer(el, isImg) { return !raisonCadrage(el, isImg); }
+/* Ouvre le cadrage sans passer par l'explorateur. Renvoie faux si l'image
+   ne s'y prête pas — l'appelant enchaîne alors sur un remplacement. */
+function cadrerImage(el, isImg) {
+  var deja = retoucheImageDe(el);
+  if (deja) return ouvrirRecadrage(deja);
+  if (!isImg || !el.getAttribute || !el.getAttribute('src')) return false;
+  return ouvrirRecadrage(retoucheProvisoire(el));
+}
 function ouvrirSurImage(el, isImg) {
   // un fichier vient d'être lâché dessus : on remplace, évidemment
   if (fichierEnAttente) { pickImageFor(el, isImg); return; }
-  var deja = retoucheImageDe(el);
-  if (deja) { ouvrirRecadrage(deja); return; }
-  if (!isImg || !el.getAttribute || !el.getAttribute('src')) { pickImageFor(el, isImg); return; }
-  ouvrirRecadrage(retoucheProvisoire(el));
+  if (!cadrerImage(el, isImg)) pickImageFor(el, isImg);
 }
 function ouvrirRecadrage(p) {
   var n = noeudVisible(p);
-  if (!n) { toast('Cette image n’est pas affichée en ce moment'); return; }
+  if (!n) { toast('Cette image n’est pas affichée en ce moment'); return false; }
   recadre = { p: p, n: n };
   // sur une retouche provisoire, on retient l'habillage EXACT de l'image :
   // refermer sans rien changer doit la laisser rigoureusement intacte
@@ -3380,6 +3469,7 @@ function ouvrirRecadrage(p) {
   majBarreCadre(p);
   $('crop').classList.remove('hidden');
   // pas de message à l'ouverture : à la longue, il gênait plus qu'il n'aidait
+  return true;
 }
 function majBarreCadre(p) {
   var c = fitDe(p).c;
@@ -3413,14 +3503,20 @@ function fermerRecadrage() {
   recadre = null;
   $('crop').classList.add('hidden');
   renderList();
+  // vrai quand ce cadrage venait de la fenêtre des images empilées :
+  // l'appelant décide s'il la fait revenir
+  var repli = pileRepli;
+  pileRepli = false;
+  return repli;
 }
-$('cropOk').addEventListener('click', fermerRecadrage);
+$('cropOk').addEventListener('click', function () { if (fermerRecadrage()) rouvrirChoix(); });
 $('cropRemp').addEventListener('click', function () {
   if (!recadre) return;
   var n = recadre.n, estImg = n.tagName === 'IMG';
   if (recadre.p.prov) recadre.touche = false;    // le remplacement fera foi
-  fermerRecadrage();
+  var repli = fermerRecadrage();
   pickImageFor(n, estImg);
+  if (repli) rouvrirChoix();
 });
 $('cropTout').addEventListener('click', function () {
   if (!recadre) return;
@@ -3835,6 +3931,7 @@ function localiser(p) {
 
 /* --------------------------------------------------------------- les modes */
 function setMode(m) {
+  pileRepli = false;               // on change d'outil : pas de retour au choix
   if (recadre) fermerRecadrage();
   mode = m;
   ['mText', 'mImg', 'mVid', 'mLink', 'mView'].forEach(function (id) { $(id).classList.remove('on'); });
