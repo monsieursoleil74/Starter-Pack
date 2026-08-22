@@ -14,13 +14,15 @@ const fs = require('fs');
 
 const TOOL = process.argv[2] || '/home/user/Starter-Pack/htmledit/Editeur-HTML.html';
 const MAQ = path.resolve(__dirname, 'maq_grille.html');
-const A = path.resolve(__dirname, 'alt_a.png');
-const B = path.resolve(__dirname, 'alt_b.png');
+// ses propres visuels, NETTEMENT plus larges que hauts : dans un carré, il y
+// a donc de la matière à déplacer (les fichiers partagés changent de forme
+// d'un test à l'autre — le cadrage n'aurait alors rien à mordre)
+const A = path.resolve(__dirname, 'e2e86_a.png');
+const B = path.resolve(__dirname, 'e2e86_b.png');
 const OUT = path.resolve(__dirname, 'grille_export.html');
 
 function fail(m) { console.error('ECHEC : ' + m); process.exit(1); }
 function ok(m) { console.log('OK : ' + m); }
-if (!fs.existsSync(A) || !fs.existsSync(B)) { console.error('lance fixtures.js d’abord'); process.exit(1); }
 
 const PERSOS = ['sam', 'barjola', 'pipo'];
 fs.writeFileSync(MAQ, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Personnages</title>
@@ -75,6 +77,24 @@ const releve = (page, iframe) => page.evaluate((f) => {
 (async () => {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
   const ctx = await browser.newContext({ acceptDownloads: true, viewport: { width: 1300, height: 850 } });
+  const gen = await ctx.newPage();
+  await gen.goto('about:blank');
+  for (const [f2, couleur] of [[A, '#2b6cb0'], [B, '#b02b6c']]) {
+    const b64 = await gen.evaluate((c) => {
+      const cv = document.createElement('canvas');
+      cv.width = 420; cv.height = 140;
+      const g = cv.getContext('2d');
+      g.fillStyle = c; g.fillRect(0, 0, 420, 140);
+      for (let i = 0; i < 30; i++) {
+        g.fillStyle = 'rgba(255,255,255,.2)';
+        g.fillRect(i * 14, (i * 37) % 120, 8, 8);
+      }
+      return cv.toDataURL('image/png').split(',')[1];
+    }, couleur);
+    fs.writeFileSync(f2, Buffer.from(b64, 'base64'));
+  }
+  await gen.close();
+  ok('visuels d’essai fabriqués (420×140 : large dans un carré de 180)');
   const p = await ctx.newPage();
   const errs = [];
   p.on('pageerror', (e) => { if (!/Clipboard|writeText/.test(e.message)) errs.push(e.message); });
@@ -117,12 +137,20 @@ const releve = (page, iframe) => page.evaluate((f) => {
     await p.waitForTimeout(800);
   }
   if (!(await ouvert('crop'))) fail('le cadrage ne s’ouvre pas sur l’emplacement rempli');
-  c = await viser();
-  await p.mouse.move(c.x, c.y);
-  await p.mouse.down();
-  await p.mouse.move(c.x - 45, c.y - 30, { steps: 10 });
-  await p.mouse.up();
-  await p.waitForTimeout(400);
+  // l'aperçu peut encore être en train de défiler : on vise juste avant de
+  // glisser, et on redonne un coup si rien n'a bougé
+  for (let essai = 0; essai < 3; essai++) {
+    await p.waitForTimeout(500);
+    c = await viser();
+    await p.waitForTimeout(250);
+    c = await viser();
+    await p.mouse.move(c.x, c.y);
+    await p.mouse.down();
+    await p.mouse.move(c.x - 45, c.y - 30, { steps: 10 });
+    await p.mouse.up();
+    await p.waitForTimeout(450);
+    if ((await releve(p, true)).sam.pos !== '50% 50%') break;
+  }
   await p.click('#cropOk');
   await p.waitForTimeout(700);
   r = await releve(p, true);
