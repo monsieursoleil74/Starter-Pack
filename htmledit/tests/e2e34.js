@@ -6,6 +6,11 @@ const path = require('path');
 
 const TOOL = '/home/user/Starter-Pack/htmledit/Editeur-HTML.html';
 const MAQ = '/root/.claude/uploads/9b61ac52-1242-5681-b4f1-1a84f74cc71a/24ff5115-Pack_NDA__Version_demo__horsligne_1.html';
+if (!require('fs').existsSync(MAQ)) {
+  console.log('SAUTÉ : ce test rejoue un vrai pack déposé dans la session, qui n’est pas versionné.');
+  process.exit(0);
+}
+
 const PNG = path.resolve(__dirname, 'remplacement.png');
 const PNG2 = path.resolve(__dirname, 'rempl2.png');
 const OUT = path.resolve(__dirname, 'maq7_modifiee.html');

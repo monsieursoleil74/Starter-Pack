@@ -9,6 +9,7 @@ const TOOL = '/home/user/Starter-Pack/htmledit/Editeur-HTML.html';
 const MAQ = path.resolve(__dirname, 'maq_simple.html');
 const PNG = path.resolve(__dirname, 'remplacement.png');
 const BUNDLE = '/root/.claude/uploads/9b61ac52-1242-5681-b4f1-1a84f74cc71a/2c26c800-Pack_NDA__Version_demo__horsligne.html';
+
 const OUT = path.resolve(__dirname, 'maq_modifiee.html');
 const OUT2 = path.resolve(__dirname, 'maq_modifiee2.html');
 const OUTB = path.resolve(__dirname, 'bundle_modifie.html');

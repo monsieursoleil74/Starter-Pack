@@ -50,6 +50,17 @@ fs.writeFileSync(DONOR, `<!DOCTYPE html><html><head><meta charset="utf-8"></head
 
   const v = await ctx.newPage();
   v.on('pageerror', e => errs.push('[export] ' + e.message));
+  // on note QUAND l'outil remplace la réserve : si la planche reste vide,
+  // le message dit tout de suite s'il a perdu la course ou mal peint
+  await v.addInitScript(() => {
+    window.__t0 = Date.now(); window.__quand = null;
+    const it = setInterval(() => {
+      const im = document.querySelector('#rg-assetmap img');
+      if (im && /^blob:|^data:/.test(im.getAttribute('src') || '')) {
+        window.__quand = Date.now() - window.__t0; clearInterval(it);
+      }
+    }, 10);
+  });
   await v.goto('file://' + OUT);
   await v.waitForTimeout(3500);
 
@@ -61,7 +72,8 @@ fs.writeFileSync(DONOR, `<!DOCTYPE html><html><head><meta charset="utf-8"></head
     for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++;
     return n;
   });
-  if (px === 0) fail('export ouvert : la planche reprise ne s’affiche pas');
+  if (px === 0) fail('export ouvert : la planche reprise ne s’affiche pas (réserve remplacée après ' +
+    (await v.evaluate(() => window.__quand)) + ' ms, l’appli la lit à 900 ms)');
   ok('export ouvert : la planche s’affiche (' + px + ' pixels)');
 
   // 2. plus de data URI géante dans les src ni la feuille de propagation

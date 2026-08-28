@@ -33,7 +33,10 @@ fs.writeFileSync(MAQ, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>R
       document.getElementById('planche').getContext('2d').drawImage(im, 0, 0, 80, 60);
     };
     im.src = src;
-  }, 400);
+    // 900 ms : l'outil doit gagner la course contre la lecture que l'appli
+    // fait de sa propre réserve. Il la remplace en ~270 ms ; la marge évite
+    // que le test devienne un tirage au sort quand la machine est chargée.
+  }, 900);
 </script>
 </body></html>`);
 
