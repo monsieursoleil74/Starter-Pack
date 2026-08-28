@@ -1,8 +1,9 @@
-/* Un visuel posé voyage à sa taille d'origine : une planche de 2400 px dans
-   un cadre de 180 px, et le pack pèse des dizaines de mégaoctets. « Export
+/* Un visuel posé voyage à sa taille d'origine : un décor de 2400 px dans un
+   cadre de 180 px, et le pack pèse des dizaines de mégaoctets. « Export
    léger » ré-encode chaque visuel à la taille où il s'affiche vraiment, en
-   WebP. Les retouches, elles, gardent l'original : l'éditeur ne perd rien et
-   un export complet reste possible juste après.
+   WebP — SAUF les planches et les concepts 2D, qui sont le travail lui-même
+   et voyagent toujours en pleine qualité. Les retouches gardent l'original :
+   l'éditeur ne perd rien et un export complet reste possible juste après.
    Usage : node e2e88.js [chemin-outil] */
 const { chromium } = require('playwright-core');
 const path = require('path');
@@ -10,7 +11,9 @@ const fs = require('fs');
 
 const TOOL = process.argv[2] || '/home/user/Starter-Pack/htmledit/Editeur-HTML.html';
 const MAQ = path.resolve(__dirname, 'maq_leger.html');
-const GROS = path.resolve(__dirname, 'e2e88_planche.png');
+// attention au nom : le critère « pleine qualité » regarde aussi le nom
+// du fichier posé — un visuel d'essai nommé « planche » fausserait tout
+const GROS = path.resolve(__dirname, 'e2e88_visuel.png');
 const PLEIN = path.resolve(__dirname, 'leger_complet.html');
 const LEGER = path.resolve(__dirname, 'leger_allege.html');
 const PLEIN2 = path.resolve(__dirname, 'leger_complet2.html');
@@ -26,9 +29,11 @@ fs.writeFileSync(MAQ, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>P
 .slot{width:180px;height:180px;border-radius:14px;background:#232c23;display:flex;
   align-items:center;justify-content:center;overflow:hidden;font-size:11px;opacity:.6}
 </style></head><body>
-<h1>Planches</h1>
+<h1>Fiche de Tito</h1>
 <div class="carte" data-p="tito">
-  <div class="slot" data-k="assets/tito_portrait.png">PORTRAIT</div>
+  <div class="slot" data-k="assets_nda/personnages/tito/tito_portrait.png">PORTRAIT</div>
+  <div class="slot" data-k="assets_nda/personnages/tito/tito_planche_01.png">PLANCHE</div>
+  <div class="slot" data-k="assets_nda/personnages/tito/tito_concept2d_01.png">CONCEPT 2D</div>
   <b>Tito</b>
 </div>
 </body></html>`);
@@ -58,7 +63,7 @@ fs.writeFileSync(MAQ, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>P
   });
   fs.writeFileSync(GROS, Buffer.from(b64, 'base64'));
   await gen.close();
-  ok('planche d’essai fabriquée : 2400×1800, ' + mo(GROS));
+  ok('visuel d’essai fabriqué : 2400×1800, ' + mo(GROS));
 
   const p = await ctx.newPage();
   const errs = [];
@@ -70,23 +75,27 @@ fs.writeFileSync(MAQ, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>P
   await p.click('#mImg');
   await p.waitForTimeout(400);
 
-  // ---------- poser la planche dans le petit cadre ----------
-  const c = await p.evaluate(() => {
-    const d = document.getElementById('frame').contentDocument;
-    const n = d.querySelector('.slot');
-    n.scrollIntoView({ block: 'center', behavior: 'instant' });
-    const r = n.getBoundingClientRect();
-    const f = document.getElementById('frame').getBoundingClientRect();
-    return { x: f.left + r.left + r.width / 2, y: f.top + r.top + r.height / 2 };
-  });
-  await p.mouse.click(c.x, c.y);
-  await p.waitForTimeout(700);
-  const [ch] = await Promise.all([p.waitForEvent('filechooser'), p.click('#askCover')]);
-  await ch.setFiles(GROS);
-  await p.waitForTimeout(2500);
-  await p.evaluate(() => ['ask', 'askv', 'askl', 'askg', 'askm', 'crop'].forEach((i) => {
-    const e = document.getElementById(i); if (e) e.classList.add('hidden'); }));
-  await p.waitForTimeout(400);
+  // ---------- poser la MÊME grosse image dans les trois cadres ----------
+  for (let iS = 0; iS < 3; iS++) {
+    const c = await p.evaluate((j) => {
+      const d = document.getElementById('frame').contentDocument;
+      const n = d.querySelectorAll('.slot')[j];
+      n.scrollIntoView({ block: 'center', behavior: 'instant' });
+      const r = n.getBoundingClientRect();
+      const f = document.getElementById('frame').getBoundingClientRect();
+      return { x: f.left + r.left + r.width / 2, y: f.top + r.top + r.height / 2 };
+    }, iS);
+    await p.mouse.click(c.x, c.y);
+    await p.waitForTimeout(700);
+    const [ch] = await Promise.all([p.waitForEvent('filechooser'), p.click('#askCover')]);
+    await ch.setFiles(GROS);
+    await p.waitForTimeout(2500);
+    await p.evaluate(() => ['ask', 'askv', 'askl', 'askg', 'askm', 'crop'].forEach((i) => {
+      const e = document.getElementById(i); if (e) e.classList.add('hidden'); }));
+    await p.waitForTimeout(400);
+  }
+  if ((await p.$$eval('#list .it', (l) => l.length)) !== 3)
+    fail('les trois emplacements n’ont pas chacun leur retouche');
 
   // ---------- export complet ----------
   const [d1] = await Promise.all([p.waitForEvent('download'), p.click('#save')]);
@@ -103,32 +112,40 @@ fs.writeFileSync(MAQ, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>P
   ok('export léger  : ' + mo(LEGER));
 
   const plein = fs.statSync(PLEIN).size, leger = fs.statSync(LEGER).size;
-  if (leger > plein / 3)
-    fail('l’export léger n’allège pas assez : ' + mo(LEGER) + ' contre ' + mo(PLEIN));
-  ok('le fichier est ' + (plein / leger).toFixed(1) + '× plus léger');
+  // seul le portrait s'allège : la planche et le concept 2D restent entiers
+  if (leger > plein * 0.8)
+    fail('l’export léger n’allège pas : ' + mo(LEGER) + ' contre ' + mo(PLEIN));
+  ok('le fichier est ' + (plein / leger).toFixed(2) + '× plus léger');
 
   // ---------- le pack allégé montre bien la planche ----------
   const v = await ctx.newPage();
   v.on('pageerror', (e) => errs.push('[allégé] ' + e.message));
   await v.goto('file://' + LEGER);
   await v.waitForTimeout(2500);
-  const vu = await v.evaluate(() => {
-    const s = document.querySelector('.slot');
-    const st = getComputedStyle(s);
-    return { fond: (st.backgroundImage || '').slice(0, 16), taille: st.backgroundSize };
-  });
-  if (!/^url\(/.test(vu.fond)) fail('le pack allégé n’affiche pas la planche : ' + JSON.stringify(vu));
-  ok('le pack allégé affiche bien la planche (' + vu.taille + ')');
+  const vu = await v.evaluate(() =>
+    [...document.querySelectorAll('.slot')].map((s) =>
+      /^url\(/.test(getComputedStyle(s).backgroundImage || '')));
+  if (vu.length !== 3 || vu.some((x) => !x))
+    fail('le pack allégé n’affiche pas les trois visuels : ' + JSON.stringify(vu));
+  ok('le pack allégé affiche les trois visuels');
 
-  // le visuel embarqué est bien ré-encodé, et petit
+  // le portrait est ré-encodé petit ; la planche et le concept 2D, INTACTS
+  const tailleOrig = 'data:image/png;base64,'.length +
+    Math.ceil(fs.statSync(GROS).size / 3) * 4;
   const dd = JSON.parse(fs.readFileSync(LEGER, 'utf8')
     .match(/<script id="pack-edit-data"[^>]*>([\s\S]*?)<\/script>/)[1].replace(/<\\\//g, '</'));
-  const pl = dd.find((x) => /^data:image\//.test(x.after || ''));
-  if (!pl) fail('le pack allégé ne porte plus de visuel');
-  if (pl.after.length > plein / 4)
-    fail('le visuel du pack allégé pèse encore ' + Math.round(pl.after.length / 1024) + ' Ko');
+  const entree = (mot) => dd.find((x) => (x.k || '').indexOf(mot) >= 0);
+  const pPor = entree('portrait'), pPla = entree('planche'), pC2d = entree('concept2d');
+  if (!pPor || !pPla || !pC2d) fail('une des trois retouches manque dans le pack allégé');
+  if (pPor.after.length > 1e6)
+    fail('le portrait du pack allégé pèse encore ' + Math.round(pPor.after.length / 1024) + ' Ko');
+  if (pPla.after.length < tailleOrig * 0.95)
+    fail('la PLANCHE a été allégée (' + Math.round(pPla.after.length / 1024) + ' Ko) — elle doit rester en pleine qualité');
+  if (pC2d.after.length < tailleOrig * 0.95)
+    fail('le CONCEPT 2D a été allégé (' + Math.round(pC2d.after.length / 1024) + ' Ko) — il doit rester en pleine qualité');
   if (dd.some((x) => x.leger)) fail('la version allégée ne doit pas voyager à côté de l’originale');
-  ok('visuel ré-encodé à ' + Math.round(pl.after.length / 1024) + ' Ko, rien en double dans le bloc');
+  ok('portrait ré-encodé à ' + Math.round(pPor.after.length / 1024) +
+     ' Ko ; planche et concept 2D intacts (' + Math.round(pPla.after.length / 1024) + ' Ko chacun)');
 
   // ---------- l'éditeur garde l'original en pleine qualité ----------
   const [d3] = await Promise.all([p.waitForEvent('download'), p.click('#save')]);
