@@ -98,3 +98,12 @@ dans le bundle, ni déclaré dans la réserve : il apparaît cassé dès l'ouver
 que la réserve s'arrête à `pipo_concept2d_02` et `cs_14`. Si un emplacement
 est prévu « à remplir plus tard », donne-lui un visuel de remplissage embarqué
 et une entrée de réserve — jamais un chemin mort.
+
+## Règle 10 — un emplacement vide porte lui aussi son chemin (`data-k`)
+
+Un carré « à remplir » (PORTRAIT / SAM / sam_portrait.png) doit porter le
+chemin de son fichier **sur l'élément lui-même** : `data-k="assets_nda/…"`.
+C'est ce qui permet à une retouche de suivre SON personnage quand la grille
+se reconstruit dans un autre ordre (changement de page, sélection) — sans ce
+chemin, l'emplacement n'est repérable que par sa position, et le visuel posé
+part chez le voisin. Aucun effet sur le rendu.
