@@ -440,7 +440,7 @@ header .sp{flex:1}
     <div id="crop" class="hidden">
       <b id="cropTitre">Recadrage</b>
       <span class="qui" id="cropQui"></span>
-      <span class="z">Zoom <input type="range" id="cropZ" min="100" max="400" value="100"></span>
+      <span class="z">Zoom <input type="range" id="cropZ" min="25" max="400" value="100"></span>
       <button id="cropTout">Toute l’image</button>
       <button id="cropReset">Recentrer</button>
       <button id="cropRemp" title="Choisir un autre fichier pour cet emplacement">Remplacer…</button>
@@ -570,7 +570,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-11';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-11b';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -2402,11 +2402,17 @@ function pickImageFor(el, isImg, hide) {
 function thumbOf(im) {
   try {
     if (!im.complete || !im.naturalWidth) return '';
+    // un canvas + toDataURL par image, ça se paie : la vignette est gardée
+    // sur l'image elle-même tant que son src ne change pas
+    var s = im.getAttribute('src') || '';
+    if (im.pkTh && im.pkThSrc === s) return im.pkTh;
     var w = 96, h = Math.max(1, Math.round(w * im.naturalHeight / im.naturalWidth));
     var c = doc.createElement('canvas');
     c.width = w; c.height = h;
     c.getContext('2d').drawImage(im, 0, 0, w, h);
-    return c.toDataURL('image/jpeg', 0.7);
+    im.pkTh = c.toDataURL('image/jpeg', 0.7);
+    im.pkThSrc = s;
+    return im.pkTh;
   } catch (e) { return ''; }
 }
 /* Une maquette « bundlée » sert ses images depuis des URL blob : les dessiner
@@ -2593,7 +2599,9 @@ function collectMedia() {
     if (srcReserve[im.getAttribute('src') || '']) return;   // déjà listée par la réserve
     seen[sel] = 1;
     var g = groupeDe(im);
-    out.push({ sel: sel, kind: 'img', node: im, name: nameOf(im), thumb: thumbOf(im),
+    // pas de vignette ici : la dessiner pour CHAQUE image de la page figeait
+    // l'entrée en mode Image — la tuile s'en charge quand elle devient visible
+    out.push({ sel: sel, kind: 'img', node: im, name: nameOf(im), thumb: '',
                grp: g ? pathOf(g) : '', grpName: g ? nomGroupe(g) : '' });
   });
   // fonds en image : on ne balaie que ce qui est raisonnable
@@ -2618,11 +2626,35 @@ function sansAccent(t) {
                : (t || '').toLowerCase();
 }
 var galerieCourante = [];
+/* Les vignettes ne se dessinent que quand leur tuile approche de l'écran :
+   avec cent visuels, tout dessiner d'un coup figeait le passage en mode
+   Image. Le résultat, lui, est gardé (thumbOf) : re-render devient gratuit. */
+var obsVign = null;
+function vignetteVisible(tuile, node) {
+  var faire = function () {
+    vignette(node, function (u) {
+      if (u) { tuile.style.backgroundImage = 'url("' + u + '")'; tuile.textContent = ''; }
+    });
+  };
+  if (typeof IntersectionObserver !== 'function') { faire(); return; }
+  if (!obsVign) obsVign = new IntersectionObserver(function (es) {
+    for (var i = 0; i < es.length; i++) {
+      if (!es[i].isIntersecting) continue;
+      obsVign.unobserve(es[i].target);
+      var f = es[i].target.pkVg;
+      es[i].target.pkVg = null;
+      if (f) f();
+    }
+  }, { rootMargin: '250px' });
+  tuile.pkVg = faire;
+  obsVign.observe(tuile);
+}
 function renderGallery() {
   var box = $('gal');
   // re-rendre ne doit pas te renvoyer en haut du panneau : on garde la position
   var sh = $('sideHaut'), posSh = sh ? sh.scrollTop : 0;
   box.innerHTML = '';
+  if (obsVign) obsVign.disconnect();     // les tuiles observées viennent de disparaître
   var media = collectMedia();
   galerieCourante = media;
   var nbF = media.filter(function (m) { return m.fichier; }).length;
@@ -2731,8 +2763,7 @@ function renderGallery() {
     vis.className = 'box';
     vis.textContent = m.kind === 'bg' ? 'fond' : 'image ' + i;
     if (m.thumb) { vis.style.backgroundImage = 'url("' + m.thumb + '")'; vis.textContent = ''; }
-    else if (m.kind === 'img')
-      vignette(m.node, function (u) { if (u) { vis.style.backgroundImage = 'url("' + u + '")'; vis.textContent = ''; } });
+    else if (m.kind === 'img') vignetteVisible(vis, m.node);
     var nm = document.createElement('div');
     nm.className = 'nm';
     nm.textContent = (done ? '✓ ' : '') + (m.name || 'Image ' + i);
@@ -3156,8 +3187,11 @@ function cadrer(n, p) {
     // taille ; avec zoom, on l'exprime en % du cadre — jamais en pixels
     if (f.z === 1) n.style.backgroundSize = 'cover';
     else {
+      // en dézoom (< 1) le fond devient plus petit que sa case : sans
+      // no-repeat, il se carrellerait dans les marges
       var rc = n.clientWidth && n.clientHeight ? n.clientWidth / n.clientHeight : 1;
       n.style.backgroundSize = r2(100 * f.z * Math.max(1, (p.ar || rc) / rc)) + '% auto';
+      n.style.backgroundRepeat = 'no-repeat';
     }
     n.style.backgroundPosition = pose;
     return;
@@ -3413,8 +3447,12 @@ function debordement(n, p) {
   }
   var s = Math.max(w / (h * ar), 1) * f.z;      // échelle « couvrir » × zoom
   var cw = h * ar * s, ch = h * s;
-  if (cw < w) { ch = ch * w / cw; cw = w; }
-  return { dx: Math.max(0, cw - w), dy: Math.max(0, ch - h) };
+  // zoom ≥ 1 : l'arrondi peut laisser l'image un cheveu sous le cadre — on
+  // recolle. Dézoom (< 1) : l'image est PLUS PETITE que le cadre, et ce sont
+  // ses marges (gx/gy) qui servent au glissement, comme en « toute l'image »
+  if (cw < w && f.z >= 1) { ch = ch * w / cw; cw = w; }
+  return { dx: Math.max(0, cw - w), dy: Math.max(0, ch - h),
+           gx: Math.max(0, w - cw), gy: Math.max(0, h - ch) };
 }
 /* Une entrée de réserve n'est pas affichée : on recadre là où l'image SE VOIT. */
 function noeudVisible(p) {
@@ -3599,9 +3637,18 @@ function brancherRecadrage() {
   doc.addEventListener('pointerup', function () { glisse = null; }, true);
   doc.addEventListener('wheel', function (e) {
     if (!recadre) return;
+    // la molette ne zoome que SUR l'image cadrée : ailleurs, elle fait
+    // défiler la page — on reste libre d'aller retoucher un autre visuel
+    // sans devoir d'abord fermer le cadrage
+    var rw;
+    try { rw = recadre.n.getBoundingClientRect(); } catch (x) { return; }
+    if (e.clientX < rw.left || e.clientX > rw.right ||
+        e.clientY < rw.top || e.clientY > rw.bottom) return;
     e.preventDefault(); e.stopPropagation();
     if (fitDe(recadre.p).c) return;
-    var z = r2(Math.max(1, Math.min(4, fitDe(recadre.p).z * (e.deltaY < 0 ? 1.08 : 1 / 1.08))));
+    // en deçà de 1, on DÉZOOME : l'image devient plus petite que son cadre,
+    // des marges apparaissent — utile quand elle reste trop grande à 100 %
+    var z = r2(Math.max(0.25, Math.min(4, fitDe(recadre.p).z * (e.deltaY < 0 ? 1.08 : 1 / 1.08))));
     recadre.p.fit.z = z;
     recadre.touche = 1;
     $('cropZ').value = Math.round(z * 100);
@@ -4191,9 +4238,12 @@ function exportFile(leger) {
     "if(p.cadre&&!fg){n.style.aspectRatio=String(p.cadre);n.style.height='auto'}" +
     "n.style.objectFit='contain';n.style.objectPosition=po;n.style.transform='';" +
     "if(fg)n.style.objectViewBox='';return}" +
+    /* en dézoom (z < 1) le fond est plus petit que sa case : no-repeat,
+       sinon il se carrellerait dans les marges */
     "if(p.kind==='bg'){if(z===1)n.style.backgroundSize='cover';else{" +
     "var rc=n.clientWidth&&n.clientHeight?n.clientWidth/n.clientHeight:1;" +
-    "n.style.backgroundSize=Math.round(100*z*Math.max(1,(p.ar||rc)/rc)*100)/100+'% auto'}" +
+    "n.style.backgroundSize=Math.round(100*z*Math.max(1,(p.ar||rc)/rc)*100)/100+'% auto';" +
+    "n.style.backgroundRepeat='no-repeat'}" +
     "n.style.backgroundPosition=po;return}" +
     "if(p.cadre&&!fg){n.style.aspectRatio=String(p.cadre);n.style.height='auto'}" +
     "n.style.objectFit='cover';n.style.objectPosition=po;" +
