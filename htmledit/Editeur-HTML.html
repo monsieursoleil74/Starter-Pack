@@ -429,6 +429,7 @@ header .sp{flex:1}
   <button class="act" id="undo" title="Annuler la dernière retouche (Ctrl+Z)"></button>
   <button class="act" id="reload" title="Recharger la page d’origine et rejouer les retouches"></button>
   <button class="act" id="aide" title="Aide et raccourcis (touche ?)"></button>
+  <button class="act" id="saveLite" title="Exporter un fichier bien plus léger : chaque visuel est ré-encodé à la taille où il s’affiche vraiment. Tes retouches gardent l’original.">Export léger</button>
   <button class="act go" id="save">Exporter</button>
 </header>
 
@@ -569,7 +570,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-10c';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-11';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -4004,11 +4005,17 @@ function setMode(m) {
 }
 
 /* ------------------------------------------------------------------ export */
-function exportFile() {
+function exportFile(leger) {
   // « old » est la source de cette ouverture-ci (une URL blob recréée à chaque
   // chargement) : l'exporter figerait une valeur périmée
-  var data = JSON.stringify(patches, function (k, v) { return (k === 'old' || k === 'aReancrer' || k === 'aGuerir' || k === 't2' || k === 'pkBu' || k === 'prov' || k === 'tAtt') ? undefined : v; })
-    .replace(/<\//g, '<\\/');
+  var data = JSON.stringify(patches, function (k, v) {
+    if (k === 'old' || k === 'aReancrer' || k === 'aGuerir' || k === 't2' ||
+        k === 'pkBu' || k === 'prov' || k === 'tAtt' || k === 'leger') return undefined;
+    // export léger : le visuel ré-encodé prend la place de l'original, qui
+    // reste intact dans l'éditeur (« this » est la retouche en cours)
+    if (k === 'after' && leger && this && this.leger) return this.leger;
+    return v;
+  }).replace(/<\//g, '<\\/');
   var run = "(function(){var D=document.getElementById('" + MARK + "-data');if(!D)return;" +
     "var P=[];try{P=JSON.parse(D.textContent)||[]}catch(e){return}" +
     /* miroir de marquerHerites : « avant » empoisonné marqué (p.g), chaînes
@@ -4776,6 +4783,95 @@ function joliPoids(n) {
   return n > 1048576 ? Math.round(n / 1048576) + ' Mo' : Math.round(n / 1024) + ' Ko';
 }
 
+/* ------------------------------------------------------------- export léger
+   Une planche de 2400 px posée dans un cadre de 180 px voyage à sa taille
+   d'origine, et le codage en base64 rajoute encore un tiers : le pack finit à
+   cinquante mégaoctets. À la demande, chaque visuel est ré-encodé à la taille
+   où il s'affiche VRAIMENT (avec de la marge pour les écrans fins et pour
+   l'agrandissement au clic), en WebP.
+   Les retouches, elles, gardent l'original : l'éditeur ne perd rien, un
+   export complet reste possible juste après, et le redépôt pour continuer
+   plus tard retrouve la pleine qualité. */
+var COTE_MAX = 1800;      // au-delà, plus aucun écran n'en profite
+var COTE_MIN = 900;       // en deçà, un agrandissement au clic deviendrait flou
+function coteUtile(p) {
+  var n = null;
+  try { n = noeudVisible(p); } catch (e) {}
+  if (!n) return COTE_MIN;
+  var r = n.getBoundingClientRect();
+  var c = Math.max(r.width, r.height);
+  if (!c) return COTE_MIN;
+  // ×2 pour les écrans fins, × le zoom : on garde ce que l'œil peut voir
+  return Math.ceil(c * 2 * Math.max(1, fitDe(p).z));
+}
+function allegerVisuel(p, fini) {
+  var d = p.after;
+  delete p.leger;
+  if (typeof d !== 'string' || d.indexOf('data:image/') !== 0 || d.length < 60000) return fini(0);
+  if (/^data:image\/(svg|gif)/.test(d)) return fini(0);   // vectoriel ou animé : on n'y touche pas
+  var cote = Math.min(COTE_MAX, Math.max(COTE_MIN, coteUtile(p)));
+  var im = new Image();
+  im.onerror = function () { fini(0); };
+  im.onload = function () {
+    var w = im.naturalWidth, h = im.naturalHeight;
+    if (!w || !h) return fini(0);
+    var k = Math.min(1, cote / Math.max(w, h));
+    try {
+      var cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(w * k));
+      cv.height = Math.max(1, Math.round(h * k));
+      var g = cv.getContext('2d');
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(im, 0, 0, cv.width, cv.height);
+      var out = cv.toDataURL('image/webp', 0.82);
+      if (out.indexOf('data:image/webp') !== 0) out = cv.toDataURL('image/jpeg', 0.85);
+      // on ne remplace que si le gain est réel : sinon l'original est déjà bien
+      if (out.length < d.length * 0.92) { p.leger = out; return fini(d.length - out.length); }
+    } catch (e) {}
+    fini(0);
+  };
+  im.src = d;
+}
+var allegeEnCours = false;
+function exportLeger() {
+  if (allegeEnCours) return;
+  if (!patches.length) { exportFile(); return; }
+  allegeEnCours = true;
+  $('saveLite').disabled = true;
+  $('save').disabled = true;
+  var avant = poidsEstime(), gagne = 0, i = 0, faits = 0;
+  var visuels = patches.filter(function (p) {
+    return (p.kind === 'img' || p.kind === 'bg') &&
+           typeof p.after === 'string' && p.after.indexOf('data:image/') === 0;
+  });
+  var video = patches.some(function (p) {
+    return typeof p.after === 'string' && p.after.indexOf('data:video') === 0;
+  });
+  toast(visuels.length ? 'Allègement des visuels…' : 'Préparation de l’export léger…');
+  (function suite() {
+    if (i >= visuels.length) {
+      exportFile(true);
+      patches.forEach(function (p) { delete p.leger; });
+      allegeEnCours = false;
+      $('saveLite').disabled = false;
+      $('save').disabled = false;
+      var apres = Math.max(1, avant - gagne);
+      toast('Export léger : ' + joliPoids(avant) + ' → ' + joliPoids(apres) +
+            ' (' + faits + ' visuel' + (faits > 1 ? 's' : '') + ' ré-encodé' +
+            (faits > 1 ? 's' : '') + ')' +
+            (video ? ' — les vidéos embarquées, elles, ne s’allègent pas : range-les dans videos/' : ''));
+      return;
+    }
+    var p = visuels[i++];
+    allegerVisuel(p, function (g) {
+      if (g > 0) { gagne += g; faits++; }
+      // on rend la main au navigateur : cinquante planches ne doivent pas
+      // figer la fenêtre
+      setTimeout(suite, 0);
+    });
+  })();
+}
+
 /* ------------------------------------------------------------- branchements */
 /* ------------------------------------------------------------------ icônes
    Dessinées au trait, une seule couleur : elles suivent le texte et restent
@@ -4853,7 +4949,10 @@ $('mImg').addEventListener('click', function () { setMode('img'); });
 $('mVid').addEventListener('click', function () { setMode('vid'); });
 $('mLink').addEventListener('click', function () { setMode('link'); });
 $('mView').addEventListener('click', function () { setMode('view'); });
-$('save').addEventListener('click', exportFile);
+// sans l'enrobage, le clic passerait l'événement en premier argument —
+// et l'export se croirait « léger »
+$('save').addEventListener('click', function () { exportFile(); });
+$('saveLite').addEventListener('click', exportLeger);
 $('reload').addEventListener('click', function () { render(); toast('Page rechargée, retouches rejouées'); });
 $('undo').addEventListener('click', function () {
   if (!patches.length) return;
