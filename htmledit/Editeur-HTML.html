@@ -569,7 +569,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-10b';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-10c';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -3863,7 +3863,13 @@ function addPatch(p) {
   // une fenêtre reconnue à son titre (when), ou une fiche reconnue à sa
   // description (alt) — Pipo et Bruno passent dans la même balise
   patches = patches.filter(function (o) {
-    if (o.sel !== p.sel || o.kind !== p.kind) return true;
+    // même emplacement : par sa position, ou — bien plus sûr — par le chemin
+    // du fichier que la maquette y écrit. Sans ça, reposer un visuel après
+    // que la page a bougé empilait une SECONDE retouche au même endroit, et
+    // les deux se disputaient l'affichage à chaque passe (le cadrage
+    // « revenait en arrière » tout seul).
+    var memeCible = o.kind === p.kind && (o.sel === p.sel || !!(p.k && o.k === p.k));
+    if (!memeCible) return true;
     var a = o.when ? o.when.txt : '', b = p.when ? p.when.txt : '';
     if ((a || '').toLowerCase() !== (b || '').toLowerCase()) return true;
     if ((o.alt || '') !== (p.alt || '')) return true;
