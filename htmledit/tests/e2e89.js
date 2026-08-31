@@ -28,7 +28,9 @@ function ok(m) { console.log('OK : ' + m); }
   // ---------- fichiers d'appui ----------
   const gen = await ctx.newPage();
   await gen.goto('about:blank');
-  for (const [nom, coul] of [['e2e89_a.png', '#2b6cb0'], ['e2e89_b.png', '#b02b6c']]) {
+  // les images vivent DANS la maquette (data URI), comme dans les vrais packs
+  const uriDe = {};
+  for (const [nom, coul] of [['a', '#2b6cb0'], ['b', '#b02b6c']]) {
     const b64 = await gen.evaluate((c) => {
       const cv = document.createElement('canvas');
       cv.width = 420; cv.height = 140;
@@ -37,7 +39,7 @@ function ok(m) { console.log('OK : ' + m); }
       for (let i = 0; i < 30; i++) { g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(i * 14, (i * 37) % 120, 8, 8); }
       return cv.toDataURL('image/png').split(',')[1];
     }, coul);
-    fs.writeFileSync(path.resolve(__dirname, nom), Buffer.from(b64, 'base64'));
+    uriDe[nom] = 'data:image/png;base64,' + b64;
   }
   // 72 images toutes différentes : chaque vignette exige son propre décodage
   const uris = await gen.evaluate(() => {
@@ -74,9 +76,9 @@ function ok(m) { console.log('OK : ' + m); }
 .cadre img{width:180px;height:180px;object-fit:cover;display:block}
 </style></head><body>
 <h1>Planches</h1>
-<div class="cadre"><img id="imgA" src="e2e89_a.png" alt="Planche A"></div>
+<div class="cadre"><img id="imgA" src="${uriDe.a}" alt="Planche A"></div>
 <div style="height:1300px"></div>
-<div class="cadre"><img id="imgB" src="e2e89_b.png" alt="Planche B"></div>
+<div class="cadre"><img id="imgB" src="${uriDe.b}" alt="Planche B"></div>
 <div style="height:400px"></div>
 </body></html>`);
 
@@ -106,12 +108,28 @@ function ok(m) { console.log('OK : ' + m); }
   });
   const scrollY = () => p.evaluate(() =>
     document.getElementById('frame').contentDocument.defaultView.scrollY);
-  const echelleA = () => p.evaluate(() => {
+  // l'échelle effective, quelle que soit la méthode : transform (zoom > 1)
+  // ou vue élargie object-view-box (dézoom < 1)
+  const lireEchelle = `(function (n) {
+    const t = getComputedStyle(n).transform;
+    const m = t.match(/matrix\\(([-0-9.]+)/);
+    if (m && Math.abs(parseFloat(m[1]) - 1) > 0.01) return parseFloat(m[1]);
+    const i = (n.style.objectViewBox || '').match(/inset\\(([^)]+)\\)/);
+    if (!i) return 1;
+    // sérialisation raccourcie : inset(a) = 4 côtés, inset(a b) = t/b puis r/l
+    let l = i[1].split(/\\s+/).map(parseFloat);
+    if (l.length === 1) l = [l[0], l[0], l[0], l[0]];
+    else if (l.length === 2) l = [l[0], l[1], l[0], l[1]];
+    else if (l.length === 3) l = [l[0], l[1], l[2], l[1]];
+    const kx = l[1] + l[3];
+    const s0 = Math.max(n.clientWidth / n.naturalWidth, n.clientHeight / n.naturalHeight);
+    const vw = n.naturalWidth * (1 - kx / 100);
+    return n.clientWidth / (s0 * vw);
+  })`;
+  const echelleA = () => p.evaluate((fn) => {
     const d = document.getElementById('frame').contentDocument;
-    const t = d.defaultView.getComputedStyle(d.getElementById('imgA')).transform;
-    const m = t.match(/matrix\(([-0-9.]+)/);
-    return m ? parseFloat(m[1]) : 1;
-  });
+    return d.defaultView.eval(fn)(d.getElementById('imgA'));
+  }, lireEchelle);
 
   // ---------- 1. cadrage ouvert : la molette ailleurs fait DÉFILER ----------
   let a = await pos('imgA');
@@ -177,11 +195,7 @@ function ok(m) { console.log('OK : ' + m); }
   v.on('pageerror', (e) => errs.push('[export] ' + e.message));
   await v.goto('file://' + OUT);
   await v.waitForTimeout(2000);
-  const eE = await v.evaluate(() => {
-    const t = getComputedStyle(document.getElementById('imgA')).transform;
-    const m = t.match(/matrix\(([-0-9.]+)/);
-    return m ? parseFloat(m[1]) : 1;
-  });
+  const eE = await v.evaluate((fn) => eval(fn)(document.getElementById('imgA')), lireEchelle);
   if (Math.abs(eE - 0.5) > 0.02) fail('le pack exporté a perdu le dézoom (échelle ' + eE + ')');
   ok('le pack exporté garde le dézoom à 50 %');
   await v.close();

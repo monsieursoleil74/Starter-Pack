@@ -572,7 +572,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-11d';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-08-12';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -3207,12 +3207,15 @@ function cadrer(n, p) {
     n.style.objectFit = 'contain';
     n.style.objectPosition = pose;
     n.style.transform = '';
-    if (fige) n.style.objectViewBox = '';
+    if (fige || n.style.objectViewBox) n.style.objectViewBox = '';
+    var paC = n.parentElement;
+    if (paC && paC.dataset.pkClip) { delete paC.dataset.pkClip; paC.style.overflow = ''; }
     return;
   }
   n.style.objectFit = 'cover';
   n.style.objectPosition = pose;
-  if (f.z !== 1) {
+  var pa = n.parentElement;
+  if (f.z > 1) {
     if (fige) {
       var kz = 1 - 1 / f.z;
       n.style.objectViewBox = 'inset(' + r2(kz * f.y) + '% ' + r2(kz * (100 - f.x)) + '% ' +
@@ -3222,15 +3225,44 @@ function cadrer(n, p) {
     }
     n.style.transform = 'scale(' + f.z + ')';
     n.style.transformOrigin = pose;
-    var pa = n.parentElement;
     if (pa && (n.ownerDocument.defaultView.getComputedStyle(pa).overflow === 'visible')) {
       if (!pa.dataset.pkClip) pa.dataset.pkClip = '1';
       pa.style.overflow = 'hidden';
     }
   } else {
-    if (fige) n.style.objectViewBox = '';
+    // plus rien ne déborde : un clip posé par un zoom précédent se retire —
+    // il coupait aussi les débordements VOULUS par la maquette (le personnage
+    // qui dépasse de son cadre)
+    if (pa && pa.dataset.pkClip) { delete pa.dataset.pkClip; pa.style.overflow = ''; }
     if (n.style.transform.indexOf('scale') === 0) n.style.transform = '';
+    if (f.z === 1) {
+      if (fige || n.style.objectViewBox) n.style.objectViewBox = '';
+    } else if (!vueElargie(n, p, f)) {
+      // navigateur sans object-view-box : on retombe sur la réduction brute
+      n.style.transform = 'scale(' + f.z + ')';
+      n.style.transformOrigin = pose;
+    }
   }
+}
+/* Dézoom d'une <img> (z < 1) : réduire l'élément (transform) rétrécissait le
+   rendu DÉJÀ rogné par « cover » — les bords de l'image restaient coupés, et
+   le clip posé sur le parent réduisait la zone. On élargit à la place la VUE
+   de l'image (le rectangle source affiché), au ratio exact du cadre :
+   l'image entière apparaît avec des marges, rien n'est rogné ni coupé. */
+function vueElargie(n, p, f) {
+  if (!('objectViewBox' in n.style)) return false;
+  var w = n.clientWidth, h = n.clientHeight;
+  if (!w || !h) return false;
+  var iw = n.naturalWidth, ih = n.naturalHeight;
+  // image pas (encore) décodable : son ratio mémorisé, sinon celui du cadre
+  // (marges uniformes — dégradé raisonnable)
+  if (!iw || !ih) { iw = p.ar || (w / h); ih = 1; }
+  var s0 = Math.max(w / iw, h / ih);           // l'échelle « couvrir »
+  var vw = w / (s0 * f.z), vh = h / (s0 * f.z);
+  var kx = 100 - vw / iw * 100, ky = 100 - vh / ih * 100;
+  n.style.objectViewBox = 'inset(' + r2(ky * f.y / 100) + '% ' + r2(kx * (1 - f.x / 100)) + '% ' +
+    r2(ky * (1 - f.y / 100)) + '% ' + r2(kx * f.x / 100) + '%)';
+  return true;
 }
 function r2(v) { return Math.round(v * 100) / 100; }
 
@@ -3487,6 +3519,9 @@ function retoucheProvisoire(el) {
             prov: 1 };
   var alt = el.getAttribute && (el.getAttribute('alt') || '').trim();
   if (alt) p.alt = alt;
+  // le ratio de l'image, tant qu'elle est là : le dézoom en a besoin même si
+  // la maquette repeint le nœud ensuite
+  if (el.naturalWidth && el.naturalHeight) p.ar = el.naturalWidth / el.naturalHeight;
   var k = cheminDe(el);
   if (k) p.k = k;
   return p;
@@ -4258,7 +4293,8 @@ function exportFile(leger) {
     "n.style.backgroundPosition=po;return}" +
     "if(p.cadre&&!fg){n.style.aspectRatio=String(p.cadre);n.style.height='auto'}" +
     "n.style.objectFit='contain';n.style.objectPosition=po;n.style.transform='';" +
-    "if(fg)n.style.objectViewBox='';return}" +
+    "if(fg||n.style.objectViewBox)n.style.objectViewBox='';" +
+    "var paC=n.parentElement;if(paC&&paC.pkClip){paC.pkClip=0;paC.style.overflow=''}return}" +
     /* en dézoom (z < 1) le fond est plus petit que sa case : no-repeat,
        sinon il se carrellerait dans les marges */
     "if(p.kind==='bg'){if(z===1)n.style.backgroundSize='cover';else{" +
@@ -4267,13 +4303,27 @@ function exportFile(leger) {
     "n.style.backgroundRepeat='no-repeat'}" +
     "n.style.backgroundPosition=po;return}" +
     "if(p.cadre&&!fg){n.style.aspectRatio=String(p.cadre);n.style.height='auto'}" +
-    "n.style.objectFit='cover';n.style.objectPosition=po;" +
-    "if(z!==1){if(fg){var kz=1-1/z;" +
+    "n.style.objectFit='cover';n.style.objectPosition=po;var pa=n.parentElement;" +
+    "if(z>1){if(fg){var kz=1-1/z;" +
     "n.style.objectViewBox='inset('+(Math.round(kz*y*100)/100)+'% '+(Math.round(kz*(100-x)*100)/100)+'% '+" +
     "(Math.round(kz*(100-y)*100)/100)+'% '+(Math.round(kz*x*100)/100)+'%)';n.style.transform='';return}" +
     "n.style.transform='scale('+z+')';n.style.transformOrigin=po;" +
-    "var pa=n.parentElement;if(pa&&getComputedStyle(pa).overflow==='visible')pa.style.overflow='hidden'}" +
-    "else if(fg)n.style.objectViewBox=''}" +
+    "if(pa&&getComputedStyle(pa).overflow==='visible'){pa.pkClip=1;pa.style.overflow='hidden'}}" +
+    /* dézoom (z < 1) : plus rien ne déborde — le clip d'un zoom passé se
+       retire (il coupait aussi les débordements voulus par la maquette), et
+       on ÉLARGIT la vue de l'image au ratio du cadre : l'image entière
+       apparaît avec des marges, sans rogner ni couper */
+    "else{if(pa&&pa.pkClip){pa.pkClip=0;pa.style.overflow=''}" +
+    "if((n.style.transform||'').indexOf('scale')===0)n.style.transform='';" +
+    "if(z===1){if(fg||n.style.objectViewBox)n.style.objectViewBox=''}" +
+    "else if(!vb(n,p,z,x,y)){n.style.transform='scale('+z+')';n.style.transformOrigin=po}}}" +
+    "function vb(n,p,z,x,y){if(!('objectViewBox' in n.style))return false;" +
+    "var w=n.clientWidth,h=n.clientHeight;if(!w||!h)return false;" +
+    "var iw=n.naturalWidth,ih=n.naturalHeight;if(!iw||!ih){iw=p.ar||(w/h);ih=1}" +
+    "var s0=Math.max(w/iw,h/ih),vw=w/(s0*z),vh=h/(s0*z);" +
+    "var kx=100-vw/iw*100,ky=100-vh/ih*100,q=function(v){return Math.round(v*100)/100};" +
+    "n.style.objectViewBox='inset('+q(ky*y/100)+'% '+q(kx*(1-x/100))+'% '+" +
+    "q(ky*(1-y/100))+'% '+q(kx*x/100)+'%)';return true}" +
     /* le bouton « Copier … » voisin d'un chemin retouché copie l'AFFICHÉ */
     "function cop(n){var a=n,b=null,i,j;for(i=0;i<4&&a&&!b;i++,a=a.parentElement){" +
     "if(!a.querySelectorAll)break;var l=a.querySelectorAll('button,[role=button]');" +
