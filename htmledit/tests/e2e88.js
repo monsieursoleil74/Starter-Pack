@@ -1,8 +1,10 @@
 /* Un visuel posé voyage à sa taille d'origine : un décor de 2400 px dans un
    cadre de 180 px, et le pack pèse des dizaines de mégaoctets. « Export
    léger » ré-encode chaque visuel à la taille où il s'affiche vraiment, en
-   WebP — SAUF les planches et les concepts 2D, qui sont le travail lui-même
-   et voyagent toujours en pleine qualité. Les retouches gardent l'original :
+   WebP — SAUF les planches, les concepts 2D et les visuels des personnages
+   (portraits compris), qui sont le travail lui-même et voyagent toujours en
+   pleine qualité. Les visuels allégés restent fins (au moins 1200 px de
+   grand côté). Les retouches gardent l'original :
    l'éditeur ne perd rien et un export complet reste possible juste après.
    Usage : node e2e88.js [chemin-outil] */
 const { chromium } = require('playwright-core');
@@ -33,7 +35,7 @@ fs.writeFileSync(MAQ, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>P
 <div class="carte" data-p="tito">
   <div class="slot" data-k="assets_nda/personnages/tito/tito_portrait.png">PORTRAIT</div>
   <div class="slot" data-k="assets_nda/personnages/tito/tito_planche_01.png">PLANCHE</div>
-  <div class="slot" data-k="assets_nda/personnages/tito/tito_concept2d_01.png">CONCEPT 2D</div>
+  <div class="slot" data-k="assets_nda/decors/decor_01.png">DÉCOR</div>
   <b>Tito</b>
 </div>
 </body></html>`);
@@ -112,7 +114,7 @@ fs.writeFileSync(MAQ, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>P
   ok('export léger  : ' + mo(LEGER));
 
   const plein = fs.statSync(PLEIN).size, leger = fs.statSync(LEGER).size;
-  // seul le portrait s'allège : la planche et le concept 2D restent entiers
+  // seul le DÉCOR s'allège : le portrait et la planche restent entiers
   if (leger > plein * 0.8)
     fail('l’export léger n’allège pas : ' + mo(LEGER) + ' contre ' + mo(PLEIN));
   ok('le fichier est ' + (plein / leger).toFixed(2) + '× plus léger');
@@ -129,23 +131,34 @@ fs.writeFileSync(MAQ, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>P
     fail('le pack allégé n’affiche pas les trois visuels : ' + JSON.stringify(vu));
   ok('le pack allégé affiche les trois visuels');
 
-  // le portrait est ré-encodé petit ; la planche et le concept 2D, INTACTS
+  // le décor est ré-encodé (mais FIN) ; le portrait et la planche, INTACTS
   const tailleOrig = 'data:image/png;base64,'.length +
     Math.ceil(fs.statSync(GROS).size / 3) * 4;
   const dd = JSON.parse(fs.readFileSync(LEGER, 'utf8')
     .match(/<script id="pack-edit-data"[^>]*>([\s\S]*?)<\/script>/)[1].replace(/<\\\//g, '</'));
   const entree = (mot) => dd.find((x) => (x.k || '').indexOf(mot) >= 0);
-  const pPor = entree('portrait'), pPla = entree('planche'), pC2d = entree('concept2d');
-  if (!pPor || !pPla || !pC2d) fail('une des trois retouches manque dans le pack allégé');
-  if (pPor.after.length > 1e6)
-    fail('le portrait du pack allégé pèse encore ' + Math.round(pPor.after.length / 1024) + ' Ko');
+  const pPor = entree('portrait'), pPla = entree('planche'), pDec = entree('decor');
+  if (!pPor || !pPla || !pDec) fail('une des trois retouches manque dans le pack allégé');
+  if (pDec.after.length > 1.6e6)
+    fail('le décor du pack allégé pèse encore ' + Math.round(pDec.after.length / 1024) + ' Ko');
+  if (pPor.after.length < tailleOrig * 0.95)
+    fail('le PORTRAIT (personnage) a été allégé (' + Math.round(pPor.after.length / 1024) +
+         ' Ko) — il doit rester en pleine qualité');
   if (pPla.after.length < tailleOrig * 0.95)
     fail('la PLANCHE a été allégée (' + Math.round(pPla.after.length / 1024) + ' Ko) — elle doit rester en pleine qualité');
-  if (pC2d.after.length < tailleOrig * 0.95)
-    fail('le CONCEPT 2D a été allégé (' + Math.round(pC2d.after.length / 1024) + ' Ko) — il doit rester en pleine qualité');
   if (dd.some((x) => x.leger)) fail('la version allégée ne doit pas voyager à côté de l’originale');
-  ok('portrait ré-encodé à ' + Math.round(pPor.after.length / 1024) +
-     ' Ko ; planche et concept 2D intacts (' + Math.round(pPla.after.length / 1024) + ' Ko chacun)');
+  // et le décor allégé reste FIN : au moins 1200 px de grand côté
+  const dim = await v.evaluate((uri) => new Promise((res) => {
+    const im = new Image();
+    im.onload = () => res({ w: im.naturalWidth, h: im.naturalHeight });
+    im.onerror = () => res(null);
+    im.src = uri;
+  }), pDec.after);
+  if (!dim) fail('le décor allégé ne se décode pas');
+  if (Math.max(dim.w, dim.h) < 1200)
+    fail('le décor allégé est trop pixelisé : ' + dim.w + '×' + dim.h + ' (grand côté < 1200 px)');
+  ok('décor ré-encodé à ' + Math.round(pDec.after.length / 1024) + ' Ko en ' + dim.w + '×' + dim.h +
+     ' ; portrait et planche intacts (' + Math.round(pPla.after.length / 1024) + ' Ko chacun)');
 
   // ---------- l'éditeur garde l'original en pleine qualité ----------
   const [d3] = await Promise.all([p.waitForEvent('download'), p.click('#save')]);

@@ -430,7 +430,7 @@ header .sp{flex:1}
   <button class="act" id="undo" title="Annuler la dernière retouche (Ctrl+Z)"></button>
   <button class="act" id="reload" title="Recharger la page d’origine et rejouer les retouches"></button>
   <button class="act" id="aide" title="Aide et raccourcis (touche ?)"></button>
-  <button class="act" id="saveLite" title="Exporter un fichier bien plus léger : chaque visuel est ré-encodé à la taille où il s’affiche vraiment. Les planches et les concepts 2D restent en pleine qualité, et tes retouches gardent l’original.">Export léger</button>
+  <button class="act" id="saveLite" title="Exporter un fichier bien plus léger : chaque visuel est ré-encodé, plus grand que la taille où il s’affiche. Les personnages, planches et concepts 2D restent en pleine qualité, et tes retouches gardent l’original.">Export léger</button>
   <button class="act go" id="save">Exporter</button>
 </header>
 
@@ -572,7 +572,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-09-01';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-09-01b';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -4920,12 +4920,13 @@ function joliPoids(n) {
    Les retouches, elles, gardent l'original : l'éditeur ne perd rien, un
    export complet reste possible juste après, et le redépôt pour continuer
    plus tard retrouve la pleine qualité. */
-var COTE_MAX = 1800;      // au-delà, plus aucun écran n'en profite
-var COTE_MIN = 900;       // en deçà, un agrandissement au clic deviendrait flou
-/* Les PLANCHES et les CONCEPTS 2D sont le travail lui-même : l'équipe zoome
-   dedans, les détaille — ils voyagent toujours en pleine qualité. On les
-   reconnaît au chemin que la maquette leur donne, ou à leur description. */
-var RXPLEIN = /planche|concept.?2d/i;
+var COTE_MAX = 2200;      // au-delà, plus aucun écran n'en profite
+var COTE_MIN = 1200;      // en deçà, un agrandissement au clic devient flou
+/* Les PLANCHES, les CONCEPTS 2D et les visuels des PERSONNAGES (portraits
+   compris) sont le travail lui-même : l'équipe zoome dedans, les détaille —
+   ils voyagent toujours en pleine qualité. On les reconnaît au chemin que la
+   maquette leur donne, ou à leur description. */
+var RXPLEIN = /planche|concept.?2d|personnage|portrait/i;
 function pleineQualite(p) {
   return RXPLEIN.test(p.k || '') || RXPLEIN.test(p.alt || '') || RXPLEIN.test(p.label || '');
 }
@@ -4958,8 +4959,8 @@ function allegerVisuel(p, fini) {
       var g = cv.getContext('2d');
       g.imageSmoothingQuality = 'high';
       g.drawImage(im, 0, 0, cv.width, cv.height);
-      var out = cv.toDataURL('image/webp', 0.82);
-      if (out.indexOf('data:image/webp') !== 0) out = cv.toDataURL('image/jpeg', 0.85);
+      var out = cv.toDataURL('image/webp', 0.9);
+      if (out.indexOf('data:image/webp') !== 0) out = cv.toDataURL('image/jpeg', 0.9);
       // on ne remplace que si le gain est réel : sinon l'original est déjà bien
       if (out.length < d.length * 0.92) { p.leger = out; return fini(d.length - out.length); }
     } catch (e) {}
@@ -4996,8 +4997,9 @@ function exportLeger() {
       toast('Export léger : ' + joliPoids(avant) + ' → ' + joliPoids(apres) +
             ' (' + faits + ' visuel' + (faits > 1 ? 's' : '') + ' ré-encodé' +
             (faits > 1 ? 's' : '') + ')' +
-            (gardes ? ' — ' + gardes + ' planche' + (gardes > 1 ? 's' : '') +
-              '/concept 2D gardé' + (gardes > 1 ? 's' : '') + ' en pleine qualité' : '') +
+            (gardes ? ' — ' + gardes + ' visuel' + (gardes > 1 ? 's' : '') +
+              ' gardé' + (gardes > 1 ? 's' : '') +
+              ' en pleine qualité (personnages, planches, concepts 2D)' : '') +
             (video ? ' — les vidéos embarquées, elles, ne s’allègent pas : range-les dans videos/' : ''));
       return;
     }
