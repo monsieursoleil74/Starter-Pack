@@ -572,7 +572,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-09-01c';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-09-02';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1755,6 +1755,10 @@ function temoin(zone, bt) {
   }
   var best = null;
   Array.prototype.forEach.call(fen.querySelectorAll('*'), function (n) {
+    // jamais le BOUTON lui-même (ni son contenu) : la liste des tutoriels
+    // reste affichée en permanence — un témoin pris là serait toujours
+    // « vrai », et toutes les vidéos se battraient pour la même fenêtre
+    if (n === bt || bt.contains(n) || n.contains(bt)) return;
     var own = texteDe(n);
     if (own.length < 3 || own.length > 120) return;
     for (var k = 0; k < labels.length; k++) {
@@ -1990,7 +1994,7 @@ function cibleDe(p, vite) {
    chez lui, on le retire où qu'il soit. */
 var tour = 0;
 function nettoyerLecteurs(p) {
-  var s = apercu(p.sel) || p.after;
+  var s = apercu(p) || p.after;
   Array.prototype.forEach.call(doc.querySelectorAll('video.pk-vid'), function (v) {
     if (v.getAttribute('src') !== s) return;
     if (v.pkTour === tour) return;      // celui qu'une autre retouche vient de poser
@@ -2086,13 +2090,14 @@ $('pickVid').addEventListener('change', function (e) {
   var res = (kind === 'vsrc' && !quand) ? reserveDe(jumeaux(el)) : null;
   var chRes = res ? cheminDe(res) : '';
 
-  var finish = function (src, label) {
+  var finish = function (src, label, fichierApercu) {
     var cible = res || el;
     var p = { kind: res ? 'vsrc' : (kind === 'vsrc' ? 'vsrc' : 'video'),
               sel: pathOf(cible), before: '', after: src, label: label,
               when: res ? undefined : (quand || undefined) };
     if (res) { p.src = 'reserve'; p.k = chRes || undefined; p.old = el.getAttribute('src'); }
     else if (quand) p.label += ' — ' + short(quand.txt, 22);
+    if (fichierApercu) apercuFichiers[cleApercu(p)] = fichierApercu;
     sansReveil(function () { applyOne(p, cible); });
     addPatch(p);
     if (res) propagerReserve();
@@ -2102,8 +2107,7 @@ $('pickVid').addEventListener('change', function (e) {
     // La maquette annonce elle-même le fichier qu'elle attend : on garde SON
     // chemin, il n'y a plus qu'à déposer la vidéo au bon endroit.
     var rel = chRes || ('videos/' + f.name.replace(/[^\w.\- ]/g, '_'));
-    apercuFichiers[pathOf(res || el)] = f;
-    finish(rel, short(rel, 36));
+    finish(rel, short(rel, 36), f);
     // le nom du fichier CHOISI : l'export saura le retrouver dans videos/
     // sans qu'il soit renommé au nom que la maquette attendait
     patches[patches.length - 1].fn = f.name;
@@ -2137,12 +2141,19 @@ var besoins = {};
    L'adresse temporaire doit être créée DANS la page affichée : une adresse
    fabriquée ici ne lui serait pas accessible. */
 var apercuFichiers = {}, apercuUrls = {};
-function apercu(sel) {
-  if (!apercuFichiers[sel] || !doc) return null;
-  if (apercuUrls[sel]) return apercuUrls[sel];
+/* La clé de l'aperçu : l'emplacement ET le témoin. Une fenêtre PARTAGÉE entre
+   plusieurs tutoriels a un seul emplacement — indexer par lui seul faisait
+   lire la vidéo du Manuel dans le player du Rig. */
+function cleApercu(p) {
+  return p.sel + '\u0001' + (p.when && p.when.txt ? p.when.txt : '');
+}
+function apercu(p) {
+  var k = cleApercu(p);
+  if (!apercuFichiers[k] || !doc) return null;
+  if (apercuUrls[k]) return apercuUrls[k];
   try {
-    apercuUrls[sel] = doc.defaultView.URL.createObjectURL(apercuFichiers[sel]);
-    return apercuUrls[sel];
+    apercuUrls[k] = doc.defaultView.URL.createObjectURL(apercuFichiers[k]);
+    return apercuUrls[k];
   } catch (e) { return null; }
 }
 
@@ -2417,7 +2428,7 @@ function retoucheImageDe(el) {
     if (p.kind !== 'img' && p.kind !== 'bg') continue;
     if (p.k && kEl && p.k === kEl) return p;
     if (p.kind === 'img' && p.after && srcEl &&
-        (srcEl === p.after || srcEl === p.pkBu || srcEl === apercu(p.sel))) return p;
+        (srcEl === p.after || srcEl === p.pkBu || srcEl === apercu(p))) return p;
     try {
       if (doc.querySelector(p.sel) === el &&
           (!p.alt || (el.getAttribute('alt') || '').trim() === p.alt)) return p;
@@ -2956,7 +2967,7 @@ function propagerReserve() {
   patches.forEach(function (p) {
     if (p.src !== 'reserve') return;
     // à l'écran on lit le fichier choisi ; le fichier exporté garde le chemin
-    var vu = apercu(p.sel) || vuImg(p);
+    var vu = apercu(p) || vuImg(p);
     var n = p.k ? parChemin(p.k) : null;
     if (!n) { try { n = doc.querySelector(p.sel); } catch (e) { return; } }
     if (n) {
@@ -3403,7 +3414,7 @@ function applyOne(p, n) {
     if (p.hide) n.setAttribute('data-pk-hide', '1');
     cadrer(n, p);
   } else if (p.kind === 'vsrc' && n.tagName === 'VIDEO') {
-    var srcV = apercu(p.sel) || p.after;
+    var srcV = apercu(p) || p.after;
     if (n.getAttribute('src') !== srcV) {
       Array.prototype.slice.call(n.querySelectorAll('source')).forEach(function (s) { s.remove(); });
       n.setAttribute('src', srcV);
@@ -3477,7 +3488,7 @@ function putVideo(n, p, d) {
     n.setAttribute('data-pk-hide', '1');
     n.appendChild(v);
   }
-  var src = apercu(p.sel) || p.after;
+  var src = apercu(p) || p.after;
   if (v.getAttribute('src') !== src) { v.setAttribute('src', src); veilleVideo(v, p); }
   v.pkTour = tour;
 }
@@ -3485,7 +3496,7 @@ function putVideo(n, p, d) {
 function veilleVideo(v, p) {
   v.addEventListener('error', function () {
     var c = v.error ? v.error.code : 0;
-    if (!apercuFichiers[p.sel]) {
+    if (!apercuFichiers[cleApercu(p)]) {
       // chemin tapé ou fichier « à côté » : l'aperçu ne PEUT PAS le lire ici,
       // ce n'est ni une erreur ni un problème de format — la vidéo se lira
       // dans le fichier exporté, posé à côté du dossier
@@ -3537,7 +3548,7 @@ function noeudVisible(p) {
     // la copie affichée garde son src d'origine (p.old) — le remplacement se
     // pose par-dessus en CSS. Selon le moment, elle peut aussi porter la
     // nouvelle valeur (page repeinte depuis l'entrée).
-    var vu = apercu(p.sel) || vuImg(p);
+    var vu = apercu(p) || vuImg(p);
     var cands = [p.old, vu, p.after], l = [];
     for (var c = 0; c < cands.length; c++) {
       if (!cands[c]) continue;
