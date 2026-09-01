@@ -572,7 +572,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-08-12';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-09-01';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -2010,7 +2010,9 @@ $('askvLien').addEventListener('click', function () {
     val = 'videos/' + val.split('/').pop();
     toast('Chemin absolu remplacé par « ' + val + ' » — mets le fichier là, à côté du HTML');
   }
-  var res = kind === 'vsrc' ? reserveDe(jumeaux(el)) : null;
+  // fenêtre partagée (titre) : le titre prime, jamais l'entrée de réserve —
+  // sinon la vidéo d'un tutoriel irait chez tous (voir la pose par fichier)
+  var res = (kind === 'vsrc' && !quand) ? reserveDe(jumeaux(el)) : null;
   var cible = res || el;
   var p = { kind: res ? 'vsrc' : (kind === 'vsrc' ? 'vsrc' : 'video'),
             sel: pathOf(cible), before: '', after: val, label: short(val, 36),
@@ -2040,7 +2042,12 @@ $('pickVid').addEventListener('change', function (e) {
                ' » ne se lira sans doute pas. Continuer quand même ?')) { vidEl = null; return; }
   // La vidéo vient-elle d'une réserve ? Alors c'est là qu'il faut la changer :
   // chaque tuto, chaque personnage a la sienne, et elle suit partout.
-  var res = kind === 'vsrc' ? reserveDe(jumeaux(el)) : null;
+  // SAUF si la fenêtre est PARTAGÉE (un titre l'identifie — « quand ») : la
+  // maquette annonce alors souvent le MÊME fichier pour tous les tutoriels,
+  // et écrire l'entrée de réserve mettrait cette vidéo chez tout le monde,
+  // chaque pose écrasant la précédente. Le titre prime : la vidéo ne vaut
+  // que pour le bouton qui l'a ouverte.
+  var res = (kind === 'vsrc' && !quand) ? reserveDe(jumeaux(el)) : null;
   var chRes = res ? cheminDe(res) : '';
 
   var finish = function (src, label) {
