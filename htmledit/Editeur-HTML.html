@@ -572,7 +572,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-09-01b';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-09-01c';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1548,7 +1548,11 @@ function onClick(e) {
     var hv = targetVideo(t);
     if (!hv) return;
     e.preventDefault(); e.stopPropagation();
-    askForVideo(hv.el, hv.kind);
+    // clic direct sur le lecteur : si sa fenêtre est partagée, son titre
+    // fait témoin — sinon la vidéo irait chez tous les boutons
+    var tmD = null;
+    try { tmD = temoinLecteur(hv.el); } catch (eT) {}
+    askForVideo(hv.el, hv.kind, tmD);
   } else if (mode === 'link') {
     var hl = targetLink(t);
     if (!hl) return;
@@ -1767,6 +1771,38 @@ function temoin(zone, bt) {
   if (!c) return null;
   return { sel: pathOf(best.el), txt: best.txt, up: c.up, down: pathRel(zone, c.anc),
            fx: fx || undefined, tag: zone.tagName };
+}
+/* Le clic DIRECT sur un lecteur n'a pas de bouton pour dire à qui sert la
+   fenêtre. Si le lecteur vit dans une fenêtre par-dessus la page (fixed) —
+   donc partagée entre plusieurs boutons — son TITRE fait témoin : le texte
+   court le plus proche au-dessus du lecteur (« Manuel », « Présentation
+   rig »…). Une vidéo posée à demeure dans la page, elle, n'a pas besoin de
+   témoin : on renvoie null et rien ne change pour elle. */
+function temoinLecteur(zone) {
+  if (!zone) return null;
+  var fen = zone, fx = 0;
+  for (var d = 0; fen.parentElement && d < 6; d++) {
+    if (doc.defaultView.getComputedStyle(fen).position === 'fixed') { fx = 1; break; }
+    fen = fen.parentElement;
+  }
+  if (!fx) return null;
+  var rz = zone.getBoundingClientRect();
+  var best = null;
+  Array.prototype.forEach.call(fen.querySelectorAll('*'), function (n) {
+    if (n === zone || zone.contains(n) || n.contains(zone)) return;
+    var t = texteDe(n);
+    if (t.length < 3 || t.length > 90) return;
+    var r = n.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    if (r.top > rz.top + rz.height * 0.4) return;   // un titre vit au-dessus
+    var jauge = (/^H[1-4]$/.test(n.tagName) ? 1000 : 0) - Math.abs(rz.top - r.bottom);
+    if (!best || jauge > best.jauge) best = { el: n, txt: t, jauge: jauge };
+  });
+  if (!best) return null;
+  var c = communAvec(best.el, zone);
+  if (!c) return null;
+  return { sel: pathOf(best.el), txt: best.txt, up: c.up, down: pathRel(zone, c.anc),
+           fx: 1, tag: zone.tagName };
 }
 /* Une fenêtre n'existe que le temps qu'elle est ouverte : son chemin, une fois
    refermée, désignerait un tout autre bloc de la page. La cible est donc

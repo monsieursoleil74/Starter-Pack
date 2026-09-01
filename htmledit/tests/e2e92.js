@@ -120,6 +120,43 @@ ${TUTOS.map((t) => `<button class="tuto" data-t="${t}">${t}</button>`).join('\n'
   await verif('MANUEL', 'manuel.mp4');                  // et retour : rien ne colle
   ok('aperçu : MANUEL lit manuel.mp4, RIG lit rig.mp4 — chacun la sienne');
 
+  // ---------- même geste, par CLIC DIRECT sur le lecteur ----------
+  // (Aperçu → ouvrir le tutoriel → mode Vidéos → cliquer le lecteur → chemin)
+  const poserDirect = async (tuto, chemin) => {
+    await p.click('#mView');
+    await p.waitForTimeout(300);
+    const c = await bouton(tuto);
+    await p.mouse.click(c.x, c.y);                     // la fenêtre s'ouvre
+    await p.waitForTimeout(600);
+    await p.click('#mVid');
+    await p.waitForTimeout(400);
+    const lv = await bouton('#fenVid', 'aucun');
+    await p.mouse.click(lv.x, lv.y);
+    await p.waitForTimeout(700);
+    if (await p.$eval('#askv', (e) => e.classList.contains('hidden')))
+      fail('clic direct sur le lecteur : rien ne se propose (' + tuto + ')');
+    const note = await p.$eval('#askvWhat', (e) => e.textContent);
+    if (!/plusieurs boutons/.test(note))
+      fail('clic direct : la fenêtre partagée n’est pas reconnue pour ' + tuto + ' — ' + note);
+    p.once('dialog', (d) => d.accept(chemin));
+    await p.click('#askvLien');
+    await p.waitForTimeout(900);
+    await p.click('#mView');
+    await p.waitForTimeout(300);
+    const x = await bouton('#fenX', 'aucun');
+    await p.mouse.click(x.x, x.y);
+    await p.waitForTimeout(400);
+  };
+  await poserDirect('MANUEL', 'videos/manuel2.mp4');
+  await poserDirect('RIG', 'videos/rig2.mp4');
+  const nb2 = await p.$$eval('#list .it', (l) => l.length);
+  if (nb2 !== 2)
+    fail('clic direct : ' + nb2 + ' retouche(s) au lieu de 2 — les tutoriels se sont mélangés');
+  await verif('MANUEL', 'manuel2.mp4');
+  await verif('RIG', 'rig2.mp4');
+  await verif('MANUEL', 'manuel2.mp4');
+  ok('clic direct sur le lecteur : chaque tutoriel garde aussi la sienne');
+
   // ---------- le pack exporté fait pareil ----------
   await p.evaluate(() => ['ask', 'askv', 'askl', 'askg', 'askm'].forEach((i) => {
     const e = document.getElementById(i); if (e) e.classList.add('hidden'); }));
@@ -140,9 +177,9 @@ ${TUTOS.map((t) => `<button class="tuto" data-t="${t}">${t}</button>`).join('\n'
     await v.evaluate(() => document.getElementById('fenX').click());
     await v.waitForTimeout(300);
   };
-  await verifExp('MANUEL', 'manuel.mp4');
-  await verifExp('RIG', 'rig.mp4');
-  await verifExp('MANUEL', 'manuel.mp4');
+  await verifExp('MANUEL', 'manuel2.mp4');
+  await verifExp('RIG', 'rig2.mp4');
+  await verifExp('MANUEL', 'manuel2.mp4');
   ok('pack exporté : chaque tutoriel garde sa vidéo, dans les deux sens');
 
   if (errs.length) fail('erreurs JS :\n' + errs.join('\n'));
