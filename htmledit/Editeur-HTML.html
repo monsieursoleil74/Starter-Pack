@@ -572,7 +572,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-09-02b';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-09-02c';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -1147,19 +1147,25 @@ function navigation(e) {
   }
 }
 
+/* Réception d'une maquette au contrat v2 : on l'annonce, c'est le test.
+   Certaines maquettes construisent leur page (et donc leurs étiquettes)
+   APRÈS le chargement : on revérifie plusieurs fois avant de se taire. */
+function annonceV2(essai) {
+  if (annonceV2.dit) return;
+  var nbSl = 0;
+  try { nbSl = doc.querySelectorAll('[data-slot],[data-slot-texte]').length; } catch (eN) {}
+  if (nbSl) {
+    annonceV2.dit = 1;
+    toast('Maquette conforme au contrat v2 : ' + nbSl + ' emplacements balisés — ancrage direct');
+  } else if ((essai || 0) < 5) {
+    setTimeout(function () { annonceV2((essai || 0) + 1); }, 1200);
+  }
+}
+
 /* Surbrillance + capture des clics dans la page, selon le mode. */
 function injectUi() {
   injectCss();
-  // réception d'une maquette au contrat v2 : on l'annonce, c'est le test
-  if (!injectUi.slotDit) {
-    try {
-      var nbSl = doc.querySelectorAll('[data-slot],[data-slot-texte]').length;
-      if (nbSl) {
-        injectUi.slotDit = 1;
-        toast('Maquette conforme au contrat v2 : ' + nbSl + ' emplacements balisés — ancrage direct');
-      }
-    } catch (eN) {}
-  }
+  annonceV2(0);
   // posées sur la FENÊTRE de l'aperçu, en capture : elles passent avant tout
   // ce que la maquette a pu brancher elle-même sur le document ou la carte
   var vue = doc.defaultView;
