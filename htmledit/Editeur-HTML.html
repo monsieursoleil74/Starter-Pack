@@ -572,7 +572,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-09-02';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-09-02b';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -879,6 +879,22 @@ function applyAll() {
   var orphelins = [];
   patches.forEach(function (p) {
     if (p.kind === 'head') { poserOnglet(doc, p); return; }
+    // CONTRAT v2 : la retouche porte son étiquette — on remplit chaque
+    // instance affichée de ce slot, et rien d'autre. Zéro devinette.
+    if (p.slot) {
+      var lS = [];
+      try {
+        lS = doc.querySelectorAll(p.kind === 'text'
+          ? '[data-slot-texte="' + p.slot + '"]'
+          : '[data-slot="' + p.slot + '"]');
+      } catch (eS) {}
+      for (var iS = 0; iS < lS.length; iS++) {
+        var nS = lS[iS];
+        if (p.kind === 'text' && memeTexte(porteurEcriture(nS).textContent, p.after)) continue;
+        applyOne(p, nS);
+      }
+      return;
+    }
     // CHEMIN RAPIDE — la fluidité avant tout : avec 190 retouches, résoudre
     // le témoin de chacune à chaque repeint coûte cher. Si le champ visé
     // n'affiche ni l'original ni notre résultat, il n'y a rien à faire.
@@ -1134,6 +1150,16 @@ function navigation(e) {
 /* Surbrillance + capture des clics dans la page, selon le mode. */
 function injectUi() {
   injectCss();
+  // réception d'une maquette au contrat v2 : on l'annonce, c'est le test
+  if (!injectUi.slotDit) {
+    try {
+      var nbSl = doc.querySelectorAll('[data-slot],[data-slot-texte]').length;
+      if (nbSl) {
+        injectUi.slotDit = 1;
+        toast('Maquette conforme au contrat v2 : ' + nbSl + ' emplacements balisés — ancrage direct');
+      }
+    } catch (eN) {}
+  }
   // posées sur la FENÊTRE de l'aperçu, en capture : elles passent avant tout
   // ce que la maquette a pu brancher elle-même sur le document ou la carte
   var vue = doc.defaultView;
@@ -1962,6 +1988,18 @@ function parChemin(k, kind) {
   return c[0];
 }
 function cibleDe(p, vite) {
+  // contrat v2 : l'étiquette d'abord — l'instance affichée de ce slot
+  if (p.slot) {
+    var lSl = [];
+    try {
+      lSl = doc.querySelectorAll(p.kind === 'text'
+        ? '[data-slot-texte="' + p.slot + '"]'
+        : '[data-slot="' + p.slot + '"]');
+    } catch (eSl) { return null; }
+    for (var iSl = 0; iSl < lSl.length; iSl++)
+      if (lSl[iSl].getClientRects().length) return lSl[iSl];
+    return lSl[0] || null;
+  }
   // une retouche de réserve vise l'entrée de la réserve : on ne trie pas
   if (p.k) { var d = parChemin(p.k, p.src === 'reserve' ? '' : p.kind); if (d) return d; }
   if (!p.when) { try { return doc.querySelector(p.sel); } catch (e) { return null; } }
@@ -2050,12 +2088,16 @@ $('askvLien').addEventListener('click', function () {
     val = 'videos/' + val.split('/').pop();
     toast('Chemin absolu remplacé par « ' + val + ' » — mets le fichier là, à côté du HTML');
   }
-  // fenêtre partagée (titre) : le titre prime, jamais l'entrée de réserve —
-  // sinon la vidéo d'un tutoriel irait chez tous (voir la pose par fichier)
-  var res = (kind === 'vsrc' && !quand) ? reserveDe(jumeaux(el)) : null;
+  // contrat v2 : l'étiquette d'abord ; sinon fenêtre partagée (titre) : le
+  // titre prime, jamais l'entrée de réserve — sinon la vidéo d'un tutoriel
+  // irait chez tous (voir la pose par fichier)
+  var slotV2 = slotDe(el);
+  if (slotV2) quand = null;
+  var res = (kind === 'vsrc' && !quand && !slotV2) ? reserveDe(jumeaux(el)) : null;
   var cible = res || el;
   var p = { kind: res ? 'vsrc' : (kind === 'vsrc' ? 'vsrc' : 'video'),
             sel: pathOf(cible), before: '', after: val, label: short(val, 36),
+            slot: slotV2 || undefined,
             when: res ? undefined : (quand || undefined) };
   if (res) { p.src = 'reserve'; p.k = cheminDe(res) || undefined; p.old = el.getAttribute('src'); }
   else if (quand) p.label += ' — ' + short(quand.txt, 22);
@@ -2080,6 +2122,9 @@ $('pickVid').addEventListener('change', function (e) {
   if (['mp4', 'webm', 'ogg', 'ogv', 'm4v', 'mov'].indexOf(ext) < 0 &&
       !confirm('Les navigateurs lisent le MP4 (H.264), le WebM et l’Ogg.\n« .' + ext +
                ' » ne se lira sans doute pas. Continuer quand même ?')) { vidEl = null; return; }
+  // contrat v2 : l'étiquette d'abord — ni réserve ni témoin à deviner
+  var slotV = slotDe(el);
+  if (slotV) quand = null;
   // La vidéo vient-elle d'une réserve ? Alors c'est là qu'il faut la changer :
   // chaque tuto, chaque personnage a la sienne, et elle suit partout.
   // SAUF si la fenêtre est PARTAGÉE (un titre l'identifie — « quand ») : la
@@ -2087,13 +2132,14 @@ $('pickVid').addEventListener('change', function (e) {
   // et écrire l'entrée de réserve mettrait cette vidéo chez tout le monde,
   // chaque pose écrasant la précédente. Le titre prime : la vidéo ne vaut
   // que pour le bouton qui l'a ouverte.
-  var res = (kind === 'vsrc' && !quand) ? reserveDe(jumeaux(el)) : null;
+  var res = (kind === 'vsrc' && !quand && !slotV) ? reserveDe(jumeaux(el)) : null;
   var chRes = res ? cheminDe(res) : '';
 
   var finish = function (src, label, fichierApercu) {
     var cible = res || el;
     var p = { kind: res ? 'vsrc' : (kind === 'vsrc' ? 'vsrc' : 'video'),
               sel: pathOf(cible), before: '', after: src, label: label,
+              slot: slotV || undefined,
               when: res ? undefined : (quand || undefined) };
     if (res) { p.src = 'reserve'; p.k = chRes || undefined; p.old = el.getAttribute('src'); }
     else if (quand) p.label += ' — ' + short(quand.txt, 22);
@@ -2385,9 +2431,16 @@ function startEdit(n, x, y) {
       n.textContent = after;
       if (/\n/.test(after)) n.style.whiteSpace = 'pre-line';
     }
+    // contrat v2 : un texte étiqueté s'ancre sur son slot — aucun témoin
+    var slotT = null;
+    try {
+      var pSl = n.closest ? n.closest('[data-slot-texte]') : null;
+      if (pSl) slotT = pSl.getAttribute('data-slot-texte');
+    } catch (eSl) {}
     var w = null;
-    try { w = temoinTexte(n); } catch (e) {}
+    if (!slotT) try { w = temoinTexte(n); } catch (e) {}
     var pNeu = { kind: 'text', sel: pathOf(n), before: before, after: after,
+                 slot: slotT || undefined,
                  when: w || undefined,
                  label: short(after.replace(/\s+/g, ' ').trim(), 40) || '(vide)' };
     addPatch(pNeu);
@@ -2423,9 +2476,11 @@ var fichierEnAttente = null;
 function retoucheImageDe(el) {
   if (!el || !el.getAttribute) return null;
   var kEl = el.getAttribute('data-k'), srcEl = el.getAttribute('src');
+  var sEl = slotDe(el);
   for (var i = patches.length - 1; i >= 0; i--) {
     var p = patches[i];
     if (p.kind !== 'img' && p.kind !== 'bg') continue;
+    if (p.slot && sEl && p.slot === sEl) return p;
     if (p.k && kEl && p.k === kEl) return p;
     if (p.kind === 'img' && p.after && srcEl &&
         (srcEl === p.after || srcEl === p.pkBu || srcEl === apercu(p))) return p;
@@ -2937,6 +2992,18 @@ function jumeaux(el) {
   } catch (e) {}
   return out;
 }
+/* CONTRAT v2 : la maquette étiquette elle-même chaque contenu remplaçable
+   (data-slot / data-slot-texte). Quand l'étiquette est là, l'ancrage devient
+   direct : plus de témoin, plus de chemin fragile, plus de devinette. */
+function slotDe(el) {
+  for (var i = 0, a = el; a && i < 4; a = a.parentElement, i++) {
+    if (a.getAttribute) {
+      var v = a.getAttribute('data-slot');
+      if (v) return v;
+    }
+  }
+  return '';
+}
 function cheminDe(n) {
   var a = n.attributes;
   for (var i = 0; i < a.length; i++)
@@ -3146,8 +3213,12 @@ function brancherDepotGalerie(el, lot, depart, titre) {
 function poser(data, nom, el, isImg, hide, ar) {
   var p = { kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
             hide: hide || undefined, ar: ar || undefined, label: short(nom, 34) };
+  // contrat v2 : l'emplacement porte son étiquette — ancrage direct, ni
+  // réserve ni description à deviner
+  var slotP = slotDe(el);
+  if (slotP) p.slot = slotP;
   // le visuel vient-il d'une réserve ? alors c'est là qu'il faut le changer
-  var res = isImg ? (estReserve(el) ? el : reserveDe(jumeaux(el))) : null;
+  var res = (isImg && !slotP) ? (estReserve(el) ? el : reserveDe(jumeaux(el))) : null;
   // …sauf si ce fichier est un REMPLISSAGE générique servant à plusieurs
   // contenus à la fois (le même « ph_head.png » pour les deux réalisateurs) :
   // changer l'entrée changerait tout le monde. Des descriptions différentes
@@ -3185,7 +3256,9 @@ function poser(data, nom, el, isImg, hide, ar) {
     // Une maquette réutilise souvent la MÊME balise pour plusieurs contenus
     // (la fiche de Pipo puis celle de Bruno) en ne changeant que le alt :
     // on s'y accroche, sinon la retouche déborderait sur les autres.
-    if (isImg) {
+    // (inutile — et gênant — quand le slot ancre déjà : deux VUES d'un même
+    // slot ont des alt différents, et doivent suivre toutes les deux)
+    if (isImg && !slotP) {
       var alt = (el.getAttribute('alt') || '').trim();
       if (alt) { p.alt = alt; p.label += ' — ' + short(alt, 18); }
     }
@@ -3571,6 +3644,8 @@ function retoucheProvisoire(el) {
             sel: pathOf(el), after: src || '',
             label: short((src || '').split('/').pop() || 'image', 34),
             prov: 1 };
+  var slotPr = slotDe(el);
+  if (slotPr) p.slot = slotPr;
   var alt = el.getAttribute && (el.getAttribute('alt') || '').trim();
   if (alt) p.alt = alt;
   // le ratio de l'image, tant qu'elle est là : le dézoom en a besoin même si
@@ -4026,7 +4101,9 @@ function addPatch(p) {
     // que la page a bougé empilait une SECONDE retouche au même endroit, et
     // les deux se disputaient l'affichage à chaque passe (le cadrage
     // « revenait en arrière » tout seul).
-    var memeCible = o.kind === p.kind && (o.sel === p.sel || !!(p.k && o.k === p.k));
+    var memeCible = o.kind === p.kind &&
+      (o.sel === p.sel || !!(p.k && o.k === p.k) || !!(p.slot && o.slot === p.slot));
+    if (p.slot && o.slot && o.slot !== p.slot) return true;   // deux slots ≠ deux contenus
     if (!memeCible) return true;
     var a = o.when ? o.when.txt : '', b = p.when ? p.when.txt : '';
     if ((a || '').toLowerCase() !== (b || '').toLowerCase()) return true;
@@ -4043,6 +4120,9 @@ function addPatch(p) {
   });
   patches.push(p);
   renderList();
+  // un slot peut avoir PLUSIEURS vues (vignette + agrandissement) : la pose
+  // n'a servi que celle qu'on a cliquée — une passe sert les autres
+  if (p.slot) setTimeout(function () { try { applyAll(); } catch (e) {} }, 0);
 }
 function removePatch(i) {
   var p = patches[i];
@@ -4327,7 +4407,13 @@ function exportFile(leger) {
     "var anc2=bI||best,chx=pr||anc2;if(!chx)return null;" +
     "return{a:td(chx),b:anc2?td(anc2):''}}" +
     /* une retouche de réserve vise l'entrée de la réserve : pas de tri */
-    "function cible(p,vite){if(p.k){var d=pk(p.k,p.src==='reserve'?'':p.kind);if(d)return d}" +
+    /* contrat v2 : l'étiquette d'abord — l'instance affichée de ce slot */
+    "function cible(p,vite){if(p.slot){var qS=p.kind==='text'?" +
+    "'[data-slot-texte=\"'+p.slot+'\"]':'[data-slot=\"'+p.slot+'\"]',lS,iS;" +
+    "try{lS=document.querySelectorAll(qS)}catch(eS){return null}" +
+    "for(iS=0;iS<lS.length;iS++)if(lS[iS].getClientRects().length)return lS[iS];" +
+    "return lS[0]||null}" +
+    "if(p.k){var d=pk(p.k,p.src==='reserve'?'':p.kind);if(d)return d}" +
     "if(!p.when){try{return document.querySelector(p.sel)}catch(e){return null}}" +
     "var cs=tem(p.when),ci,i;for(ci=0;ci<cs.length;ci++){var a=cs[ci];" +
     "for(i=0;i<(p.when.up||0)&&a.parentElement;i++)a=a.parentElement;" +
@@ -4571,7 +4657,10 @@ function exportFile(leger) {
     "if(qq!==p&&qq.kind==='text'&&qq.sel===p.sel&&mt(qq.after,rr.textContent)&&cible(qq)){aq=true;break}}" +
     "if(!aq)rr.textContent=p.before||''}}catch(e){}}return}" +
     /* jamais par-dessus le résultat d'une autre retouche (voir la signature) */
-    "if(p.kind==='text'){n=pe(n);var sg=null;try{sg=sgn(n)}catch(eG){}" +
+    "if(p.kind==='text'){n=pe(n);" +
+    /* étiqueté (contrat v2) : le slot présent DIT que c'est le bon contenu */
+    "if(p.slot){if(!mt(n.textContent,p.after))wr(p,n);return}" +
+    "var sg=null;try{sg=sgn(n)}catch(eG){}" +
     "if(mt(n.textContent,p.before)&&(!sg||sg===p.id)){delete p.g;wr(p,n)}" +
     /* retouche héritée (« avant » = résultat d'une autre) : témoin vérifié,
        champ à sa valeur naturelle, sans signature — on adopte et elle revit */
@@ -4602,7 +4691,14 @@ function exportFile(leger) {
     "else if(p.kind==='img'&&n.tagName==='IMG'){" +
     "var bon=!p.alt||(n.getAttribute('alt')||'').trim()===p.alt;var pi=vu(p),si=n.getAttribute('src');" +
     "if(bon){if(si!==pi&&si!==p.after){if(!n.pkOrig)n.pkOrig=si;" +
-    "n.removeAttribute('srcset');n.setAttribute('src',pi)}cadG(n,p)}" +
+    "n.removeAttribute('srcset');n.setAttribute('src',pi)}cadG(n,p);" +
+    /* contrat v2 : TOUTES les vues du slot suivent (vignette + agrandissement),
+       chacune avec le cadrage recalculé pour SON cadre */
+    "if(p.slot){var lV=[],iV;" +
+    "try{lV=document.querySelectorAll('img[data-slot=\"'+p.slot+'\"]')}catch(eV2){}" +
+    "for(iV=0;iV<lV.length;iV++){var mV=lV[iV];if(mV===n)continue;" +
+    "if(mV.getAttribute('src')!==pi&&mV.getAttribute('src')!==p.after){" +
+    "mV.removeAttribute('srcset');mV.setAttribute('src',pi)}cadG(mV,p)}}}" +
     "else if((si===pi||si===p.after)&&n.pkOrig){n.setAttribute('src',n.pkOrig)}}" +
     "else if(p.kind==='bg'){var u='url(\"'+vu(p)+'\")';if(n.style.backgroundImage!==u){" +
     "n.style.backgroundImage=u;n.style.backgroundSize='cover';n.style.backgroundPosition='center';" +
