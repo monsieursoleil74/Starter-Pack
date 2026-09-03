@@ -572,7 +572,7 @@ header .sp{flex:1}
 'use strict';
 var $ = function (id) { return document.getElementById(id); };
 var MARK = 'pack-edit';                 // marqueur de notre correctif dans le fichier
-var APP = '2026-09-02c';        // affiché à l'accueil : sert à savoir qui a quelle version
+var APP = '2026-09-03a';        // affiché à l'accueil : sert à savoir qui a quelle version
 
 var src = '';            // texte du fichier d'origine, sans notre correctif
 var fileName = 'page.html';
@@ -3219,6 +3219,15 @@ function brancherDepotGalerie(el, lot, depart, titre) {
 function poser(data, nom, el, isImg, hide, ar) {
   var p = { kind: isImg ? 'img' : 'bg', sel: pathOf(el), before: '', after: data,
             hide: hide || undefined, ar: ar || undefined, label: short(nom, 34) };
+  // la zone du proto, AVANT la pose : si la maquette laisse l'image dicter
+  // sa taille, on saura la lui rendre (voir figerZone)
+  var zoneAv = null;
+  if (isImg) {
+    try {
+      var rZ = el.getBoundingClientRect();
+      if (rZ.width > 15 && rZ.height > 15) zoneAv = { w: Math.round(rZ.width), h: Math.round(rZ.height) };
+    } catch (eZ) {}
+  }
   // contrat v2 : l'emplacement porte son étiquette — ancrage direct, ni
   // réserve ni description à deviner
   var slotP = slotDe(el);
@@ -3275,6 +3284,7 @@ function poser(data, nom, el, isImg, hide, ar) {
     if (kEmpl && /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(kEmpl)) p.k = kEmpl;
     sansReveil(function () { applyOne(p, el); });
     addPatch(p);
+    if (zoneAv) figerZone(p, zoneAv, 0);
   }
   // en lot, on ne redessine et on ne recadre qu'une fois, à la fin : dix
   // fenêtres de recadrage qui s'ouvrent l'une après l'autre, personne n'en veut
@@ -3290,6 +3300,30 @@ function poser(data, nom, el, isImg, hide, ar) {
     var d = debordement(vu, p);
     if (d && (d.dx > 3 || d.dy > 3)) ouvrirRecadrage(p);
   }
+}
+
+/* La zone d'une image appartient à la MAQUETTE, pas au fichier posé.
+   Quand la maquette laisse l'image dicter une dimension (bannière en
+   height:auto, logo en width:auto, balise nue), poser une grande image
+   agrandit la zone et pousse toute la page. Si la pose a fait bouger la
+   boîte, on lui rend son gabarit : d'abord par aspect-ratio (la mise en
+   page fluide est préservée), puis — si ça ne suffit pas (les deux
+   dimensions étaient libres) — en figeant aussi la largeur. */
+function figerZone(p, g, essai) {
+  if (essai > 4) return;
+  setTimeout(function () {
+    var n = null;
+    try { n = noeudVisible(p); } catch (eN) {}
+    if (!n || n.tagName !== 'IMG' || !n.getClientRects().length) { figerZone(p, g, essai + 1); return; }
+    var r = n.getBoundingClientRect();
+    if (Math.abs(r.width - g.w) <= 4 && Math.abs(r.height - g.h) <= 4) return;   // la zone tient
+    if (!p.gab) p.gab = { w: g.w, h: g.h };
+    else if (!p.gab.fixe) p.gab.fixe = 1;
+    else return;                                   // on a tout essayé
+    n.pkGab = 0;
+    sansReveil(function () { applyOne(p, n); });
+    figerZone(p, g, essai + 1);
+  }, essai ? 300 : 150);
 }
 
 /* Applique une retouche à un élément déjà trouvé. */
@@ -3476,6 +3510,22 @@ function applyOne(p, n) {
       }
     } else if ((sI === vI || sI === p.after) && n.pkOrig) {
       n.setAttribute('src', n.pkOrig);
+    }
+    if (bon && p.gab && n.pkGab !== (p.gab.fixe ? 2 : 1)) {
+      // la zone garde le gabarit du proto : le ratio verrouille la dimension
+      // libre, cover remplit sans déformer (sauf cadrage réglé, qui prime)
+      n.style.aspectRatio = p.gab.w + ' / ' + p.gab.h;
+      if (!p.fit && !p.cadre) {
+        var fitM = '';
+        try { fitM = n.ownerDocument.defaultView.getComputedStyle(n).objectFit; } catch (eF) {}
+        if (!fitM || fitM === 'fill') n.style.objectFit = 'cover';
+      }
+      if (p.gab.fixe) {
+        n.style.width = p.gab.w + 'px';
+        n.style.maxWidth = '100%';
+        n.style.height = 'auto';
+      }
+      n.pkGab = p.gab.fixe ? 2 : 1;
     }
     if (bon && (p.fit || p.cadre)) {
       // ne recadre que si le réglage a changé — ou si la maquette a essuyé
@@ -4122,6 +4172,7 @@ function addPatch(p) {
     // repartait plein cadre et centrée, réglage à refaire
     if (p.fit === undefined && o.fit) p.fit = o.fit;
     if (p.cadre === undefined && o.cadre) p.cadre = o.cadre;
+    if (p.gab === undefined && o.gab) p.gab = o.gab;   // le gabarit de zone aussi
     return false;
   });
   patches.push(p);
@@ -4383,6 +4434,13 @@ function exportFile(leger) {
     "var sg=(f.x||0)+'/'+(f.y||0)+'/'+(f.z||0)+'/'+(f.c?1:0)+'|'+(p.cadre||'');" +
     "if(n.pkFit===sg&&(n.style.objectFit||n.style.backgroundSize))return;" +
     "cad(n,p);n.pkFit=sg}" +
+    /* la zone garde le gabarit du proto (voir figerZone côté éditeur) */
+    "function gbG(n,p){if(!p.gab||n.tagName!=='IMG'||n.pkGab===(p.gab.fixe?2:1))return;" +
+    "n.style.aspectRatio=p.gab.w+' / '+p.gab.h;" +
+    "if(!p.fit&&!p.cadre){var fo='';try{fo=getComputedStyle(n).objectFit}catch(eO){}" +
+    "if(!fo||fo==='fill')n.style.objectFit='cover'}" +
+    "if(p.gab.fixe){n.style.width=p.gab.w+'px';n.style.maxWidth='100%';n.style.height='auto'}" +
+    "n.pkGab=p.gab.fixe?2:1}" +
     /* le témoin, recalculé côté pack : mêmes règles que l'éditeur (titres qui
        précèdent, préférence aux textes interpolés), pour la vérification
        inverse — le champ trouvé doit désigner ce nom comme SON témoin */
@@ -4697,14 +4755,14 @@ function exportFile(leger) {
     "else if(p.kind==='img'&&n.tagName==='IMG'){" +
     "var bon=!p.alt||(n.getAttribute('alt')||'').trim()===p.alt;var pi=vu(p),si=n.getAttribute('src');" +
     "if(bon){if(si!==pi&&si!==p.after){if(!n.pkOrig)n.pkOrig=si;" +
-    "n.removeAttribute('srcset');n.setAttribute('src',pi)}cadG(n,p);" +
+    "n.removeAttribute('srcset');n.setAttribute('src',pi)}gbG(n,p);cadG(n,p);" +
     /* contrat v2 : TOUTES les vues du slot suivent (vignette + agrandissement),
        chacune avec le cadrage recalculé pour SON cadre */
     "if(p.slot){var lV=[],iV;" +
     "try{lV=document.querySelectorAll('img[data-slot=\"'+p.slot+'\"]')}catch(eV2){}" +
     "for(iV=0;iV<lV.length;iV++){var mV=lV[iV];if(mV===n)continue;" +
     "if(mV.getAttribute('src')!==pi&&mV.getAttribute('src')!==p.after){" +
-    "mV.removeAttribute('srcset');mV.setAttribute('src',pi)}cadG(mV,p)}}}" +
+    "mV.removeAttribute('srcset');mV.setAttribute('src',pi)}gbG(mV,p);cadG(mV,p)}}}" +
     "else if((si===pi||si===p.after)&&n.pkOrig){n.setAttribute('src',n.pkOrig)}}" +
     "else if(p.kind==='bg'){var u='url(\"'+vu(p)+'\")';if(n.style.backgroundImage!==u){" +
     "n.style.backgroundImage=u;n.style.backgroundSize='cover';n.style.backgroundPosition='center';" +
